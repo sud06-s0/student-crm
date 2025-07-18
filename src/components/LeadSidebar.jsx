@@ -420,14 +420,14 @@ const handleUpdateAllFields = async () => {
               </div>
 
               {/* Score */}
-              <div className="lead-sidebar-info-row">
+              {/*<div className="lead-sidebar-info-row">
                 <label className="lead-sidebar-stage-label">
                   Score
                 </label>
                 <div className="lead-sidebar-score-badge">
                   {getScoreFromStage(sidebarFormData.stage || selectedLead?.stage)}
                 </div>
-              </div>
+              </div>*/}
 
               {/* Status */}
               <div className="lead-sidebar-info-row">
@@ -522,7 +522,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Email</label>
                       {!isEditingMode ? (
                         <div className="lead-sidebar-field-value">
-                          {sidebarFormData.email || 'Not provided'}
+                          {sidebarFormData.email || ''}
                         </div>
                       ) : (
                         <input 
@@ -539,7 +539,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Occupation</label>
                       {!isEditingMode ? (
                         <div className="lead-sidebar-field-value">
-                          {sidebarFormData.occupation || 'Not provided'}
+                          {sidebarFormData.occupation || ''}
                         </div>
                       ) : (
                         <input 
@@ -568,7 +568,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Location</label>
                       {!isEditingMode ? (
                         <div className="lead-sidebar-field-value">
-                          {sidebarFormData.location || 'Not provided'}
+                          {sidebarFormData.location || ''}
                         </div>
                       ) : (
                         <input 
@@ -586,7 +586,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Current School</label>
                       {!isEditingMode ? (
                         <div className="lead-sidebar-field-value">
-                          {sidebarFormData.currentSchool || 'Not provided'}
+                          {sidebarFormData.currentSchool || ''}
                         </div>
                       ) : (
                         <input 
@@ -615,7 +615,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Meeting Date</label>
                       {!isEditingMode ? (
                         <div className="lead-sidebar-field-value">
-                          {sidebarFormData.meetingDate || 'Not scheduled'}
+                          {sidebarFormData.meetingDate || ''}
                         </div>
                       ) : (
                         <input 
@@ -631,7 +631,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Meeting Time</label>
                       {!isEditingMode ? (
                         <div className="lead-sidebar-field-value">
-                          {sidebarFormData.meetingTime || 'Not scheduled'}
+                          {sidebarFormData.meetingTime || ''}
                         </div>
                       ) : (
                         <input 
@@ -647,7 +647,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Meeting Link</label>
                       {!isEditingMode ? (
                         <div className="lead-sidebar-field-value">
-                          {sidebarFormData.meetingLink || 'Not provided'}
+                          {sidebarFormData.meetingLink || ''}
                         </div>
                       ) : (
                         <input 
@@ -676,7 +676,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Visit Date</label>
                       {!isEditingMode ? (
                         <div className="lead-sidebar-field-value">
-                          {sidebarFormData.visitDate || 'Not scheduled'}
+                          {sidebarFormData.visitDate || ''}
                         </div>
                       ) : (
                         <input 
@@ -692,7 +692,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Visit Time</label>
                       {!isEditingMode ? (
                         <div className="lead-sidebar-field-value">
-                          {sidebarFormData.visitTime || 'Not scheduled'}
+                          {sidebarFormData.visitTime || ''}
                         </div>
                       ) : (
                         <input 
@@ -708,7 +708,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Visit Location</label>
                       {!isEditingMode ? (
                         <div className="lead-sidebar-field-value">
-                          {sidebarFormData.visitLocation || 'Not provided'}
+                          {sidebarFormData.visitLocation || ''}
                         </div>
                       ) : (
                         <input 
@@ -737,7 +737,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Registration Fees</label>
                       {!isEditingMode ? (
                         <div className={`lead-sidebar-status-badge ${sidebarFormData.registrationFees === 'Paid' ? 'paid' : 'unpaid'}`}>
-                          {sidebarFormData.registrationFees || 'Not set'}
+                          {sidebarFormData.registrationFees || ''}
                         </div>
                       ) : (
                         <select
@@ -756,7 +756,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Enrolled</label>
                       {!isEditingMode ? (
                         <div className={`lead-sidebar-status-badge ${sidebarFormData.enrolled === 'Yes' ? 'paid' : 'unpaid'}`}>
-                          {sidebarFormData.enrolled || 'Not set'}
+                          {sidebarFormData.enrolled || ''}
                         </div>
                       ) : (
                         <select

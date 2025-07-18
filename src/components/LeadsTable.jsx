@@ -752,7 +752,6 @@ const { error } = await supabase
                 <th>Phone</th>
                 <th>Class</th>
                 <th>Stage</th>
-                <th>Score</th>
                 <th>Status</th>
                 <th>Counsellor</th>
                 <th>Alert</th>
@@ -873,15 +872,13 @@ const { error } = await supabase
                         )}
                       </div>
                     </td>
-                    <td>
-                      <div className="score-circle">{lead.score}</div>
-                    </td>
+                    
                     <td>
                       <span className="status-badge-text">
                         {lead.category}
                       </span>
                     </td>
-                    <td>
+                    <td class="counsellor-middle">
                       <div className="counsellor-avatar">
                         {getCounsellorInitials(lead.counsellor)}
                       </div>
@@ -899,7 +896,8 @@ const { error } = await supabase
                 ))
               ) : !loading ? (
                 <tr>
-                  <td colSpan="10" className="no-data">
+                  <td colSpan="9" className="no-data">
+
                     {searchTerm ? 'No results found for your search.' : 'No leads available. Click + Add Lead to create your first lead!'}
                   </td>
                 </tr>

@@ -169,17 +169,17 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
       parents_name: formData.parentsName,
       kids_name: formData.kidsName,
       phone: `+91${formData.phone}`,
-      email: formData.email || null,
-      location: formData.location || null,
-      grade: formData.grade || null,
+      email: formData.email || '',
+      location: formData.location || '',
+      grade: formData.grade || '',
       stage: formData.stage,
       score: formData.score,
       category: formData.category,
       counsellor: formData.counsellor,
       offer: formData.offer,
-      notes: formData.notes || null,
+      notes: formData.notes || '',
       source: formData.source,
-      occupation: formData.occupation || null,
+      occupation: formData.occupation || '',
       updated_at: new Date().toISOString()
     };
 
@@ -196,6 +196,8 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
       updatedFormData.score = getScoreFromStage(value);
       updatedFormData.category = getCategoryFromStage(value);
     }
+
+    
 
     // Format phone number
     if (name === 'phone') {
@@ -221,6 +223,12 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
       newErrors.parentsName = 'Parents Name is required';
     }
 
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    }
+
+   
+
     if (!formData.kidsName.trim()) {
       newErrors.kidsName = 'Kids Name is required';
     }
@@ -239,6 +247,11 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
+
+     //Counsellor Assign Check
+    if (formData.counsellor === 'Assign Counsellor') {
+  newErrors.counsellor = 'Please select a counsellor';
+}
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -330,7 +343,6 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
           notes: '',
           stage: 'New Lead',
           category: 'New',
-          offer: 'No offer',
           counsellor: 'Assign Counsellor',
           score: 20,
           source: 'Instagram',
@@ -370,7 +382,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
           <form onSubmit={handleSubmit}>
             <div className="modal-body">
               <div className="row">
-                {/* ID Display */}
+                {/*
                 <div className="col-md-6 mb-3">
                   <label className="form-label">
                     {isEditMode ? 'ID' : 'ID (Auto-generated)'}
@@ -382,7 +394,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
                     readOnly
                     style={{ backgroundColor: '#f8f9fa', fontWeight: 'bold' }}
                   />
-                </div>
+                </div>*/}
 
                 {/* Parents Name */}
                 <div className="col-md-6 mb-3">
@@ -450,7 +462,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
 
                 {/* Email */}
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">Email</label>
+                  <label className="form-label">Email *</label>
                   <input
                     type="email"
                     className={`form-control ${errors.email ? 'is-invalid' : ''}`}
@@ -482,7 +494,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
                 </div>
 
                 {/* Occupation */}
-                <div className="col-md-6 mb-3">
+                {/*<div className="col-md-6 mb-3">
                   <label className="form-label">Occupation</label>
                   <input
                     type="text"
@@ -493,7 +505,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
                     placeholder="Enter occupation"
                     disabled={loading}
                   />
-                </div>
+                </div>*/}
 
                 {/* Grade */}
                 <div className="col-md-6 mb-3">
@@ -536,7 +548,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
                 <div className="col-md-6 mb-3">
                   <label className="form-label">Counsellor</label>
                   <select
-                    className="form-select"
+                    className={`form-select ${errors.counsellor ? 'is-invalid' : ''}`}
                     name="counsellor"
                     value={formData.counsellor}
                     onChange={handleInputChange}
@@ -549,8 +561,10 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
                     ))}
                   </select>
                 </div>
+{errors.counsellor && <div className="invalid-feedback">{errors.counsellor}</div>}
 
-                {/* Offer */}
+
+               {/*
                 <div className="col-md-6 mb-3">
                   <label className="form-label">Offer</label>
                   <select
@@ -566,10 +580,10 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
                       </option>
                     ))}
                   </select>
-                </div>
+                </div>*/}
 
                 {/* Score (Read-only, auto-calculated) */}
-                <div className="col-md-6 mb-3">
+                {/*<div className="col-md-6 mb-3">
                   <label className="form-label">Score (Auto-calculated)</label>
                   <input
                     type="number"
@@ -579,10 +593,10 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
                     readOnly
                     style={{ backgroundColor: '#f8f9fa' }}
                   />
-                </div>
+                </div>*/}
 
                 {/* Category (Read-only, auto-calculated) */}
-                <div className="col-md-6 mb-3">
+                {/*<div className="col-md-6 mb-3">
                   <label className="form-label">Category (Auto-assigned)</label>
                   <input
                     type="text"
@@ -592,10 +606,10 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
                     readOnly
                     style={{ backgroundColor: '#f8f9fa' }}
                   />
-                </div>
+                </div>*/}
 
                 {/* Notes */}
-                <div className="col-12 mb-3">
+                {/*<div className="col-12 mb-3">
                   <label className="form-label">Notes</label>
                   <textarea
                     className="form-control"
@@ -606,22 +620,22 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
                     placeholder="Enter any additional notes..."
                     disabled={loading}
                   ></textarea>
-                </div>
+                </div>*/}
               </div>
             </div>
             
             <div className="modal-footer">
-              <button 
+              {/*<button 
                 type="button" 
                 className="btn btn-secondary" 
                 onClick={onClose}
                 disabled={loading}
               >
                 Cancel
-              </button>
+              </button>*/}
               <button 
                 type="submit" 
-                className="btn btn-primary"
+                className="btn btn-primary lead-add"
                 disabled={loading}
               >
                 {loading ? (

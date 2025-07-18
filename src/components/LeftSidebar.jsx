@@ -76,7 +76,7 @@ const LeftSidebar = ({
       <div className="nova-all-leads">
         <div className={`all-leads-header ${activeNavItem === "leads" ? "active" : ""}`}>
           <Users size={18} className="nav-icon" />
-          All Leads
+          Leads
         </div>
         <div className="all-leads-submenu">
           <a 
@@ -84,7 +84,7 @@ const LeftSidebar = ({
             className={`submenu-item ${activeSubmenuItem === "all" ? "active" : ""}`}
           >
             <Users size={14} className="submenu-icon" />
-            All
+            All Leads
           </a>
           <a 
             href="/warm" 
