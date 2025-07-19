@@ -539,7 +539,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Occupation</label>
                       {!isEditingMode ? (
                         <div className="lead-sidebar-field-value">
-                          {sidebarFormData.occupation || ''}
+                            {(sidebarFormData.occupation === 'NULL' || !sidebarFormData.occupation) ? '' : sidebarFormData.occupation}
                         </div>
                       ) : (
                         <input 
@@ -586,7 +586,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Current School</label>
                       {!isEditingMode ? (
                         <div className="lead-sidebar-field-value">
-                          {sidebarFormData.currentSchool || ''}
+                        {(sidebarFormData.currentSchool === 'NULL' || !sidebarFormData.currentSchool) ? '' : sidebarFormData.currentSchool}
                         </div>
                       ) : (
                         <input 
@@ -643,13 +643,24 @@ const handleUpdateAllFields = async () => {
                       )}
                     </div>
 
+
                     <div className="lead-sidebar-form-row">
                       <label className="lead-sidebar-form-label">Meeting Link</label>
                       {!isEditingMode ? (
-                        <div className="lead-sidebar-field-value">
-                          {sidebarFormData.meetingLink || ''}
-                        </div>
-                      ) : (
+                            <div className="lead-sidebar-field-value">
+                              {(sidebarFormData.meetingLink === 'NULL' || !sidebarFormData.meetingLink) ? '' : (
+                                  <a 
+                                    href={sidebarFormData.meetingLink} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    style={{ color: '#007bff', textDecoration: 'underline' }}
+                                  >
+                                    {sidebarFormData.meetingLink}
+                                  </a>
+                                )}
+                            </div>
+                          ) : (
+
                         <input 
                           type="text" 
                           value={sidebarFormData.meetingLink} 
@@ -708,7 +719,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Visit Location</label>
                       {!isEditingMode ? (
                         <div className="lead-sidebar-field-value">
-                          {sidebarFormData.visitLocation || ''}
+                          {(sidebarFormData.visitLocation === 'NULL' || !sidebarFormData.visitLocation) ? '' : sidebarFormData.visitLocation}
                         </div>
                       ) : (
                         <input 
@@ -737,7 +748,7 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Registration Fees</label>
                       {!isEditingMode ? (
                         <div className={`lead-sidebar-status-badge ${sidebarFormData.registrationFees === 'Paid' ? 'paid' : 'unpaid'}`}>
-                          {sidebarFormData.registrationFees || ''}
+                          {(sidebarFormData.registrationFees === 'NULL' || !sidebarFormData.registrationFees) ? '' : sidebarFormData.registrationFees}
                         </div>
                       ) : (
                         <select
@@ -756,7 +767,8 @@ const handleUpdateAllFields = async () => {
                       <label className="lead-sidebar-form-label">Enrolled</label>
                       {!isEditingMode ? (
                         <div className={`lead-sidebar-status-badge ${sidebarFormData.enrolled === 'Yes' ? 'paid' : 'unpaid'}`}>
-                          {sidebarFormData.enrolled || ''}
+                            {(sidebarFormData.enrolled === 'NULL' || !sidebarFormData.enrolled) ? '' : sidebarFormData.enrolled}
+
                         </div>
                       ) : (
                         <select
@@ -811,7 +823,7 @@ const handleUpdateAllFields = async () => {
               </div>
 
               {/* Stage 3: Meeting Booked */}
-              <div className="lead-sidebar-action-row">
+              {/*<div className="lead-sidebar-action-row">
                 <div className="lead-sidebar-action-stage">Stage 3 Meeting Booked</div>
                 <div>
                   <Stage3ActionButton
@@ -826,7 +838,7 @@ const handleUpdateAllFields = async () => {
                     <span className="lead-sidebar-action-status">SENT</span>
                   )}
                 </div>
-              </div>
+              </div>*/}
 
               {/* Stage 4: Meeting Done */}
               <div className="lead-sidebar-action-row">
@@ -871,7 +883,7 @@ const handleUpdateAllFields = async () => {
               </div>
 
               {/* Stage 6: Visit Booked */}
-              <div className="lead-sidebar-action-row">
+             {/* <div className="lead-sidebar-action-row">
                 <div className="lead-sidebar-action-stage">Stage 6 Visit Booked</div>
                 <div>
                   <Stage6ActionButton
@@ -886,7 +898,7 @@ const handleUpdateAllFields = async () => {
                     <span className="lead-sidebar-action-status">SENT</span>
                   )}
                 </div>
-              </div>
+              </div>*/}
 
               {/* Stage 7: Visit Done */}
               <div className="lead-sidebar-action-row">

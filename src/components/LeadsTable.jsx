@@ -429,6 +429,7 @@ const { error } = await supabase
       // Log the stage change
       if (oldStage !== newStage) {
         await logStageChange(leadId, oldStage, newStage, 'sidebar');
+        await fetchLastActivityData();
       }
 
       // Show success message
@@ -562,6 +563,7 @@ const { error } = await supabase
       // Log the stage change
       if (oldStage !== newStage) {
         await logStageChange(leadId, oldStage, newStage, 'table dropdown');
+        await fetchLastActivityData();
       }
       
     } catch (error) {
@@ -573,6 +575,7 @@ const { error } = await supabase
   // UPDATED: Handle form submission with history logging
   const handleAddLead = async (action = 'add') => {
     await fetchLeads(); // This will also fetch activity data
+    await fetchLastActivityData();
     
     // Log the action if it's a new lead
     if (action === 'add') {
