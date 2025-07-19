@@ -731,7 +731,7 @@ const ColdLeads = () => {
                 <th>Phone</th>
                 <th>Class</th>
                 <th>Stage</th>
-                <th>Score</th>
+                
                 <th>Status</th>
                 <th>Counsellor</th>
                 <th>Reactivate</th>
@@ -852,15 +852,15 @@ const ColdLeads = () => {
                         )}
                       </div>
                     </td>
-                    <td>
+                    {/*<td>
                       <div className="score-circle">{lead.score}</div>
-                    </td>
+                    </td>*/}
                     <td>
                       <span className="status-badge-text">
                         {lead.category}
                       </span>
                     </td>
-                    <td>
+                    <td class="counsellor-middle">
                       <div className="counsellor-avatar">
                         {getCounsellorInitials(lead.counsellor)}
                       </div>

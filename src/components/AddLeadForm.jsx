@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import Stage1ActionButton from './Stage1ActionButton';
 import { 
   logLeadCreated, 
   logSpecificChanges
@@ -68,6 +69,8 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
       setOriginalData({});
     }
   }, [isEditMode, editLead]);
+
+  
 
   // Updated Stage options with new stages
   const stages = [
@@ -185,6 +188,10 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
 
     return dbData;
   };
+
+  //filter states
+const [showStage1Action, setShowStage1Action] = useState(false);
+const [newLeadData, setNewLeadData] = useState(null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -308,27 +315,41 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
         alert('✅ Lead updated successfully!');
 
       } else {
-        // INSERT new lead
-        const { data, error } = await supabase
-          .from('Leads')
-          .insert([dbData])
-          .select();
+  // INSERT new lead
+  const { data, error } = await supabase
+    .from('Leads')
+    .insert([dbData])
+    .select();
 
-        if (error) {
-          throw error;
-        }
+  if (error) {
+    throw error;
+  }
 
-        const newLeadId = data[0].id;
+  const newLeadId = data[0].id;
 
-        // Log the new lead creation
-        await logLeadCreated(newLeadId, formData);
+  // Log the new lead creation
+  await logLeadCreated(newLeadId, formData);
 
-        console.log('✅ New lead created:', data);
-        alert('✅ New lead added successfully!');
-      }
+  console.log('✅ New lead created:', data);
+
+  onSubmit();
+  
+  // Trigger Stage 1 API call
+  setNewLeadData({
+    phone: `+91${formData.phone}`,
+    parentsName: formData.parentsName,
+    kidsName: formData.kidsName,
+    grade: formData.grade
+  });
+  setShowStage1Action(true);
+
+  alert('✅ New lead added successfully!');
+
+  return;
+}
 
       // Call parent's onSubmit to refresh data
-      onSubmit();
+      
 
       // Reset form only if not in edit mode
       if (!isEditMode) {
@@ -650,6 +671,20 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
           </form>
         </div>
       </div>
+      {console.log('🔍 AddLeadForm render - showStage1Action:', showStage1Action, 'newLeadData:', newLeadData)}
+
+      {showStage1Action && newLeadData && (
+      <Stage1ActionButton
+        leadData={newLeadData}
+        onComplete={(success, error) => {
+          console.log(success ? '✅ Stage 1 API call completed' : '❌ Stage 1 API call failed:', error);
+          setShowStage1Action(false);
+          setNewLeadData(null);
+
+          onClose();
+        }}
+      />
+    )}
     </>
   );
 };

@@ -76,6 +76,7 @@ const LeadsTable = () => {
   const [showFilter, setShowFilter] = useState(false);
   const [counsellorFilters, setCounsellorFilters] = useState([]);
   const [stageFilters, setStageFilters] = useState([]);
+  const [statusFilters, setStatusFilters] = useState([]);
 
   // Updated Stage options with new stages and colors
   const stages = [
@@ -676,8 +677,9 @@ const { error } = await supabase
       );
     }
     
+    
     // Then apply filters
-    return applyFilters(filtered, counsellorFilters, stageFilters);
+      return applyFilters(filtered, counsellorFilters, stageFilters, statusFilters);
   };
 
   const displayLeads = getDisplayLeads();
@@ -719,8 +721,10 @@ const { error } = await supabase
               setShowFilter={setShowFilter}
               counsellorFilters={counsellorFilters}
               stageFilters={stageFilters}
+              statusFilters={statusFilters}  
               setCounsellorFilters={setCounsellorFilters}
               setStageFilters={setStageFilters}
+              setStatusFilters={setStatusFilters}  
             />
             <button className="add-lead-btn" onClick={handleShowAddForm}>
               + Add Lead

@@ -204,6 +204,7 @@ const LeadSidebar = ({
   // Enhanced update all fields function with summary logging to avoid duplication
   // Simplified update function - let parent handle the form data
 // Update function with logging
+// Update function with logging
 const handleUpdateAllFields = async () => {
   try {
     // Track all changes before calling parent update
@@ -260,6 +261,11 @@ const handleUpdateAllFields = async () => {
       // Log a general update summary for all changes
       const changeDescription = generateChangeDescription(changes);
       await logAction(selectedLead.id, 'Lead Information Updated', `Updated via sidebar: ${changeDescription}`);
+      
+      // ADDED: Refresh activity data after logging
+      if (onRefreshActivityData) {
+        await onRefreshActivityData();
+      }
     }
     
     // Refresh history

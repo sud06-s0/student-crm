@@ -1,16 +1,20 @@
-// FilterDropdown.jsx - Reusable Component
-import React from 'react';
-import { X, Filter } from 'lucide-react';
+// FilterDropdown.jsx - Reusable Component with Two-Level Dropdown
+import React, { useState } from 'react';
+import { X, Filter, ChevronDown, ChevronRight } from 'lucide-react';
 
 const FilterDropdown = ({ 
   isOpen, 
   onClose, 
   counsellorFilters, 
   stageFilters, 
+  statusFilters = [], // New status filter
   setCounsellorFilters, 
   setStageFilters, 
+  setStatusFilters, // New status filter setter
   onClearAll 
 }) => {
+  const [expandedSection, setExpandedSection] = useState(null);
+
   const counsellors = [
     'Assign Counsellor',
     'Sachin',
@@ -21,13 +25,22 @@ const FilterDropdown = ({
   const stages = [
     'New Lead',
     'Connected',
-    'Call Booked',
+    'Meeting Booked',
+    'Meeting Done', 
     'Proposal Sent',
     'Visit Booked',
     'Visit Done',
     'Registered',
-    'Full Fees Paid',
+    'Admission',
     'No Response'
+  ];
+
+  const statuses = [
+    'New',
+    'Warm', 
+    'Hot',
+    'Enrolled',
+    'Cold'
   ];
 
   const handleCounsellorChange = (counsellor) => {
@@ -43,6 +56,27 @@ const FilterDropdown = ({
       setStageFilters(stageFilters.filter(s => s !== stage));
     } else {
       setStageFilters([...stageFilters, stage]);
+    }
+  };
+
+  const handleStatusChange = (status) => {
+    if (statusFilters.includes(status)) {
+      setStatusFilters(statusFilters.filter(s => s !== status));
+    } else {
+      setStatusFilters([...statusFilters, status]);
+    }
+  };
+
+  const toggleSection = (section) => {
+    setExpandedSection(expandedSection === section ? null : section);
+  };
+
+  const getFilterCount = (type) => {
+    switch(type) {
+      case 'counsellor': return counsellorFilters.length;
+      case 'stage': return stageFilters.length;
+      case 'status': return statusFilters.length;
+      default: return 0;
     }
   };
 
@@ -106,70 +140,188 @@ const FilterDropdown = ({
 
         {/* Filter Content */}
         <div style={{ padding: '16px' }}>
-          {/* Counsellor Filter */}
-          <div style={{ marginBottom: '20px' }}>
-            <h6 style={{ 
-              fontSize: '12px', 
-              fontWeight: '600', 
-              textTransform: 'uppercase',
-              color: '#6b7280',
-              marginBottom: '12px'
-            }}>
-              Counsellor
-            </h6>
-            {counsellors.map(counsellor => (
-              <label 
-                key={counsellor}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  marginBottom: '8px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={counsellorFilters.includes(counsellor)}
-                  onChange={() => handleCounsellorChange(counsellor)}
-                  style={{ marginRight: '8px' }}
-                />
-                {counsellor}
-              </label>
-            ))}
+          
+          {/* Counsellor Filter Section */}
+          <div style={{ marginBottom: '12px' }}>
+            <div 
+              onClick={() => toggleSection('counsellor')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                padding: '8px 0',
+                borderBottom: '1px solid #f3f4f6'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontSize: '14px', fontWeight: '600' }}>Counsellor</span>
+                {getFilterCount('counsellor') > 0 && (
+                  <span style={{
+                    marginLeft: '8px',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    borderRadius: '10px',
+                    padding: '2px 6px',
+                    fontSize: '11px',
+                    fontWeight: '600'
+                  }}>
+                    {getFilterCount('counsellor')}
+                  </span>
+                )}
+              </div>
+              {expandedSection === 'counsellor' ? 
+                <ChevronDown size={16} /> : 
+                <ChevronRight size={16} />
+              }
+            </div>
+            
+            {expandedSection === 'counsellor' && (
+              <div style={{ paddingTop: '12px' }}>
+                {counsellors.map(counsellor => (
+                  <label 
+                    key={counsellor}
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      marginBottom: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={counsellorFilters.includes(counsellor)}
+                      onChange={() => handleCounsellorChange(counsellor)}
+                      style={{ marginRight: '8px' }}
+                    />
+                    {counsellor}
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Stage Filter */}
+          {/* Stage Filter Section */}
+          <div style={{ marginBottom: '12px' }}>
+            <div 
+              onClick={() => toggleSection('stage')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                padding: '8px 0',
+                borderBottom: '1px solid #f3f4f6'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontSize: '14px', fontWeight: '600' }}>Stage</span>
+                {getFilterCount('stage') > 0 && (
+                  <span style={{
+                    marginLeft: '8px',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    borderRadius: '10px',
+                    padding: '2px 6px',
+                    fontSize: '11px',
+                    fontWeight: '600'
+                  }}>
+                    {getFilterCount('stage')}
+                  </span>
+                )}
+              </div>
+              {expandedSection === 'stage' ? 
+                <ChevronDown size={16} /> : 
+                <ChevronRight size={16} />
+              }
+            </div>
+            
+            {expandedSection === 'stage' && (
+              <div style={{ paddingTop: '12px' }}>
+                {stages.map(stage => (
+                  <label 
+                    key={stage}
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      marginBottom: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={stageFilters.includes(stage)}
+                      onChange={() => handleStageChange(stage)}
+                      style={{ marginRight: '8px' }}
+                    />
+                    {stage}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Status Filter Section */}
           <div style={{ marginBottom: '20px' }}>
-            <h6 style={{ 
-              fontSize: '12px', 
-              fontWeight: '600', 
-              textTransform: 'uppercase',
-              color: '#6b7280',
-              marginBottom: '12px'
-            }}>
-              Stage
-            </h6>
-            {stages.map(stage => (
-              <label 
-                key={stage}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  marginBottom: '8px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={stageFilters.includes(stage)}
-                  onChange={() => handleStageChange(stage)}
-                  style={{ marginRight: '8px' }}
-                />
-                {stage}
-              </label>
-            ))}
+            <div 
+              onClick={() => toggleSection('status')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                padding: '8px 0',
+                borderBottom: '1px solid #f3f4f6'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontSize: '14px', fontWeight: '600' }}>Status</span>
+                {getFilterCount('status') > 0 && (
+                  <span style={{
+                    marginLeft: '8px',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    borderRadius: '10px',
+                    padding: '2px 6px',
+                    fontSize: '11px',
+                    fontWeight: '600'
+                  }}>
+                    {getFilterCount('status')}
+                  </span>
+                )}
+              </div>
+              {expandedSection === 'status' ? 
+                <ChevronDown size={16} /> : 
+                <ChevronRight size={16} />
+              }
+            </div>
+            
+            {expandedSection === 'status' && (
+              <div style={{ paddingTop: '12px' }}>
+                {statuses.map(status => (
+                  <label 
+                    key={status}
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      marginBottom: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={statusFilters.includes(status)}
+                      onChange={() => handleStatusChange(status)}
+                      style={{ marginRight: '8px' }}
+                    />
+                    {status}
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Clear All Button */}
@@ -197,14 +349,14 @@ const FilterDropdown = ({
           </button>
 
           {/* Active Filters Count */}
-          {(counsellorFilters.length > 0 || stageFilters.length > 0) && (
+          {(counsellorFilters.length > 0 || stageFilters.length > 0 || statusFilters.length > 0) && (
             <div style={{ 
               marginTop: '12px', 
               fontSize: '12px', 
               color: '#6b7280',
               textAlign: 'center'
             }}>
-              {counsellorFilters.length + stageFilters.length} filter(s) active
+              {counsellorFilters.length + stageFilters.length + statusFilters.length} filter(s) active
             </div>
           )}
         </div>
@@ -213,11 +365,11 @@ const FilterDropdown = ({
   );
 };
 
-// Filter logic utility function
-export const applyFilters = (leads, counsellorFilters, stageFilters) => {
+// Updated filter logic utility function
+export const applyFilters = (leads, counsellorFilters, stageFilters, statusFilters = []) => {
   return leads.filter(lead => {
     // If no filters selected, show all leads
-    if (counsellorFilters.length === 0 && stageFilters.length === 0) {
+    if (counsellorFilters.length === 0 && stageFilters.length === 0 && statusFilters.length === 0) {
       return true;
     }
 
@@ -229,19 +381,25 @@ export const applyFilters = (leads, counsellorFilters, stageFilters) => {
     const stageMatch = stageFilters.length === 0 || 
                       stageFilters.includes(lead.stage);
 
-    // Lead must match both filters (AND logic)
-    return counsellorMatch && stageMatch;
+    // Check status filter
+    const statusMatch = statusFilters.length === 0 ||
+                       statusFilters.includes(lead.category);
+
+    // Lead must match all filters (AND logic)
+    return counsellorMatch && stageMatch && statusMatch;
   });
 };
 
-// FilterButton component for easy integration
+// Updated FilterButton component
 export const FilterButton = ({ 
   showFilter, 
   setShowFilter, 
   counsellorFilters, 
   stageFilters, 
+  statusFilters = [],
   setCounsellorFilters, 
-  setStageFilters 
+  setStageFilters,
+  setStatusFilters
 }) => (
   <div style={{ position: 'relative' }}>
     <button 
@@ -252,7 +410,7 @@ export const FilterButton = ({
       <Filter size={16} />
       Filter
       {/* Active indicator */}
-      {(counsellorFilters.length > 0 || stageFilters.length > 0) && (
+      {(counsellorFilters.length > 0 || stageFilters.length > 0 || statusFilters.length > 0) && (
         <span style={{
           position: 'absolute',
           top: '-2px',
@@ -270,11 +428,14 @@ export const FilterButton = ({
       onClose={() => setShowFilter(false)}
       counsellorFilters={counsellorFilters}
       stageFilters={stageFilters}
+      statusFilters={statusFilters}
       setCounsellorFilters={setCounsellorFilters}
       setStageFilters={setStageFilters}
+      setStatusFilters={setStatusFilters}
       onClearAll={() => {
         setCounsellorFilters([]);
         setStageFilters([]);
+        setStatusFilters([]);
       }}
     />
   </div>

@@ -1,14 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { 
-  logAction,
-  logMeetingScheduled,
-  logVisitScheduled,
-  logWhatsAppMessage,
-  logManualEntry,
-  generateChangeDescription,
-  logStageChange
-} from '../utils/historyLogger';
+import { logStageChange } from '../utils/historyLogger';
 import AddLeadForm from './AddLeadForm';
 import LeftSidebar from './LeftSidebar';
 import LeadSidebar from './LeadSidebar'; // Import the LeadSidebar component
@@ -25,7 +17,7 @@ import {
   Edit2,
   AlertCircle,
   Loader2,
-  Flame
+  Target
 } from 'lucide-react';
 
 const WarmLeads = () => {
@@ -49,7 +41,7 @@ const WarmLeads = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Sidebar editing states - UPDATED (copied from LeadsTable)
+  // Sidebar editing states - UPDATED
   const [isEditingMode, setIsEditingMode] = useState(false);
   const [sidebarFormData, setSidebarFormData] = useState({
     stage: '',
@@ -72,12 +64,13 @@ const WarmLeads = () => {
   const [leadsData, setLeadsData] = useState([]);
   const [lastActivityData, setLastActivityData] = useState({});
 
-  // Filter states
+  // Filter states - UPDATED to match LeadsTable
   const [showFilter, setShowFilter] = useState(false);
   const [counsellorFilters, setCounsellorFilters] = useState([]);
   const [stageFilters, setStageFilters] = useState([]);
+  const [statusFilters, setStatusFilters] = useState([]);
 
-  // Updated Stage options with new stages and colors (copied from LeadsTable)
+  // Updated Stage options with new stages and colors
   const stages = [
     { value: 'New Lead', label: 'New Lead', color: '#B3D7FF' },
     { value: 'Connected', label: 'Connected', color: '#E9FF9A' },
@@ -108,7 +101,7 @@ const WarmLeads = () => {
     return leadsData.filter(lead => lead.stage === stageName).length;
   };
 
-  // Updated scoring system to match LeadsTable
+  // Updated scoring system to match new stages
   const getScoreFromStage = (stage) => {
     const scoreMap = {
       'New Lead': 20,
@@ -125,7 +118,7 @@ const WarmLeads = () => {
     return scoreMap[stage] || 20;
   };
 
-  // Updated category mapping to match LeadsTable
+  // Updated category mapping to match new stages
   const getCategoryFromStage = (stage) => {
     const categoryMap = {
       'New Lead': 'New',
@@ -156,7 +149,7 @@ const WarmLeads = () => {
     return firstTwoWords.map(word => word.charAt(0).toUpperCase()).join('');
   };
 
-  // Fetch last activity data for all leads (copied from LeadsTable)
+  // Fetch last activity data for all leads
   const fetchLastActivityData = async () => {
     try {
       const { data, error } = await supabase
@@ -181,10 +174,11 @@ const WarmLeads = () => {
     }
   };
 
-  // Calculate days since last activity (copied from LeadsTable)
+  // Calculate days since last activity
   const getDaysSinceLastActivity = (leadId) => {
     const lastActivity = lastActivityData[leadId];
     if (!lastActivity) {
+      // No activity logged yet, so no alert
       return 0;
     }
     
@@ -195,13 +189,13 @@ const WarmLeads = () => {
     return diffMinutes;
   };
 
-  // Check if lead needs alert (copied from LeadsTable)
+  // Check if lead needs alert (3+ days without activity)
   const shouldShowAlert = (leadId) => {
     const days = getDaysSinceLastActivity(leadId);
     return days >= 2;
   };
 
-  // Convert database record to UI format (copied from LeadsTable)
+  // Convert database record to UI format - UPDATED
   const convertDatabaseToUI = (dbRecord) => {
     // Parse datetime fields
     let meetingDate = '';
@@ -330,7 +324,6 @@ const WarmLeads = () => {
     return categoryMap[category] || "status-new";
   };
 
-  // Updated openSidebar function (copied from LeadsTable)
   const openSidebar = (lead) => {
     setSelectedLead(lead);
     setSidebarFormData({
@@ -359,12 +352,12 @@ const WarmLeads = () => {
     setIsEditingMode(false);
   };
 
-  // Handle edit mode toggle (copied from LeadsTable)
+  // Handle edit mode toggle
   const handleEditModeToggle = () => {
     setIsEditingMode(!isEditingMode);
   };
 
-  // Handle form field changes (copied from LeadsTable)
+  // Handle form field changes
   const handleSidebarFieldChange = (field, value) => {
     setSidebarFormData(prev => ({
       ...prev,
@@ -372,7 +365,7 @@ const WarmLeads = () => {
     }));
   };
 
-  // Handle stage change from sidebar with history logging (copied from LeadsTable)
+  // UPDATED: Handle stage change from sidebar with history logging
   const handleSidebarStageChange = async (leadId, newStage) => {
     try {
       const lead = leadsData.find(l => l.id === leadId);
@@ -380,34 +373,42 @@ const WarmLeads = () => {
       const updatedScore = getScoreFromStage(newStage);
       const updatedCategory = getCategoryFromStage(newStage);
       
+      // Log the stage change FIRST (before database update)
+      if (oldStage !== newStage) {
+        await logStageChange(leadId, oldStage, newStage, 'sidebar');
+      }
+
       // Update in database
       // NEW: Prepare update data
-let updateData = { 
-  stage: newStage, 
-  score: updatedScore, 
-  category: updatedCategory,
-  updated_at: new Date().toISOString()
-};
+      let updateData = { 
+        stage: newStage, 
+        score: updatedScore, 
+        category: updatedCategory,
+        updated_at: new Date().toISOString()
+      };
 
-// NEW: Store previous stage if moving TO 'No Response' FROM any other stage
-if (newStage === 'No Response' && oldStage !== 'No Response') {
-  updateData.previous_stage = oldStage;
-}
+      // NEW: Store previous stage if moving TO 'No Response' FROM any other stage
+      if (newStage === 'No Response' && oldStage !== 'No Response') {
+        updateData.previous_stage = oldStage;
+      }
 
-// NEW: Clear previous stage if moving FROM 'No Response' TO any other stage
-if (oldStage === 'No Response' && newStage !== 'No Response') {
-  updateData.previous_stage = null;
-}
+      // NEW: Clear previous stage if moving FROM 'No Response' TO any other stage
+      if (oldStage === 'No Response' && newStage !== 'No Response') {
+        updateData.previous_stage = null;
+      }
 
-// Update in database
-const { error } = await supabase
-  .from('Leads')
-  .update(updateData)
-  .eq('id', leadId);
+      // Update in database
+      const { error } = await supabase
+        .from('Leads')
+        .update(updateData)
+        .eq('id', leadId);
 
       if (error) {
         throw error;
       }
+
+      // Refresh activity data after database update
+      await fetchLastActivityData();
 
       // If the lead is no longer warm, remove from local state and close sidebar
       if (updatedCategory !== 'Warm') {
@@ -421,6 +422,7 @@ const { error } = await supabase
             ? { ...lead, stage: newStage, score: updatedScore, category: updatedCategory }
             : lead
         );
+        
         setLeadsData(updatedLeads);
 
         // Update selected lead if it's the one being changed
@@ -434,11 +436,6 @@ const { error } = await supabase
         }
       }
 
-      // Log the stage change
-      if (oldStage !== newStage) {
-        await logStageChange(leadId, oldStage, newStage, 'sidebar');
-      }
-
       // Show success message
       alert('Stage updated successfully!');
       
@@ -448,7 +445,7 @@ const { error } = await supabase
     }
   };
 
-  // Handle update all fields (copied from LeadsTable)
+  // Handle update all fields
   const handleUpdateAllFields = async () => {
     try {
       // Prepare the update data
@@ -477,6 +474,15 @@ const { error } = await supabase
         updateData.visit_datetime = new Date(`${sidebarFormData.visitDate}T${sidebarFormData.visitTime}:00`).toISOString();
       }
 
+      // Check if stage changed for logging
+      const oldStage = selectedLead.stage;
+      const newStage = sidebarFormData.stage;
+      
+      // Log stage change if it occurred
+      if (oldStage !== newStage) {
+        await logStageChange(selectedLead.id, oldStage, newStage, 'sidebar edit all');
+      }
+
       // Check if lead will remain warm after update
       const newCategory = getCategoryFromStage(sidebarFormData.stage);
       
@@ -490,13 +496,16 @@ const { error } = await supabase
         throw error;
       }
 
+      // Refresh activity data after any updates
+      await fetchLastActivityData();
+
       // If lead is no longer warm, close sidebar and refresh
       if (newCategory !== 'Warm') {
         closeSidebar();
         await fetchWarmLeads();
       } else {
         // Refresh the leads data
-        await fetchWarmLeads();
+        await fetchWarmLeads(); // This will also refresh activity data
 
         // Update selected lead
         const updatedLead = {
@@ -525,7 +534,7 @@ const { error } = await supabase
     setStageDropdownOpen(stageDropdownOpen === leadId ? null : leadId);
   };
 
-  // Handle stage change from dropdown with history logging
+  // UPDATED: Handle stage change from dropdown with history logging
   const handleStageChangeFromDropdown = async (e, leadId, newStage) => {
     e.stopPropagation(); // Prevent row click
     
@@ -535,34 +544,42 @@ const { error } = await supabase
       const updatedScore = getScoreFromStage(newStage);
       const updatedCategory = getCategoryFromStage(newStage);
       
+      // Log the stage change FIRST (before database update)
+      if (oldStage !== newStage) {
+        await logStageChange(leadId, oldStage, newStage, 'table dropdown');
+      }
+
       // Update in database
       // NEW: Prepare update data
-let updateData = { 
-  stage: newStage, 
-  score: updatedScore, 
-  category: updatedCategory,
-  updated_at: new Date().toISOString()
-};
+      let updateData = { 
+        stage: newStage, 
+        score: updatedScore, 
+        category: updatedCategory,
+        updated_at: new Date().toISOString()
+      };
 
-// NEW: Store previous stage if moving TO 'No Response' FROM any other stage
-if (newStage === 'No Response' && oldStage !== 'No Response') {
-  updateData.previous_stage = oldStage;
-}
+      // NEW: Store previous stage if moving TO 'No Response' FROM any other stage
+      if (newStage === 'No Response' && oldStage !== 'No Response') {
+        updateData.previous_stage = oldStage;
+      }
 
-// NEW: Clear previous stage if moving FROM 'No Response' TO any other stage
-if (oldStage === 'No Response' && newStage !== 'No Response') {
-  updateData.previous_stage = null;
-}
+      // NEW: Clear previous stage if moving FROM 'No Response' TO any other stage
+      if (oldStage === 'No Response' && newStage !== 'No Response') {
+        updateData.previous_stage = null;
+      }
 
-// Update in database
-const { error } = await supabase
-  .from('Leads')
-  .update(updateData)
-  .eq('id', leadId);
+      // Update in database
+      const { error } = await supabase
+        .from('Leads')
+        .update(updateData)
+        .eq('id', leadId);
 
       if (error) {
         throw error;
       }
+
+      // Refresh activity data after database update
+      await fetchLastActivityData();
 
       // If the lead is no longer warm, remove from local state
       if (updatedCategory !== 'Warm') {
@@ -575,16 +592,12 @@ const { error } = await supabase
             ? { ...lead, stage: newStage, score: updatedScore, category: updatedCategory }
             : lead
         );
+        
         setLeadsData(updatedLeads);
       }
       
       // Close dropdown
       setStageDropdownOpen(null);
-
-      // Log the stage change
-      if (oldStage !== newStage) {
-        await logStageChange(leadId, oldStage, newStage, 'table dropdown');
-      }
       
     } catch (error) {
       console.error('Error updating stage:', error);
@@ -592,9 +605,16 @@ const { error } = await supabase
     }
   };
 
-  // Handle form submission (refresh data after add/edit)
+  // UPDATED: Handle form submission with history logging
   const handleAddLead = async (action = 'add') => {
-    await fetchWarmLeads();
+    await fetchWarmLeads(); // This will also fetch activity data
+    await fetchLastActivityData();
+    
+    // Log the action if it's a new lead
+    if (action === 'add') {
+      // We don't have the lead ID here, but we can log it after fetching
+      // The AddLeadForm component should handle this logging
+    }
   };
 
   const handleShowAddForm = () => {
@@ -689,8 +709,8 @@ const { error } = await supabase
       );
     }
     
-    // Then apply filters
-    return applyFilters(filtered, counsellorFilters, stageFilters);
+    // Then apply filters - UPDATED to include statusFilters
+    return applyFilters(filtered, counsellorFilters, stageFilters, statusFilters);
   };
 
   const displayLeads = getDisplayLeads();
@@ -704,7 +724,7 @@ const { error } = await supabase
         stages={warmStages}
         getStageCount={getStageCount}
         stagesTitle="Warm Stages"
-        stagesIcon={Flame}
+        stagesIcon={Target}
       />
 
       {/* Main Content */}
@@ -726,13 +746,16 @@ const { error } = await supabase
                 className="search-input"
               />
             </div>
+            {/* UPDATED: Added statusFilters props */}
             <FilterButton
               showFilter={showFilter}
               setShowFilter={setShowFilter}
               counsellorFilters={counsellorFilters}
               stageFilters={stageFilters}
+              statusFilters={statusFilters}  
               setCounsellorFilters={setCounsellorFilters}
               setStageFilters={setStageFilters}
+              setStatusFilters={setStatusFilters}  
             />
             <button className="add-lead-btn" onClick={handleShowAddForm}>
               + Add Lead
@@ -767,7 +790,6 @@ const { error } = await supabase
                 <th>Phone</th>
                 <th>Class</th>
                 <th>Stage</th>
-                <th>Score</th>
                 <th>Status</th>
                 <th>Counsellor</th>
                 <th>Alert</th>
@@ -888,15 +910,13 @@ const { error } = await supabase
                         )}
                       </div>
                     </td>
-                    <td>
-                      <div className="score-circle">{lead.score}</div>
-                    </td>
+                    
                     <td>
                       <span className="status-badge-text">
                         {lead.category}
                       </span>
                     </td>
-                    <td>
+                    <td className="counsellor-middle">
                       <div className="counsellor-avatar">
                         {getCounsellorInitials(lead.counsellor)}
                       </div>
@@ -914,7 +934,7 @@ const { error } = await supabase
                 ))
               ) : !loading ? (
                 <tr>
-                  <td colSpan="10" className="no-data">
+                  <td colSpan="9" className="no-data">
                     {searchTerm ? 'No results found for your search.' : 'No warm leads available. Click + Add Lead to create your first lead!'}
                   </td>
                 </tr>
@@ -924,7 +944,7 @@ const { error } = await supabase
         </div>
       </div>
 
-      {/* Lead Sidebar Component - Using LeadSidebar instead of custom sidebar */}
+      {/* Lead Sidebar Component - UPDATED WITH NEW PROP */}
       <LeadSidebar
         showSidebar={showSidebar}
         selectedLead={selectedLead}
@@ -936,6 +956,7 @@ const { error } = await supabase
         onFieldChange={handleSidebarFieldChange}
         onUpdateAllFields={handleUpdateAllFields}
         onStageChange={handleSidebarStageChange}
+        onRefreshActivityData={fetchLastActivityData}
         getStageColor={getStageColor}
         getCounsellorInitials={getCounsellorInitials}
         getScoreFromStage={getScoreFromStage}
