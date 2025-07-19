@@ -22,16 +22,35 @@ const OverviewDashboard = ({ leadsData = [] }) => {
     'No Response': '#B5BAB1'
   };
 
-  // Source colors mapping
+  // Updated source colors mapping to match form values
   const sourceColors = {
-    'Google Ads': '#2A89DD',
-    'Facebook Ads': '#EE6E55',
-    'Instagram Ads': '#F6BD51',
-    'Walk-ins': '#647BCA',
-    'Website Enquiry': '#30B2B6',
-    'Referral': '#9D91CE',
-    'Instagram': '#F6BD51', // Default mapping
-    'Unknown': '#9D91CE'
+    'Google Ads': '#2A89DD',       // Form: "Google Ads" -> Chart: "Google Ads"
+    'Instagram': '#F6BD51',        // Form: "Instagram" -> Chart: "Instagram Ads"  
+    'Facebook': '#EE6E55',         // Form: "Facebook" -> Chart: "Facebook Ads"
+    'Walk-in': '#647BCA',          // Form: "Walk-in" -> Chart: "Walk-ins"
+    'Website': '#30B2B6',          // Form: "Website" -> Chart: "Website Enquiry"
+    'Referral': '#9D91CE',         // Form: "Referral" -> Chart: "Referral"
+    'Phone Call': '#8B5CF6',       // Form: "Phone Call" -> Chart: "Phone Call"
+    'Email': '#F59E0B',            // Form: "Email" -> Chart: "Email"
+    'Other': '#6B7280',            // Form: "Other" -> Chart: "Other"
+    'Unknown': '#9D91CE'           // Fallback for null/undefined values
+  };
+
+  // Function to normalize source names for display
+  const normalizeSourceForDisplay = (source) => {
+    const sourceMap = {
+      'Instagram': 'Instagram Ads',
+      'Facebook': 'Facebook Ads', 
+      'Walk-in': 'Walk-ins',
+      'Website': 'Website Enquiry',
+      'Google Ads': 'Google Ads',
+      'Referral': 'Referral',
+      'Phone Call': 'Phone Call',
+      'Email': 'Email',
+      'Other': 'Other'
+    };
+    
+    return sourceMap[source] || source;
   };
 
   // Get current date for max date validation
@@ -94,8 +113,11 @@ const OverviewDashboard = ({ leadsData = [] }) => {
 
     const data = Object.entries(sourceCount).map(([name, value]) => {
       const color = sourceColors[name] || '#9D91CE'; // Default fallback color
+      const displayName = normalizeSourceForDisplay(name);
+      
       return {
-        name: name === 'Unknown' ? 'Unknown' : name,
+        name: displayName,
+        originalName: name, // Keep original for reference
         value,
         percentage: filteredLeads.length > 0 ? ((value / filteredLeads.length) * 100).toFixed(1) : 0,
         fill: color // Use 'fill' instead of 'color' for Recharts

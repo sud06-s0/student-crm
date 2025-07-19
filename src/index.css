@@ -1156,7 +1156,7 @@
 .lead-sidebar-stage-button {
   color: #333;
   padding: 6px 12px;
-  border-radius: 20px;
+  border-radius: 3px;
   font-weight: 600;
   font-size: 12px;
   display: inline-flex;
@@ -1809,7 +1809,7 @@
 /* Source Legend */
 .dashboard-source-legend {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-top: 20px;
 }

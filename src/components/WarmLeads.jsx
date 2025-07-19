@@ -47,6 +47,7 @@ const WarmLeads = () => {
     stage: '',
     offer: '',
     email: '',
+    phone: '', // Added phone field
     occupation: '',
     location: '',
     currentSchool: '',
@@ -325,11 +326,13 @@ const WarmLeads = () => {
   };
 
   const openSidebar = (lead) => {
+    console.log('Opening sidebar for lead:', lead);
     setSelectedLead(lead);
     setSidebarFormData({
       stage: lead.stage,
       offer: lead.offer || 'Welcome Kit',
       email: lead.email || '',
+      phone: lead.phone || '', // Fixed: Added phone field
       occupation: lead.occupation || '',
       location: lead.location || '',
       currentSchool: lead.currentSchool || '',
@@ -354,11 +357,14 @@ const WarmLeads = () => {
 
   // Handle edit mode toggle
   const handleEditModeToggle = () => {
+    console.log('handleEditModeToggle called - current isEditingMode:', isEditingMode);
     setIsEditingMode(!isEditingMode);
+    console.log('handleEditModeToggle - new isEditingMode:', !isEditingMode);
   };
 
   // Handle form field changes
   const handleSidebarFieldChange = (field, value) => {
+    console.log('Field change:', field, value);
     setSidebarFormData(prev => ({
       ...prev,
       [field]: value
@@ -445,9 +451,11 @@ const WarmLeads = () => {
     }
   };
 
-  // Handle update all fields
+  // COMPLETE: Handle update all fields function
   const handleUpdateAllFields = async () => {
     try {
+      console.log('handleUpdateAllFields called with sidebarFormData:', sidebarFormData);
+      
       // Prepare the update data
       const updateData = {
         stage: sidebarFormData.stage,
@@ -455,6 +463,7 @@ const WarmLeads = () => {
         category: getCategoryFromStage(sidebarFormData.stage),
         offer: sidebarFormData.offer,
         email: sidebarFormData.email,
+        phone: sidebarFormData.phone, // Fixed: Added phone field
         occupation: sidebarFormData.occupation,
         location: sidebarFormData.location,
         current_school: sidebarFormData.currentSchool,
@@ -944,7 +953,7 @@ const WarmLeads = () => {
         </div>
       </div>
 
-      {/* Lead Sidebar Component - UPDATED WITH NEW PROP */}
+      {/* Lead Sidebar Component - FULLY FIXED */}
       <LeadSidebar
         showSidebar={showSidebar}
         selectedLead={selectedLead}
@@ -956,7 +965,7 @@ const WarmLeads = () => {
         onFieldChange={handleSidebarFieldChange}
         onUpdateAllFields={handleUpdateAllFields}
         onStageChange={handleSidebarStageChange}
-        onRefreshActivityData={fetchLastActivityData}
+        onRefreshActivityData={fetchLastActivityData} // Fixed: Added this prop
         getStageColor={getStageColor}
         getCounsellorInitials={getCounsellorInitials}
         getScoreFromStage={getScoreFromStage}

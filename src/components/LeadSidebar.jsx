@@ -32,6 +32,8 @@ const isToday = (dateString) => {
   return date.toDateString() === today.toDateString();
 };
 
+// Update your LeadSidebar component props to include onRefreshActivityData:
+
 const LeadSidebar = ({
   showSidebar,
   selectedLead,
@@ -43,11 +45,12 @@ const LeadSidebar = ({
   onFieldChange,
   onUpdateAllFields,
   onStageChange,
+  onRefreshActivityData,  // ← ADD THIS LINE
   getStageColor,
   getCounsellorInitials,
   getScoreFromStage,
   getCategoryFromStage
-}) => {
+}) => {  
   console.log('selectedLead data:', selectedLead);
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
@@ -70,38 +73,39 @@ const LeadSidebar = ({
   const [originalFormData, setOriginalFormData] = useState({});
 
   // Update statuses when selectedLead changes
-  useEffect(() => {
-    if (selectedLead) {
-      setStageStatuses({
-        stage2_status: selectedLead.stage2_status || '',
-        stage3_status: selectedLead.stage3_status || '',
-        stage4_status: selectedLead.stage4_status || '',
-        stage5_status: selectedLead.stage5_status || '',
-        stage6_status: selectedLead.stage6_status || '',
-        stage7_status: selectedLead.stage7_status || '',
-        stage8_status: selectedLead.stage8_status || '',
-        stage9_status: selectedLead.stage9_status || ''
-      });
-      
-      // Store original form data for comparison - UPDATED TO INCLUDE currentSchool
-      setOriginalFormData({
-        stage: selectedLead.stage,
-        offer: selectedLead.offer || 'Welcome Kit',
-        email: selectedLead.email || '',
-        occupation: selectedLead.occupation || '',
-        location: selectedLead.location || '',
-        currentSchool: selectedLead.currentSchool || '',
-        meetingDate: selectedLead.meetingDate || '',
-        meetingTime: selectedLead.meetingTime || '',
-        meetingLink: selectedLead.meetingLink || '',
-        visitDate: selectedLead.visitDate || '',
-        visitTime: selectedLead.visitTime || '',
-        visitLocation: selectedLead.visitLocation || '',
-        registrationFees: selectedLead.registrationFees || '',
-        enrolled: selectedLead.enrolled || ''
-      });
-    }
-  }, [selectedLead]);
+ useEffect(() => {
+  if (selectedLead) {
+    setStageStatuses({
+      stage2_status: selectedLead.stage2_status || '',
+      stage3_status: selectedLead.stage3_status || '',
+      stage4_status: selectedLead.stage4_status || '',
+      stage5_status: selectedLead.stage5_status || '',
+      stage6_status: selectedLead.stage6_status || '',
+      stage7_status: selectedLead.stage7_status || '',
+      stage8_status: selectedLead.stage8_status || '',
+      stage9_status: selectedLead.stage9_status || ''
+    });
+    
+    // Store original form data for comparison - UPDATED TO INCLUDE phone
+    setOriginalFormData({
+      stage: selectedLead.stage,
+      offer: selectedLead.offer || 'Welcome Kit',
+      email: selectedLead.email || '',
+      phone: selectedLead.phone || '',  // ← ADD THIS LINE
+      occupation: selectedLead.occupation || '',
+      location: selectedLead.location || '',
+      currentSchool: selectedLead.currentSchool || '',
+      meetingDate: selectedLead.meetingDate || '',
+      meetingTime: selectedLead.meetingTime || '',
+      meetingLink: selectedLead.meetingLink || '',
+      visitDate: selectedLead.visitDate || '',
+      visitTime: selectedLead.visitTime || '',
+      visitLocation: selectedLead.visitLocation || '',
+      registrationFees: selectedLead.registrationFees || '',
+      enrolled: selectedLead.enrolled || ''
+    });
+  }
+}, [selectedLead]);
 
   // Handle status updates from action buttons
   const handleStatusUpdate = async (stageField, newStatus) => {
@@ -509,20 +513,21 @@ const handleUpdateAllFields = async () => {
                   </div>
                   <div className="lead-sidebar-section-content">
                     <div className="lead-sidebar-form-row">
-                      <label className="lead-sidebar-form-label">Phone</label>
-                      {!isEditingMode ? (
-                        <div className="lead-sidebar-field-value">
-                          {selectedLead?.phone || 'Not provided'}
-                        </div>
-                      ) : (
-                        <input 
-                          type="text" 
-                          value={selectedLead?.phone || ''} 
-                          readOnly
-                          className="lead-sidebar-form-input"
-                        />
-                      )}
-                    </div>
+  <label className="lead-sidebar-form-label">Phone</label>
+  {!isEditingMode ? (
+    <div className="lead-sidebar-field-value">
+      {selectedLead?.phone || 'Not provided'}
+    </div>
+  ) : (
+    <input 
+      type="text" 
+      value={sidebarFormData.phone || selectedLead?.phone || ''} 
+      onChange={(e) => onFieldChange('phone', e.target.value)}
+      placeholder="Enter phone number"
+      className="lead-sidebar-form-input"
+    />
+  )}
+</div>
 
                     <div className="lead-sidebar-form-row">
                       <label className="lead-sidebar-form-label">Email</label>

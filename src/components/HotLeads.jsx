@@ -47,6 +47,7 @@ const HotLeads = () => {
     stage: '',
     offer: '',
     email: '',
+    phone: '', // Fixed: Added phone field
     occupation: '',
     location: '',
     currentSchool: '',
@@ -72,17 +73,17 @@ const HotLeads = () => {
 
   // Updated Stage options with new stages and colors
   const stages = [
-  { value: 'New Lead', label: 'New Lead', color: '#B3D7FF' },
-  { value: 'Connected', label: 'Connected', color: '#E9FF9A' },
-  { value: 'Meeting Booked', label: 'Meeting Booked', color: '#FFEC9F' },
-  { value: 'Meeting Done', label: 'Meeting Done', color: '#FF9697' },
-  { value: 'Proposal Sent', label: 'Proposal Sent', color: '#FFC796' },
-  { value: 'Visit Booked', label: 'Visit Booked', color: '#D1A4FF' },
-  { value: 'Visit Done', label: 'Visit Done', color: '#B1FFFF' },
-  { value: 'Registered', label: 'Registered', color: '#FF99EB' },
-  { value: 'Admission', label: 'Admission', color: '#98FFB4' },
-  { value: 'No Response', label: 'No Response', color: '#B5BAB1' }
-];
+    { value: 'New Lead', label: 'New Lead', color: '#B3D7FF' },
+    { value: 'Connected', label: 'Connected', color: '#E9FF9A' },
+    { value: 'Meeting Booked', label: 'Meeting Booked', color: '#FFEC9F' },
+    { value: 'Meeting Done', label: 'Meeting Done', color: '#FF9697' },
+    { value: 'Proposal Sent', label: 'Proposal Sent', color: '#FFC796' },
+    { value: 'Visit Booked', label: 'Visit Booked', color: '#D1A4FF' },
+    { value: 'Visit Done', label: 'Visit Done', color: '#B1FFFF' },
+    { value: 'Registered', label: 'Registered', color: '#FF99EB' },
+    { value: 'Admission', label: 'Admission', color: '#98FFB4' },
+    { value: 'No Response', label: 'No Response', color: '#B5BAB1' }
+  ];
 
   // Hot stages only for left sidebar display
   const hotStages = stages.filter(stage => 
@@ -103,37 +104,38 @@ const HotLeads = () => {
 
   // Updated scoring system to match new stages
   const getScoreFromStage = (stage) => {
-  const scoreMap = {
-    'New Lead': 20,
-    'Connected': 30,
-    'Meeting Booked': 40,
-    'Meeting Done': 50,
-    'Proposal Sent': 60,
-    'Visit Booked': 70,
-    'Visit Done': 80,
-    'Registered': 90,
-    'Admission': 100,
-    'No Response': 0
+    const scoreMap = {
+      'New Lead': 20,
+      'Connected': 30,
+      'Meeting Booked': 40,
+      'Meeting Done': 50,
+      'Proposal Sent': 60,
+      'Visit Booked': 70,
+      'Visit Done': 80,
+      'Registered': 90,
+      'Admission': 100,
+      'No Response': 0
+    };
+    return scoreMap[stage] || 20;
   };
-  return scoreMap[stage] || 20;
-};
 
   // Updated category mapping to match new stages
- const getCategoryFromStage = (stage) => {
-  const categoryMap = {
-    'New Lead': 'New',
-    'Connected': 'Warm',
-    'Meeting Booked': 'Warm',
-    'Meeting Done': 'Warm',
-    'Proposal Sent': 'Warm',
-    'Visit Booked': 'Hot',
-    'Visit Done': 'Hot',
-    'Registered': 'Hot',
-    'Admission': 'Enrolled',
-    'No Response': 'Cold'
+  const getCategoryFromStage = (stage) => {
+    const categoryMap = {
+      'New Lead': 'New',
+      'Connected': 'Warm',
+      'Meeting Booked': 'Warm',
+      'Meeting Done': 'Warm',
+      'Proposal Sent': 'Warm',
+      'Visit Booked': 'Hot',
+      'Visit Done': 'Hot',
+      'Registered': 'Hot',
+      'Admission': 'Enrolled',
+      'No Response': 'Cold'
+    };
+    return categoryMap[stage] || 'New';
   };
-  return categoryMap[stage] || 'New';
-};
+
   // Get stage color
   const getStageColor = (stage) => {
     const stageObj = stages.find(s => s.value === stage);
@@ -177,25 +179,20 @@ const HotLeads = () => {
   const getDaysSinceLastActivity = (leadId) => {
     const lastActivity = lastActivityData[leadId];
     if (!lastActivity) {
-  // No activity logged yet, so no alert
-  return 0;
-}
+      // No activity logged yet, so no alert
+      return 0;
+    }
     
     const lastActivityDate = new Date(lastActivity);
     const today = new Date();
-    //today.setHours(0, 0, 0, 0); // Reset time to start of day
-    //lastActivityDate.setHours(0, 0, 0, 0); // Reset time to start of day
     const diffTime = today - lastActivityDate;
-    //const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    //return diffDays;
     const diffMinutes = Math.floor(diffTime / (1000 * 60));
-return diffMinutes;
+    return diffMinutes;
   };
 
   // Check if lead needs alert (3+ days without activity)
   const shouldShowAlert = (leadId) => {
     const days = getDaysSinceLastActivity(leadId);
-    //return days >= 3;
     return days >= 2;
   };
 
@@ -301,21 +298,22 @@ return diffMinutes;
   }, []);
 
   // Helper functions for styling
- const getStageClass = (stage) => {
-  const stageMap = {
-    "New Lead": "stage-new-lead",
-    "Connected": "stage-connected",
-    "Meeting Booked": "stage-meeting-booked",
-    "Meeting Done": "stage-meeting-done",
-    "Proposal Sent": "stage-proposal-sent",
-    "Visit Booked": "stage-visit-booked",
-    "Visit Done": "stage-visit-done",
-    "Registered": "stage-registered",
-    "Admission": "stage-admission",
-    "No Response": "stage-no-response"
+  const getStageClass = (stage) => {
+    const stageMap = {
+      "New Lead": "stage-new-lead",
+      "Connected": "stage-connected",
+      "Meeting Booked": "stage-meeting-booked",
+      "Meeting Done": "stage-meeting-done",
+      "Proposal Sent": "stage-proposal-sent",
+      "Visit Booked": "stage-visit-booked",
+      "Visit Done": "stage-visit-done",
+      "Registered": "stage-registered",
+      "Admission": "stage-admission",
+      "No Response": "stage-no-response"
+    };
+    return stageMap[stage] || "stage-new-lead";
   };
-  return stageMap[stage] || "stage-new-lead";
-};
+
   const getCategoryClass = (category) => {
     const categoryMap = {
       "New": "status-new",
@@ -328,11 +326,13 @@ return diffMinutes;
   };
 
   const openSidebar = (lead) => {
+    console.log('Opening sidebar for lead:', lead);
     setSelectedLead(lead);
     setSidebarFormData({
       stage: lead.stage,
       offer: lead.offer || 'Welcome Kit',
       email: lead.email || '',
+      phone: lead.phone || '', // Fixed: Added phone field
       occupation: lead.occupation || '',
       location: lead.location || '',
       currentSchool: lead.currentSchool || '',
@@ -357,11 +357,14 @@ return diffMinutes;
 
   // Handle edit mode toggle
   const handleEditModeToggle = () => {
+    console.log('handleEditModeToggle called - current isEditingMode:', isEditingMode);
     setIsEditingMode(!isEditingMode);
+    console.log('handleEditModeToggle - new isEditingMode:', !isEditingMode);
   };
 
   // Handle form field changes
   const handleSidebarFieldChange = (field, value) => {
+    console.log('Field change:', field, value);
     setSidebarFormData(prev => ({
       ...prev,
       [field]: value
@@ -383,29 +386,28 @@ return diffMinutes;
 
       // Update in database
       // NEW: Prepare update data
-let updateData = { 
-  stage: newStage, 
-  score: updatedScore, 
-  category: updatedCategory,
-  updated_at: new Date().toISOString()
-};
+      let updateData = { 
+        stage: newStage, 
+        score: updatedScore, 
+        category: updatedCategory,
+        updated_at: new Date().toISOString()
+      };
 
-// NEW: Store previous stage if moving TO 'No Response' FROM any other stage
-if (newStage === 'No Response' && oldStage !== 'No Response') {
-  updateData.previous_stage = oldStage;
-}
+      // NEW: Store previous stage if moving TO 'No Response' FROM any other stage
+      if (newStage === 'No Response' && oldStage !== 'No Response') {
+        updateData.previous_stage = oldStage;
+      }
 
-// NEW: Clear previous stage if moving FROM 'No Response' TO any other stage
-if (oldStage === 'No Response' && newStage !== 'No Response') {
-  updateData.previous_stage = null;
-}
+      // NEW: Clear previous stage if moving FROM 'No Response' TO any other stage
+      if (oldStage === 'No Response' && newStage !== 'No Response') {
+        updateData.previous_stage = null;
+      }
 
-// Update in database
-const { error } = await supabase
-  .from('Leads')
-  .update(updateData)
-  .eq('id', leadId);
-
+      // Update in database
+      const { error } = await supabase
+        .from('Leads')
+        .update(updateData)
+        .eq('id', leadId);
 
       if (error) {
         throw error;
@@ -449,9 +451,11 @@ const { error } = await supabase
     }
   };
 
-  // Handle update all fields
+  // COMPLETE: Handle update all fields function
   const handleUpdateAllFields = async () => {
     try {
+      console.log('handleUpdateAllFields called with sidebarFormData:', sidebarFormData);
+      
       // Prepare the update data
       const updateData = {
         stage: sidebarFormData.stage,
@@ -459,6 +463,7 @@ const { error } = await supabase
         category: getCategoryFromStage(sidebarFormData.stage),
         offer: sidebarFormData.offer,
         email: sidebarFormData.email,
+        phone: sidebarFormData.phone, // Fixed: Added phone field
         occupation: sidebarFormData.occupation,
         location: sidebarFormData.location,
         current_school: sidebarFormData.currentSchool,
@@ -555,28 +560,28 @@ const { error } = await supabase
 
       // Update in database
       // NEW: Prepare update data
-let updateData = { 
-  stage: newStage, 
-  score: updatedScore, 
-  category: updatedCategory,
-  updated_at: new Date().toISOString()
-};
+      let updateData = { 
+        stage: newStage, 
+        score: updatedScore, 
+        category: updatedCategory,
+        updated_at: new Date().toISOString()
+      };
 
-// NEW: Store previous stage if moving TO 'No Response' FROM any other stage
-if (newStage === 'No Response' && oldStage !== 'No Response') {
-  updateData.previous_stage = oldStage;
-}
+      // NEW: Store previous stage if moving TO 'No Response' FROM any other stage
+      if (newStage === 'No Response' && oldStage !== 'No Response') {
+        updateData.previous_stage = oldStage;
+      }
 
-// NEW: Clear previous stage if moving FROM 'No Response' TO any other stage
-if (oldStage === 'No Response' && newStage !== 'No Response') {
-  updateData.previous_stage = null;
-}
+      // NEW: Clear previous stage if moving FROM 'No Response' TO any other stage
+      if (oldStage === 'No Response' && newStage !== 'No Response') {
+        updateData.previous_stage = null;
+      }
 
-// Update in database
-const { error } = await supabase
-  .from('Leads')
-  .update(updateData)
-  .eq('id', leadId);
+      // Update in database
+      const { error } = await supabase
+        .from('Leads')
+        .update(updateData)
+        .eq('id', leadId);
 
       if (error) {
         throw error;
@@ -947,7 +952,7 @@ const { error } = await supabase
         </div>
       </div>
 
-      {/* Lead Sidebar Component - UPDATED WITH NEW PROP */}
+      {/* Lead Sidebar Component - FULLY FIXED */}
       <LeadSidebar
         showSidebar={showSidebar}
         selectedLead={selectedLead}
@@ -959,7 +964,7 @@ const { error } = await supabase
         onFieldChange={handleSidebarFieldChange}
         onUpdateAllFields={handleUpdateAllFields}
         onStageChange={handleSidebarStageChange}
-        onRefreshActivityData={fetchLastActivityData}
+        onRefreshActivityData={fetchLastActivityData} // Fixed: Added this prop
         getStageColor={getStageColor}
         getCounsellorInitials={getCounsellorInitials}
         getScoreFromStage={getScoreFromStage}
