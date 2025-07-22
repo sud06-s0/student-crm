@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import { logStageChange } from '../utils/historyLogger';
 import AddLeadForm from './AddLeadForm';
 import LeftSidebar from './LeftSidebar';
-import LeadSidebar from './LeadSidebar'; // Import the LeadSidebar component
+import LeadSidebar from './LeadSidebar';
+import DeleteConfirmationDialog from './DeleteConfirmationDialog'; // Import the new component
 import { FilterButton, applyFilters } from './FilterDropdown';
 import { 
   Search,
@@ -17,7 +18,16 @@ import {
   Edit2,
   AlertCircle,
   Loader2,
-  CheckCircle
+  Play,
+  Mail,
+  Briefcase,
+  MapPin,
+  Calendar,
+  Clock,
+  Link,
+  DollarSign,
+  CheckCircle,
+  Trash2 // Add Trash2 icon
 } from 'lucide-react';
 
 const EnrolledLeads = () => {
@@ -41,12 +51,19 @@ const EnrolledLeads = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // DELETE FUNCTIONALITY - NEW STATES
+  const [selectedLeads, setSelectedLeads] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Sidebar editing states - UPDATED
   const [isEditingMode, setIsEditingMode] = useState(false);
   const [sidebarFormData, setSidebarFormData] = useState({
     stage: '',
     offer: '',
     email: '',
+    phone: '',
     occupation: '',
     location: '',
     currentSchool: '',
@@ -60,11 +77,11 @@ const EnrolledLeads = () => {
     enrolled: ''
   });
 
-  // Real data from Supabase (filtered for enrolled leads only)
+  // Real data from Supabase
   const [leadsData, setLeadsData] = useState([]);
   const [lastActivityData, setLastActivityData] = useState({});
 
-  // Filter states - UPDATED to match LeadsTable
+  //Filter states
   const [showFilter, setShowFilter] = useState(false);
   const [counsellorFilters, setCounsellorFilters] = useState([]);
   const [stageFilters, setStageFilters] = useState([]);
@@ -84,11 +101,6 @@ const EnrolledLeads = () => {
     { value: 'No Response', label: 'No Response', color: '#B5BAB1' }
   ];
 
-  // Enrolled stages only for left sidebar display
-  const enrolledStages = stages.filter(stage => 
-    ['Admission'].includes(stage.value)
-  );
-
   const offers = [
     '30000 Scholarship',
     '10000 Discount',
@@ -96,7 +108,73 @@ const EnrolledLeads = () => {
     'Accessible Kit'
   ];
 
-  // Calculate stage counts for enrolled stages only
+  // DELETE FUNCTIONALITY - NEW FUNCTIONS
+  const handleIndividualCheckboxChange = (leadId, checked) => {
+    if (checked) {
+      setSelectedLeads(prev => [...prev, leadId]);
+    } else {
+      setSelectedLeads(prev => prev.filter(id => id !== leadId));
+      setSelectAll(false);
+    }
+  };
+
+  const handleSelectAllChange = (checked) => {
+    setSelectAll(checked);
+    if (checked) {
+      const allLeadIds = displayLeads.map(lead => lead.id);
+      setSelectedLeads(allLeadIds);
+    } else {
+      setSelectedLeads([]);
+    }
+  };
+
+  const handleDeleteClick = () => {
+    if (selectedLeads.length > 0) {
+      setShowDeleteDialog(true);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('Leads')
+        .delete()
+        .in('id', selectedLeads);
+
+      if (error) {
+        throw error;
+      }
+
+      // Refresh the leads data
+      await fetchLeads();
+      
+      // Clear selections
+      setSelectedLeads([]);
+      setSelectAll(false);
+      setShowDeleteDialog(false);
+      
+      {/*alert(`Successfully deleted ${selectedLeads.length} lead${selectedLeads.length > 1 ? 's' : ''}!`);*/}
+      
+    } catch (error) {
+      console.error('Error deleting leads:', error);
+      alert('Error deleting leads: ' + error.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteDialog(false);
+  };
+
+  // Clear selections when leads data changes (after filters/search)
+  useEffect(() => {
+    setSelectedLeads([]);
+    setSelectAll(false);
+  }, [searchTerm, counsellorFilters, stageFilters, statusFilters]);
+
+  // Calculate stage counts
   const getStageCount = (stageName) => {
     return leadsData.filter(lead => lead.stage === stageName).length;
   };
@@ -178,21 +256,20 @@ const EnrolledLeads = () => {
   const getDaysSinceLastActivity = (leadId) => {
     const lastActivity = lastActivityData[leadId];
     if (!lastActivity) {
-      // No activity logged yet, so no alert
       return 0;
     }
     
     const lastActivityDate = new Date(lastActivity);
     const today = new Date();
     const diffTime = today - lastActivityDate;
-    const diffMinutes = Math.floor(diffTime / (1000 * 60));
-    return diffMinutes;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
   };
 
   // Check if lead needs alert (3+ days without activity)
   const shouldShowAlert = (leadId) => {
     const days = getDaysSinceLastActivity(leadId);
-    return days >= 2;
+    return days >= 3;
   };
 
   // Convert database record to UI format - UPDATED
@@ -261,8 +338,8 @@ const EnrolledLeads = () => {
     };
   };
 
-  // Fetch enrolled leads from Supabase (category = 'Enrolled')
-  const fetchEnrolledLeads = async () => {
+  // Fetch leads from Supabase
+  const fetchLeads = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -270,8 +347,7 @@ const EnrolledLeads = () => {
       const { data, error } = await supabase
         .from('Leads')
         .select('*')
-        .eq('category', 'Enrolled')
-        .order('id', { ascending: true });
+        .order('id', { ascending: false });
 
       if (error) {
         throw error;
@@ -284,16 +360,16 @@ const EnrolledLeads = () => {
       await fetchLastActivityData();
       
     } catch (error) {
-      console.error('Error fetching enrolled leads:', error);
+      console.error('Error fetching leads:', error);
       setError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch enrolled leads on component mount
+  // Fetch leads on component mount
   useEffect(() => {
-    fetchEnrolledLeads();
+    fetchLeads();
   }, []);
 
   // Helper functions for styling
@@ -325,11 +401,13 @@ const EnrolledLeads = () => {
   };
 
   const openSidebar = (lead) => {
+    console.log('Opening sidebar for lead:', lead);
     setSelectedLead(lead);
     setSidebarFormData({
       stage: lead.stage,
       offer: lead.offer || 'Welcome Kit',
       email: lead.email || '',
+      phone: lead.phone || '',
       occupation: lead.occupation || '',
       location: lead.location || '',
       currentSchool: lead.currentSchool || '',
@@ -354,11 +432,14 @@ const EnrolledLeads = () => {
 
   // Handle edit mode toggle
   const handleEditModeToggle = () => {
+    console.log('handleEditModeToggle called - current isEditingMode:', isEditingMode);
     setIsEditingMode(!isEditingMode);
+    console.log('handleEditModeToggle - new isEditingMode:', !isEditingMode);
   };
 
   // Handle form field changes
   const handleSidebarFieldChange = (field, value) => {
+    console.log('Field change:', field, value);
     setSidebarFormData(prev => ({
       ...prev,
       [field]: value
@@ -373,8 +454,12 @@ const EnrolledLeads = () => {
       const updatedScore = getScoreFromStage(newStage);
       const updatedCategory = getCategoryFromStage(newStage);
       
+      // Log the stage change FIRST (before database update)
+      if (oldStage !== newStage) {
+        await logStageChange(leadId, oldStage, newStage, 'sidebar');
+      }
+
       // Update in database
-      // NEW: Prepare update data
       let updateData = { 
         stage: newStage, 
         score: updatedScore, 
@@ -382,12 +467,12 @@ const EnrolledLeads = () => {
         updated_at: new Date().toISOString()
       };
 
-      // NEW: Store previous stage if moving TO 'No Response' FROM any other stage
+      // Store previous stage if moving TO 'No Response' FROM any other stage
       if (newStage === 'No Response' && oldStage !== 'No Response') {
         updateData.previous_stage = oldStage;
       }
 
-      // NEW: Clear previous stage if moving FROM 'No Response' TO any other stage
+      // Clear previous stage if moving FROM 'No Response' TO any other stage
       if (oldStage === 'No Response' && newStage !== 'No Response') {
         updateData.previous_stage = null;
       }
@@ -402,36 +487,26 @@ const EnrolledLeads = () => {
         throw error;
       }
 
-      // If the lead is no longer enrolled, remove from local state and close sidebar
-      if (updatedCategory !== 'Enrolled') {
-        const updatedLeads = leadsData.filter(lead => lead.id !== leadId);
-        setLeadsData(updatedLeads);
-        closeSidebar();
-      } else {
-        // Update local state if still enrolled
-        const updatedLeads = leadsData.map(lead => 
-          lead.id === leadId 
-            ? { ...lead, stage: newStage, score: updatedScore, category: updatedCategory }
-            : lead
-        );
-        
-        setLeadsData(updatedLeads);
+      // Refresh activity data after database update
+      await fetchLastActivityData();
 
-        // Update selected lead if it's the one being changed
-        if (selectedLead && selectedLead.id === leadId) {
-          setSelectedLead({
-            ...selectedLead,
-            stage: newStage,
-            score: updatedScore,
-            category: updatedCategory
-          });
-        }
-      }
+      // Update local state
+      const updatedLeads = leadsData.map(lead => 
+        lead.id === leadId 
+          ? { ...lead, stage: newStage, score: updatedScore, category: updatedCategory }
+          : lead
+      );
+      
+      setLeadsData(updatedLeads);
 
-      // Log the stage change
-      if (oldStage !== newStage) {
-        await logStageChange(leadId, oldStage, newStage, 'sidebar');
-        await fetchLastActivityData();
+      // Update selected lead if it's the one being changed
+      if (selectedLead && selectedLead.id === leadId) {
+        setSelectedLead({
+          ...selectedLead,
+          stage: newStage,
+          score: updatedScore,
+          category: updatedCategory
+        });
       }
 
       // Show success message
@@ -443,9 +518,11 @@ const EnrolledLeads = () => {
     }
   };
 
-  // Handle update all fields
+  // COMPLETE: Handle update all fields function
   const handleUpdateAllFields = async () => {
     try {
+      console.log('handleUpdateAllFields called with sidebarFormData:', sidebarFormData);
+      
       // Prepare the update data
       const updateData = {
         stage: sidebarFormData.stage,
@@ -453,6 +530,7 @@ const EnrolledLeads = () => {
         category: getCategoryFromStage(sidebarFormData.stage),
         offer: sidebarFormData.offer,
         email: sidebarFormData.email,
+        phone: sidebarFormData.phone,
         occupation: sidebarFormData.occupation,
         location: sidebarFormData.location,
         current_school: sidebarFormData.currentSchool,
@@ -472,9 +550,15 @@ const EnrolledLeads = () => {
         updateData.visit_datetime = new Date(`${sidebarFormData.visitDate}T${sidebarFormData.visitTime}:00`).toISOString();
       }
 
-      // Check if lead will remain enrolled after update
-      const newCategory = getCategoryFromStage(sidebarFormData.stage);
+      // Check if stage changed for logging
+      const oldStage = selectedLead.stage;
+      const newStage = sidebarFormData.stage;
       
+      // Log stage change if it occurred
+      if (oldStage !== newStage) {
+        await logStageChange(selectedLead.id, oldStage, newStage, 'sidebar edit all');
+      }
+
       // Update in database
       const { error } = await supabase
         .from('Leads')
@@ -485,28 +569,23 @@ const EnrolledLeads = () => {
         throw error;
       }
 
-      // If lead is no longer enrolled, close sidebar and refresh
-      if (newCategory !== 'Enrolled') {
-        closeSidebar();
-        await fetchEnrolledLeads();
-      } else {
-        // Refresh the leads data
-        await fetchEnrolledLeads(); // This will also refresh activity data
+      // Refresh activity data after any updates
+      await fetchLastActivityData();
 
-        // Update selected lead
-        const updatedLead = {
-          ...selectedLead,
-          ...sidebarFormData,
-          score: getScoreFromStage(sidebarFormData.stage),
-          category: getCategoryFromStage(sidebarFormData.stage)
-        };
-        setSelectedLead(updatedLead);
-      }
+      // Refresh the leads data
+      await fetchLeads();
 
       // Exit edit mode
       setIsEditingMode(false);
 
-      alert('Lead updated successfully!');
+      // Update selected lead
+      const updatedLead = {
+        ...selectedLead,
+        ...sidebarFormData,
+        score: getScoreFromStage(sidebarFormData.stage),
+        category: getCategoryFromStage(sidebarFormData.stage)
+      };
+      setSelectedLead(updatedLead);
 
     } catch (error) {
       console.error('Error updating lead:', error);
@@ -516,13 +595,13 @@ const EnrolledLeads = () => {
 
   // Handle stage dropdown toggle
   const handleStageDropdownToggle = (e, leadId) => {
-    e.stopPropagation(); // Prevent row click
+    e.stopPropagation();
     setStageDropdownOpen(stageDropdownOpen === leadId ? null : leadId);
   };
 
   // UPDATED: Handle stage change from dropdown with history logging
   const handleStageChangeFromDropdown = async (e, leadId, newStage) => {
-    e.stopPropagation(); // Prevent row click
+    e.stopPropagation();
     
     try {
       const lead = leadsData.find(l => l.id === leadId);
@@ -530,8 +609,12 @@ const EnrolledLeads = () => {
       const updatedScore = getScoreFromStage(newStage);
       const updatedCategory = getCategoryFromStage(newStage);
       
+      // Log the stage change FIRST (before database update)
+      if (oldStage !== newStage) {
+        await logStageChange(leadId, oldStage, newStage, 'table dropdown');
+      }
+
       // Update in database
-      // NEW: Prepare update data
       let updateData = { 
         stage: newStage, 
         score: updatedScore, 
@@ -539,12 +622,12 @@ const EnrolledLeads = () => {
         updated_at: new Date().toISOString()
       };
 
-      // NEW: Store previous stage if moving TO 'No Response' FROM any other stage
+      // Store previous stage if moving TO 'No Response' FROM any other stage
       if (newStage === 'No Response' && oldStage !== 'No Response') {
         updateData.previous_stage = oldStage;
       }
 
-      // NEW: Clear previous stage if moving FROM 'No Response' TO any other stage
+      // Clear previous stage if moving FROM 'No Response' TO any other stage
       if (oldStage === 'No Response' && newStage !== 'No Response') {
         updateData.previous_stage = null;
       }
@@ -559,29 +642,20 @@ const EnrolledLeads = () => {
         throw error;
       }
 
-      // If the lead is no longer enrolled, remove from local state
-      if (updatedCategory !== 'Enrolled') {
-        const updatedLeads = leadsData.filter(lead => lead.id !== leadId);
-        setLeadsData(updatedLeads);
-      } else {
-        // Update local state if still enrolled
-        const updatedLeads = leadsData.map(lead => 
-          lead.id === leadId 
-            ? { ...lead, stage: newStage, score: updatedScore, category: updatedCategory }
-            : lead
-        );
-        
-        setLeadsData(updatedLeads);
-      }
+      // Refresh activity data after database update
+      await fetchLastActivityData();
+
+      // Update local state
+      const updatedLeads = leadsData.map(lead => 
+        lead.id === leadId 
+          ? { ...lead, stage: newStage, score: updatedScore, category: updatedCategory }
+          : lead
+      );
+      
+      setLeadsData(updatedLeads);
       
       // Close dropdown
       setStageDropdownOpen(null);
-
-      // Log the stage change
-      if (oldStage !== newStage) {
-        await logStageChange(leadId, oldStage, newStage, 'table dropdown');
-        await fetchLastActivityData();
-      }
       
     } catch (error) {
       console.error('Error updating stage:', error);
@@ -591,14 +665,8 @@ const EnrolledLeads = () => {
 
   // UPDATED: Handle form submission with history logging
   const handleAddLead = async (action = 'add') => {
-    await fetchEnrolledLeads(); // This will also fetch activity data
+    await fetchLeads();
     await fetchLastActivityData();
-    
-    // Log the action if it's a new lead
-    if (action === 'add') {
-      // We don't have the lead ID here, but we can log it after fetching
-      // The AddLeadForm component should handle this logging
-    }
   };
 
   const handleShowAddForm = () => {
@@ -637,7 +705,6 @@ const EnrolledLeads = () => {
       if (contextMenu.visible) {
         handleCloseContextMenu();
       }
-      // Close stage dropdown when clicking outside
       if (stageDropdownOpen) {
         setStageDropdownOpen(null);
       }
@@ -680,7 +747,7 @@ const EnrolledLeads = () => {
 
   // Determine which data to display
   const getDisplayLeads = () => {
-    let filtered = leadsData;
+  let filtered = leadsData.filter(lead => lead.category === 'Enrolled');
     
     // Apply search first
     if (searchTerm.trim() !== '') {
@@ -693,7 +760,7 @@ const EnrolledLeads = () => {
       );
     }
     
-    // Then apply filters - UPDATED to include statusFilters
+    // Then apply filters
     return applyFilters(filtered, counsellorFilters, stageFilters, statusFilters);
   };
 
@@ -701,14 +768,14 @@ const EnrolledLeads = () => {
 
   return (
     <div className="nova-crm" style={{ fontFamily: 'Inter, sans-serif' }}>
-      {/* Left Sidebar - Now using the reusable component */}
+      {/* Left Sidebar */}
       <LeftSidebar 
         activeNavItem="leads"
         activeSubmenuItem="enrolled"
-        stages={enrolledStages}
+        stages={stages}
         getStageCount={getStageCount}
-        stagesTitle="Enrolled Stages"
-        stagesIcon={CheckCircle}
+        stagesTitle="Stages"
+        stagesIcon={Play}
       />
 
       {/* Main Content */}
@@ -716,21 +783,58 @@ const EnrolledLeads = () => {
         {/* Header */}
         <div className="nova-header">
           <div className="header-left">
-            <h1>Enrolled Students</h1>
-            <span className="total-count">Total Enrolled Students {leadsData.length}</span>
+            <h1>Enrolled Leads</h1>
+            <span className="total-count">Total Leads {leadsData.length}</span>
+            
+            {/* DELETE BUTTON - Shows when leads are selected */}
+            {selectedLeads.length > 0 && (
+              <button 
+                className="delete-selected-btn" 
+                onClick={handleDeleteClick}
+                disabled={isDeleting}
+                style={{
+                  marginLeft: '16px',
+                  padding: '8px 12px',
+                  background: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  opacity: isDeleting ? 0.6 : 1,
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isDeleting) {
+                    e.target.style.background = '#b91c1c';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isDeleting) {
+                    e.target.style.background = '#dc2626';
+                  }
+                }}
+              >
+                <Trash2 size={16} />
+                Delete {selectedLeads.length} Selected
+              </button>
+            )}
           </div>
           <div className="header-right">
             <div className="search-container">
               <Search size={16} className="search-icon" />
               <input
                 type="text"
-                placeholder="Search enrolled students..."
+                placeholder="Search leads..."
                 value={searchTerm}
                 onChange={handleSearchChange}
                 className="search-input"
               />
             </div>
-            {/* UPDATED: Added statusFilters props */}
             <FilterButton
               showFilter={showFilter}
               setShowFilter={setShowFilter}
@@ -757,7 +861,7 @@ const EnrolledLeads = () => {
         {/* Loading Display */}
         {loading && (
           <div className="loading-message">
-            <Loader2 size={16} className="animate-spin" /> Loading enrolled students...
+            <Loader2 size={16} className="animate-spin" /> Loading leads...
           </div>
         )}
 
@@ -767,7 +871,12 @@ const EnrolledLeads = () => {
             <thead>
               <tr>
                 <th>
-                  <input type="checkbox" className="select-all" />
+                  <input 
+                    type="checkbox" 
+                    className="select-all"
+                    checked={selectAll}
+                    onChange={(e) => handleSelectAllChange(e.target.checked)}
+                  />
                 </th>
                 <th>ID</th>
                 <th>Parent Name</th>
@@ -789,9 +898,19 @@ const EnrolledLeads = () => {
                     className="table-row"
                   >
                     <td>
-                      <input type="checkbox" onClick={(e) => e.stopPropagation()} />
+                      <input 
+                        type="checkbox" 
+                        checked={selectedLeads.includes(lead.id)}
+                        onChange={(e) => handleIndividualCheckboxChange(lead.id, e.target.checked)}
+                        onClick={(e) => e.stopPropagation()} 
+                      />
                     </td>
-                    <td>{lead.id}</td>
+                    <td>
+                      <div className="id-info">
+                        <div className="lead-id">{lead.id}</div>
+                        <div className="created-date">{new Date(lead.createdTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                      </div>
+                    </td>
                     <td>
                       <div className="parent-info">
                         <div className="parent-name">{lead.parentsName}</div>
@@ -837,16 +956,16 @@ const EnrolledLeads = () => {
                           <div className="stage-dropdown-menu" style={{
                             position: 'absolute',
                             top: '100%',
-                            left: 0,
+                            left: 70,
                             background: 'white',
                             border: '1px solid #e5e7eb',
                             borderRadius: '6px',
                             boxShadow: '0 8px 25px rgba(0, 0, 0, 0.15)',
                             zIndex: 1000,
-                            maxHeight: '180px',
+                            maxHeight: '380px',
                             overflowY: 'auto',
                             marginTop: '2px',
-                            minWidth: '140px',
+                            minWidth: '150px',
                             width: 'max-content'
                           }}>
                             {stages.map((stage, index) => (
@@ -907,10 +1026,8 @@ const EnrolledLeads = () => {
                     </td>
                     <td>
                       {shouldShowAlert(lead.id) && (
-                        <div 
-                          className="alert-badge"                     
-                        >
-                          {getDaysSinceLastActivity(lead.id)}M
+                        <div className="alert-badge">
+                          {getDaysSinceLastActivity(lead.id)}D
                         </div>
                       )}
                     </td>
@@ -919,7 +1036,7 @@ const EnrolledLeads = () => {
               ) : !loading ? (
                 <tr>
                   <td colSpan="9" className="no-data">
-                    {searchTerm ? 'No results found for your search.' : 'No enrolled students available. Click + Add Lead to create your first lead!'}
+                    {searchTerm ? 'No results found for your search.' : 'No leads available. Click + Add Lead to create your first lead!'}
                   </td>
                 </tr>
               ) : null}
@@ -928,7 +1045,7 @@ const EnrolledLeads = () => {
         </div>
       </div>
 
-      {/* Lead Sidebar Component - UPDATED WITH NEW PROP */}
+      {/* Lead Sidebar Component */}
       <LeadSidebar
         showSidebar={showSidebar}
         selectedLead={selectedLead}
@@ -940,10 +1057,20 @@ const EnrolledLeads = () => {
         onFieldChange={handleSidebarFieldChange}
         onUpdateAllFields={handleUpdateAllFields}
         onStageChange={handleSidebarStageChange}
+        onRefreshActivityData={fetchLastActivityData}
         getStageColor={getStageColor}
         getCounsellorInitials={getCounsellorInitials}
         getScoreFromStage={getScoreFromStage}
         getCategoryFromStage={getCategoryFromStage}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={showDeleteDialog}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        selectedLeads={selectedLeads}
+        leadsData={leadsData}
       />
 
       {/* Context Menu */}
