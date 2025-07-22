@@ -26,6 +26,8 @@ const CounsellorPerformance = ({ leadsData = [] }) => {
 
   // Get current date for max date validation
   const currentDate = new Date().toISOString().split('T')[0];
+  const [selectedMetric, setSelectedMetric] = useState('enrolled');
+
 
   // Filter leads by date range
   const getFilteredLeadsByDate = useMemo(() => {
@@ -108,12 +110,13 @@ const CounsellorPerformance = ({ leadsData = [] }) => {
 
   // Prepare bar chart data
   const barChartData = useMemo(() => {
-    return counsellorData.map(counsellor => ({
-      name: counsellor.name.split(' ')[0], // First name only for chart
-      enrolled: counsellor.enrolled,
-      fullName: counsellor.name
-    }));
-  }, [counsellorData]);
+  return counsellorData.map(counsellor => ({
+    name: counsellor.name.split(' ')[0],
+    value: counsellor[selectedMetric],
+    fullName: counsellor.name,
+    metric: selectedMetric
+  }));
+}, [counsellorData, selectedMetric]);
 
   // Handle date filter submission
   const handleSubmit = () => {
@@ -148,7 +151,7 @@ const CounsellorPerformance = ({ leadsData = [] }) => {
       return (
         <div className="dashboard-pie-tooltip">
           <p className="dashboard-pie-tooltip-title">{data.fullName}</p>
-          <p className="dashboard-pie-tooltip-value">{data.enrolled} enrolled</p>
+          <p className="dashboard-pie-tooltip-value">{data.value} {data.metric.replace(/([A-Z])/g, ' $1').toLowerCase()}</p>
         </div>
       );
     }
@@ -321,6 +324,21 @@ const CounsellorPerformance = ({ leadsData = [] }) => {
             {/* Success Rate Chart */}
             <div className="counsellor-chart-container">
               <h3 className="counsellor-chart-title">Success Rate by Counsellor</h3>
+
+              {/*Dropdown for stages*/}
+
+                          <div className="counsellor-chart-controls">
+              <select 
+                value={selectedMetric}
+                onChange={(e) => setSelectedMetric(e.target.value)}
+                className="counsellor-metric-dropdown"
+              >
+                <option value="meetingsDone">Meetings Done</option>
+                <option value="visitsDone">Visits Done</option>
+                <option value="registered">Registered</option>
+                <option value="enrolled">Enrolled</option>
+              </select>
+            </div>
               
               {barChartData.length > 0 ? (
                 <>
@@ -339,7 +357,7 @@ const CounsellorPerformance = ({ leadsData = [] }) => {
                           style={{ fontSize: '12px' }}
                         />
                         <Bar 
-                          dataKey="enrolled" 
+                          dataKey="value" 
                           fill="#3B82F6" 
                           radius={[4, 4, 0, 0]}
                           label={{ position: 'top', fontSize: 12, fontWeight: 'bold' }}

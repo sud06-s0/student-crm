@@ -127,6 +127,35 @@ const OverviewDashboard = ({ leadsData = [] }) => {
     return data;
   }, [getFilteredLeadsByDate]);
 
+  // Calculate stage data with proportional widths
+  const stageData = useMemo(() => {
+    const filteredLeads = getFilteredLeadsByDate;
+    const totalLeads = filteredLeads.length;
+    const maxBarWidth = 350; // Maximum bar width in pixels
+    
+    const stages = [
+      'New Lead', 'Connected', 'Meeting Booked', 'Meeting Done', 
+      'Proposal Sent', 'Visit Booked', 'Visit Done', 'Registered', 'Admission'
+    ];
+    
+    return stages.map(stage => {
+      const count = filteredLeads.filter(lead => lead.stage === stage).length;
+      // Calculate proportional width based on count relative to total leads
+        const minWidth = 120;
+        const maxWidth = 350;
+        const normalizedValue = Math.sqrt(count / totalLeads);
+        const widthPx = totalLeads > 0 ? 
+          minWidth + (normalizedValue * (maxWidth - minWidth)) : minWidth;
+      
+      return {
+        stage,
+        count,
+        widthPx,
+        color: stageColors[stage]
+      };
+    });
+  }, [getFilteredLeadsByDate, stageColors]);
+
   // Handle date filter submission
   const handleSubmit = () => {
     if (dateRange.fromDate && dateRange.toDate) {
@@ -360,35 +389,31 @@ const OverviewDashboard = ({ leadsData = [] }) => {
 
         {/* Stages Section */}
         <div className="dashboard-stages-container">
-          <h3 className="dashboard-stages-title">Stages</h3>
+          <div className="dashboard-stages-header">
+            <h3 className="dashboard-stages-title">Stages</h3>
+            <div className="dashboard-total-leads-badge" style={{paddingBottom:'15px'}}>
+              Total Leads: {categoryCounts.allLeads}
+            </div>
+          </div>
           
           {getFilteredLeadsByDate.length > 0 ? (
             <div className="dashboard-stages-list">
-              {[
-                'New Lead', 'Connected', 'Meeting Booked', 'Meeting Done', 
-                'Proposal Sent', 'Visit Booked', 'Visit Done', 'Registered', 'Admission'
-              ].map(stage => {
-                const filteredLeads = getFilteredLeadsByDate;
-                const count = filteredLeads.filter(lead => lead.stage === stage).length;
-                
-                // Simple width calculation
-                const widthPercentage = count === 0 ? 25 : count === 1 ? 50 : 100;
-                
-                return (
-                  <div key={stage} className="dashboard-stage-item">
-                    <div 
-                        className="dashboard-stage-bar" 
-                        style={{ 
-                        backgroundColor: stageColors[stage],
-                        width: widthPercentage + '%'
-                        }}
-                    >
-                        <span className="dashboard-stage-label">{stage}</span>
-                    </div>
-                    <span className="dashboard-stage-count">{count}</span>
-                    </div>
-                );
-              })}
+              {stageData.map(({ stage, count, widthPx, color }) => (
+                <div key={stage} className="dashboard-stage-item">
+                  <div 
+                    className="dashboard-stage-bar" 
+                    style={{ 
+                      backgroundColor: color,
+                      width: `${widthPx}px`,
+                      maxWidth: '350px',
+                      minWidth: '120px'
+                    }}
+                  >
+                    <span className="dashboard-stage-label">{stage}</span>
+                  </div>
+                  <span className="dashboard-stage-count">{count}</span>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="dashboard-stages-empty">
