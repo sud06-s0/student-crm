@@ -763,13 +763,13 @@ const handleUpdateAllFields = async () => {
                         </div>
                       ) : (
                         <select
-                          value={sidebarFormData.registrationFees}
+                          value={sidebarFormData.registrationFees || 'Not Paid'}
                           onChange={(e) => onFieldChange('registrationFees', e.target.value)}
                           className="lead-sidebar-form-select"
                         >
-                          <option value="">Select status</option>
+                          
+                          <option value=" Not Paid" selected>Not Paid</option>
                           <option value="Paid">Paid</option>
-                          <option value="Not Paid">Not Paid</option>
                         </select>
                       )}
                     </div>
@@ -783,13 +783,12 @@ const handleUpdateAllFields = async () => {
                         </div>
                       ) : (
                         <select
-                          value={sidebarFormData.enrolled}
+                          value={sidebarFormData.enrolled || 'No'}
                           onChange={(e) => onFieldChange('enrolled', e.target.value)}
                           className="lead-sidebar-form-select"
                         >
-                          <option value="">Select status</option>
-                          <option value="Yes">Yes</option>
                           <option value="No">No</option>
+                          <option value="Yes">Yes</option>
                         </select>
                       )}
                     </div>

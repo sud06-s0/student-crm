@@ -1,10 +1,32 @@
 import React, { useState } from 'react';
 
-const Stage9ActionButton = ({ leadId, currentStatus, onStatusUpdate,kidsName, phone }) => {
+const Stage9ActionButton = ({ leadId, currentStatus, onStatusUpdate, kidsName, phone }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showHover, setShowHover] = useState(false);
 
+  // Function to validate required parameters
+  const validateParameters = () => {
+    const missingParams = [];
+    
+    if (!kidsName || kidsName.trim() === '') {
+      missingParams.push('Kid\'s Name');
+    }
+    if (!phone || phone.trim() === '') {
+      missingParams.push('Phone Number');
+    }
+    
+    return missingParams;
+  };
+
   const handleClick = async () => {
+    // Validate parameters before proceeding
+    const missingParams = validateParameters();
+    
+    if (missingParams.length > 0) {
+      alert(`Cannot send message. The following required information is missing:\n\n${missingParams.join('\n')}\n\nPlease update the lead information and try again.`);
+      return; // Stop execution, no API call
+    }
+
     setIsLoading(true);
     try {
       // API call to send WhatsApp message
@@ -45,7 +67,7 @@ const Stage9ActionButton = ({ leadId, currentStatus, onStatusUpdate,kidsName, ph
 
   // Hover message - you can customize this message
   const hoverMessage = `Enrolment of Kids Name has been successfully completed.  
-You will now receive further updates from our School’s internal chat.`;
+You will now receive further updates from our School's internal chat.`;
 
   return (
     <div style={{ position: 'relative', display: 'inline-block' }}>

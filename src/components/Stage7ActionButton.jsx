@@ -1,10 +1,35 @@
 import React, { useState } from 'react';
 
-const Stage7ActionButton = ({ leadId, currentStatus, onStatusUpdate, parentsName,visitDate, phone }) => {
- const [isLoading, setIsLoading] = useState(false);
+const Stage7ActionButton = ({ leadId, currentStatus, onStatusUpdate, parentsName, visitDate, phone }) => {
+  const [isLoading, setIsLoading] = useState(false);
   const [showHover, setShowHover] = useState(false);
 
+  // Function to validate required parameters
+  const validateParameters = () => {
+    const missingParams = [];
+    
+    if (!parentsName || parentsName.trim() === '') {
+      missingParams.push('Parent\'s Name');
+    }
+    if (!phone || phone.trim() === '') {
+      missingParams.push('Phone Number');
+    }
+    if (!visitDate || visitDate.trim() === '') {
+      missingParams.push('Visit Date');
+    }
+    
+    return missingParams;
+  };
+
   const handleClick = async () => {
+    // Validate parameters before proceeding
+    const missingParams = validateParameters();
+    
+    if (missingParams.length > 0) {
+      alert(`Cannot send message. The following required information is missing:\n\n${missingParams.join('\n')}\n\nPlease update the lead information and try again.`);
+      return; // Stop execution, no API call
+    }
+
     setIsLoading(true);
     try {
       // API call to send WhatsApp message
