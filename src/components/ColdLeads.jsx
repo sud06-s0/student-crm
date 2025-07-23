@@ -2,18 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
   logAction,
-  logMeetingScheduled,
-  logVisitScheduled,
-  logWhatsAppMessage,
-  logManualEntry,
-  generateChangeDescription,
   logStageChange
 } from '../utils/historyLogger';
 import AddLeadForm from './AddLeadForm';
 import LeftSidebar from './LeftSidebar';
 import LeadSidebar from './LeadSidebar';
-import DeleteConfirmationDialog from './DeleteConfirmationDialog'; // ADD THIS IMPORT
+import DeleteConfirmationDialog from './DeleteConfirmationDialog';
 import { FilterButton, applyFilters } from './FilterDropdown';
+import { useLeadState } from './LeadStateProvider'; // ← ADD THIS IMPORT
 import { 
   Search,
   Filter,
@@ -27,11 +23,21 @@ import {
   AlertCircle,
   Loader2,
   RefreshCw,
-  Trash2 // ADD THIS IMPORT
+  Trash2
 } from 'lucide-react';
 
 const ColdLeads = () => {
-  const [selectedLead, setSelectedLead] = useState(null);
+  // ← USE CONTEXT INSTEAD OF LOCAL STATE
+  const { 
+    selectedLead, 
+    setSelectedLead, 
+    leadsData, 
+    setLeadsData,
+    updateCompleteLeadData,
+    getScoreFromStage,
+    getCategoryFromStage
+  } = useLeadState();
+
   const [showSidebar, setShowSidebar] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   
@@ -43,27 +49,27 @@ const ColdLeads = () => {
   // Stage dropdown states
   const [stageDropdownOpen, setStageDropdownOpen] = useState(null);
 
-  // Right-click edit functionality states
-  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, lead: null });
-  const [editLead, setEditLead] = useState(null);
-
   // Loading and error states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // DELETE FUNCTIONALITY - NEW STATES
+  // DELETE FUNCTIONALITY
   const [selectedLeads, setSelectedLeads] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Sidebar editing states
+  // Sidebar editing states - UPDATED WITH ALL FIELDS
   const [isEditingMode, setIsEditingMode] = useState(false);
   const [sidebarFormData, setSidebarFormData] = useState({
+    parentsName: '',
+    kidsName: '',
+    grade: '',
+    source: '',
     stage: '',
     offer: '',
     email: '',
-    phone: '', // ADD THIS FIELD
+    phone: '',
     occupation: '',
     location: '',
     currentSchool: '',
@@ -77,15 +83,14 @@ const ColdLeads = () => {
     enrolled: ''
   });
 
-  // Real data from Supabase (filtered for cold leads only)
-  const [leadsData, setLeadsData] = useState([]);
-  const [lastActivityData, setLastActivityData] = useState({}); // ADD THIS STATE
+  // Real data from Supabase (filtered for cold leads only) - REMOVED LOCAL leadsData
+  const [lastActivityData, setLastActivityData] = useState({});
 
   // Filter states
   const [showFilter, setShowFilter] = useState(false);
   const [counsellorFilters, setCounsellorFilters] = useState([]);
   const [stageFilters, setStageFilters] = useState([]);
-  const [statusFilters, setStatusFilters] = useState([]); // ADD THIS STATE
+  const [statusFilters, setStatusFilters] = useState([]);
 
   // Updated Stage options with new stages and colors
   const stages = [
@@ -113,7 +118,7 @@ const ColdLeads = () => {
     'Accessible Kit'
   ];
 
-  // DELETE FUNCTIONALITY - NEW FUNCTIONS
+  // DELETE FUNCTIONALITY
   const handleIndividualCheckboxChange = (leadId, checked) => {
     if (checked) {
       setSelectedLeads(prev => [...prev, leadId]);
@@ -182,40 +187,6 @@ const ColdLeads = () => {
     return leadsData.filter(lead => lead.stage === stageName).length;
   };
 
-  // Updated scoring system to match LeadsTable
-  const getScoreFromStage = (stage) => {
-    const scoreMap = {
-      'New Lead': 20,
-      'Connected': 30,
-      'Meeting Booked': 40,
-      'Meeting Done': 50,
-      'Proposal Sent': 60,
-      'Visit Booked': 70,
-      'Visit Done': 80,
-      'Registered': 90,
-      'Admission': 100,
-      'No Response': 0
-    };
-    return scoreMap[stage] || 20;
-  };
-
-  // Updated category mapping to match LeadsTable
-  const getCategoryFromStage = (stage) => {
-    const categoryMap = {
-      'New Lead': 'New',
-      'Connected': 'Warm',
-      'Meeting Booked': 'Warm',
-      'Meeting Done': 'Warm',
-      'Proposal Sent': 'Warm',
-      'Visit Booked': 'Hot',
-      'Visit Done': 'Hot',
-      'Registered': 'Hot',
-      'Admission': 'Enrolled',
-      'No Response': 'Cold'
-    };
-    return categoryMap[stage] || 'New';
-  };
-
   // Get stage color
   const getStageColor = (stage) => {
     const stageObj = stages.find(s => s.value === stage);
@@ -231,44 +202,24 @@ const ColdLeads = () => {
   };
 
   // Fetch last activity data for all leads - USING DATABASE VIEW (FASTEST)
-    const fetchLastActivityData = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('last_activity_by_lead')  // ← Use the database view
-          .select('*');
+  const fetchLastActivityData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('last_activity_by_lead')
+        .select('*');
 
-        if (error) throw error;
+      if (error) throw error;
 
-        // Simple processing - data is already grouped by database
-        const activityMap = {};
-        data.forEach(item => {
-          activityMap[item.record_id] = item.last_activity;
-        });
+      // Simple processing - data is already grouped by database
+      const activityMap = {};
+      data.forEach(item => {
+        activityMap[item.record_id] = item.last_activity;
+      });
 
-        setLastActivityData(activityMap);
-      } catch (error) {
-        console.error('Error fetching last activity data:', error);
-      }
-    };
-
-  // Calculate days since last activity
-  const getDaysSinceLastActivity = (leadId) => {
-    const lastActivity = lastActivityData[leadId];
-    if (!lastActivity) {
-      return 0;
+      setLastActivityData(activityMap);
+    } catch (error) {
+      console.error('Error fetching last activity data:', error);
     }
-    
-    const lastActivityDate = new Date(lastActivity);
-    const today = new Date();
-    const diffTime = today - lastActivityDate;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
-
-  // Check if lead needs alert (3+ days without activity)
-  const shouldShowAlert = (leadId) => {
-    const days = getDaysSinceLastActivity(leadId);
-    return days >= 3;
   };
 
   // Convert database record to UI format
@@ -343,21 +294,25 @@ const ColdLeads = () => {
       setLoading(true);
       setError(null);
       
-      const { data, error } = await supabase
-        .from('Leads')
-        .select('*')
-        .eq('category', 'Cold')
-        .order('id', { ascending: false }); // CHANGED TO DESC ORDER
+      // Make both API calls in parallel
+      const [leadsResponse, activityResponse] = await Promise.all([
+        supabase.from('Leads').select('*').eq('category', 'Cold').order('id', { ascending: false }),
+        supabase.from('last_activity_by_lead').select('*')
+      ]);
 
-      if (error) {
-        throw error;
-      }
+      if (leadsResponse.error) throw leadsResponse.error;
+      if (activityResponse.error) throw activityResponse.error;
 
-      const convertedData = data.map(convertDatabaseToUI);
+      // Process leads data
+      const convertedData = leadsResponse.data.map(convertDatabaseToUI);
       setLeadsData(convertedData);
       
-      // Also fetch last activity data
-      await fetchLastActivityData();
+      // Process activity data
+      const activityMap = {};
+      activityResponse.data.forEach(item => {
+        activityMap[item.record_id] = item.last_activity;
+      });
+      setLastActivityData(activityMap);
       
     } catch (error) {
       console.error('Error fetching cold leads:', error);
@@ -367,7 +322,7 @@ const ColdLeads = () => {
     }
   };
 
-  // REACTIVATE FUNCTIONALITY - KEEP UNCHANGED BUT REMOVE ALERT
+  // ← KEEP REACTIVATE FUNCTIONALITY
   const handleReactivate = async (leadId, previousStage) => {
     if (!previousStage) {
       alert('No previous stage found. Cannot reactivate this lead.');
@@ -408,7 +363,10 @@ const ColdLeads = () => {
 
   // Fetch cold leads on component mount
   useEffect(() => {
-    fetchColdLeads();
+    console.time('Cold leads page load time');
+    fetchColdLeads().then(() => {
+      console.timeEnd('Cold leads page load time');
+    });
   }, []);
 
   // Helper functions for styling
@@ -439,14 +397,18 @@ const ColdLeads = () => {
     return categoryMap[category] || "status-new";
   };
 
-  // Updated openSidebar function
   const openSidebar = (lead) => {
+    console.log('Opening sidebar for lead:', lead);
     setSelectedLead(lead);
     setSidebarFormData({
+      parentsName: lead.parentsName || '',
+      kidsName: lead.kidsName || '',
+      grade: lead.grade || '',
+      source: lead.source || 'Instagram',
       stage: lead.stage,
       offer: lead.offer || 'Welcome Kit',
       email: lead.email || '',
-      phone: lead.phone || '', // ADD PHONE FIELD
+      phone: lead.phone || '',
       occupation: lead.occupation || '',
       location: lead.location || '',
       currentSchool: lead.currentSchool || '',
@@ -471,18 +433,21 @@ const ColdLeads = () => {
 
   // Handle edit mode toggle
   const handleEditModeToggle = () => {
+    console.log('handleEditModeToggle called - current isEditingMode:', isEditingMode);
     setIsEditingMode(!isEditingMode);
+    console.log('handleEditModeToggle - new isEditingMode:', !isEditingMode);
   };
 
   // Handle form field changes
   const handleSidebarFieldChange = (field, value) => {
+    console.log('Field change:', field, value);
     setSidebarFormData(prev => ({
       ...prev,
       [field]: value
     }));
   };
 
-  // Handle stage change from sidebar - REMOVE ALERTS
+  // UPDATED: Handle stage change from sidebar with history logging
   const handleSidebarStageChange = async (leadId, newStage) => {
     try {
       const lead = leadsData.find(l => l.id === leadId);
@@ -490,12 +455,12 @@ const ColdLeads = () => {
       const updatedScore = getScoreFromStage(newStage);
       const updatedCategory = getCategoryFromStage(newStage);
       
-      // Log the stage change FIRST
+      // Log the stage change FIRST (before database update)
       if (oldStage !== newStage) {
         await logStageChange(leadId, oldStage, newStage, 'sidebar');
       }
 
-      // Prepare update data
+      // Update in database
       let updateData = { 
         stage: newStage, 
         score: updatedScore, 
@@ -523,7 +488,7 @@ const ColdLeads = () => {
         throw error;
       }
 
-      // Refresh activity data
+      // Refresh activity data after database update
       await fetchLastActivityData();
 
       // If the lead is no longer cold, remove from local state and close sidebar
@@ -538,6 +503,7 @@ const ColdLeads = () => {
             ? { ...lead, stage: newStage, score: updatedScore, category: updatedCategory }
             : lead
         );
+        
         setLeadsData(updatedLeads);
 
         // Update selected lead if it's the one being changed
@@ -557,17 +523,31 @@ const ColdLeads = () => {
     }
   };
 
-  // Handle update all fields - REMOVE ALERTS
+  // ← UPDATED: Handle update all fields function with context
   const handleUpdateAllFields = async () => {
     try {
+      console.log('handleUpdateAllFields called with sidebarFormData:', sidebarFormData);
+      
+      // Format phone number properly
+      let formattedPhone = sidebarFormData.phone;
+      if (formattedPhone && !formattedPhone.startsWith('+91')) {
+        // Remove any existing +91 and re-add it
+        formattedPhone = formattedPhone.replace(/^\+91/, '');
+        formattedPhone = `+91${formattedPhone}`;
+      }
+      
       // Prepare the update data
       const updateData = {
+        parents_name: sidebarFormData.parentsName,
+        kids_name: sidebarFormData.kidsName,
+        grade: sidebarFormData.grade,
+        source: sidebarFormData.source,
+        phone: formattedPhone,
         stage: sidebarFormData.stage,
         score: getScoreFromStage(sidebarFormData.stage),
         category: getCategoryFromStage(sidebarFormData.stage),
         offer: sidebarFormData.offer,
         email: sidebarFormData.email,
-        phone: sidebarFormData.phone, // ADD PHONE FIELD
         occupation: sidebarFormData.occupation,
         location: sidebarFormData.location,
         current_school: sidebarFormData.currentSchool,
@@ -596,6 +576,8 @@ const ColdLeads = () => {
         await logStageChange(selectedLead.id, oldStage, newStage, 'sidebar edit all');
       }
 
+      console.log('Database update data:', updateData);
+
       // Check if lead will remain cold after update
       const newCategory = getCategoryFromStage(sidebarFormData.stage);
       
@@ -609,7 +591,9 @@ const ColdLeads = () => {
         throw error;
       }
 
-      // Refresh activity data
+      console.log('Database update successful');
+
+      // Refresh activity data after any updates
       await fetchLastActivityData();
 
       // If lead is no longer cold, close sidebar and refresh
@@ -619,19 +603,15 @@ const ColdLeads = () => {
       } else {
         // Refresh the leads data
         await fetchColdLeads();
-
-        // Update selected lead
-        const updatedLead = {
-          ...selectedLead,
-          ...sidebarFormData,
-          score: getScoreFromStage(sidebarFormData.stage),
-          category: getCategoryFromStage(sidebarFormData.stage)
-        };
-        setSelectedLead(updatedLead);
       }
 
       // Exit edit mode
       setIsEditingMode(false);
+
+      // ← USE CONTEXT to update the lead state
+      updateCompleteLeadData(selectedLead.id, sidebarFormData);
+
+      console.log('Sidebar refresh completed successfully');
 
     } catch (error) {
       console.error('Error updating lead:', error);
@@ -645,7 +625,7 @@ const ColdLeads = () => {
     setStageDropdownOpen(stageDropdownOpen === leadId ? null : leadId);
   };
 
-  // Handle stage change from dropdown - REMOVE ALERTS
+  // UPDATED: Handle stage change from dropdown with history logging
   const handleStageChangeFromDropdown = async (e, leadId, newStage) => {
     e.stopPropagation();
     
@@ -655,12 +635,12 @@ const ColdLeads = () => {
       const updatedScore = getScoreFromStage(newStage);
       const updatedCategory = getCategoryFromStage(newStage);
       
-      // Log the stage change FIRST
+      // Log the stage change FIRST (before database update)
       if (oldStage !== newStage) {
         await logStageChange(leadId, oldStage, newStage, 'table dropdown');
       }
 
-      // Prepare update data
+      // Update in database
       let updateData = { 
         stage: newStage, 
         score: updatedScore, 
@@ -688,7 +668,7 @@ const ColdLeads = () => {
         throw error;
       }
 
-      // Refresh activity data
+      // Refresh activity data after database update
       await fetchLastActivityData();
 
       // If the lead is no longer cold, remove from local state
@@ -714,10 +694,9 @@ const ColdLeads = () => {
     }
   };
 
-  // UPDATED: Handle form submission with history logging
-    const handleAddLead = async (action = 'add') => {
-      await fetchLeads(); // This now includes activity data, no need for separate call
-    };
+  const handleAddLead = async (action = 'add') => {
+    await fetchColdLeads(); // Refresh leads data (already includes activity data)
+  };
 
   const handleShowAddForm = () => {
     setShowAddForm(true);
@@ -725,36 +704,11 @@ const ColdLeads = () => {
 
   const handleCloseAddForm = () => {
     setShowAddForm(false);
-    setEditLead(null);
   };
 
-  // Right-click context menu functionality
-  const handleRightClick = (e, lead) => {
-    e.preventDefault();
-    setContextMenu({
-      visible: true,
-      x: e.pageX,
-      y: e.pageY,
-      lead: lead
-    });
-  };
-
-  const handleEditLead = () => {
-    setEditLead(contextMenu.lead);
-    setShowAddForm(true);
-    setContextMenu({ visible: false, x: 0, y: 0, lead: null });
-  };
-
-  const handleCloseContextMenu = () => {
-    setContextMenu({ visible: false, x: 0, y: 0, lead: null });
-  };
-
-  // Close context menu when clicking elsewhere
+  // Close stage dropdown when clicking elsewhere
   useEffect(() => {
     const handleClickOutside = () => {
-      if (contextMenu.visible) {
-        handleCloseContextMenu();
-      }
       if (stageDropdownOpen) {
         setStageDropdownOpen(null);
       }
@@ -764,7 +718,7 @@ const ColdLeads = () => {
     return () => {
       document.removeEventListener('click', handleClickOutside);
     };
-  }, [contextMenu.visible, stageDropdownOpen]);
+  }, [stageDropdownOpen]);
 
   // Search functionality
   const handleSearchClick = () => {
@@ -795,11 +749,12 @@ const ColdLeads = () => {
     setShowSearch(false);
   };
 
-  // Determine which data to display
+  // Determine which data to display - ← FILTER FOR COLD LEADS ONLY
   const getDisplayLeads = () => {
-    let filtered = leadsData.filter(lead => lead.category === 'Cold'); // SAFETY FILTER
+    // ✅ FIRST: Filter for cold leads only
+    let filtered = leadsData.filter(lead => lead.category === 'Cold');
     
-    // Apply search first
+    // Apply search second
     if (searchTerm.trim() !== '') {
       filtered = filtered.filter(lead => 
         lead.parentsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -834,7 +789,7 @@ const ColdLeads = () => {
         <div className="nova-header">
           <div className="header-left">
             <h1>Cold Leads</h1>
-            <span className="total-count">Total Cold Leads {leadsData.length}</span>
+            <span className="total-count">Total Cold Leads {displayLeads.length}</span>
             
             {/* DELETE BUTTON - Shows when leads are selected */}
             {selectedLeads.length > 0 && (
@@ -890,10 +845,10 @@ const ColdLeads = () => {
               setShowFilter={setShowFilter}
               counsellorFilters={counsellorFilters}
               stageFilters={stageFilters}
-              statusFilters={statusFilters}
+              statusFilters={statusFilters}  
               setCounsellorFilters={setCounsellorFilters}
               setStageFilters={setStageFilters}
-              setStatusFilters={setStatusFilters}
+              setStatusFilters={setStatusFilters}  
             />
             <button className="add-lead-btn" onClick={handleShowAddForm}>
               + Add Lead
@@ -935,7 +890,6 @@ const ColdLeads = () => {
                 <th>Stage</th>
                 <th>Status</th>
                 <th>Counsellor</th>
-                <th>Alert</th>
                 <th>Reactivate</th>
               </tr>
             </thead>
@@ -945,7 +899,6 @@ const ColdLeads = () => {
                   <tr 
                     key={lead.id} 
                     onClick={() => openSidebar(lead)} 
-                    onContextMenu={(e) => handleRightClick(e, lead)}
                     className="table-row"
                   >
                     <td>
@@ -1076,13 +1029,6 @@ const ColdLeads = () => {
                       </div>
                     </td>
                     <td>
-                      {shouldShowAlert(lead.id) && (
-                        <div className="alert-badge">
-                          {getDaysSinceLastActivity(lead.id)}D
-                        </div>
-                      )}
-                    </td>
-                    <td>
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1109,8 +1055,8 @@ const ColdLeads = () => {
                 ))
               ) : !loading ? (
                 <tr>
-                  <td colSpan="10" className="no-data">
-                    {searchTerm ? 'No results found for your search.' : 'No cold leads available. Click + Add Lead to create your first lead!'}
+                  <td colSpan="9" className="no-data">
+                    {searchTerm ? 'No cold leads found for your search.' : 'No cold leads available. Cold leads will appear here when leads have no response.'}
                   </td>
                 </tr>
               ) : null}
@@ -1119,8 +1065,9 @@ const ColdLeads = () => {
         </div>
       </div>
 
-      {/* Lead Sidebar Component */}
+      {/* ← UPDATED: Lead Sidebar Component - removed onActionStatusUpdate prop */}
       <LeadSidebar
+        key={selectedLead?.id}
         showSidebar={showSidebar}
         selectedLead={selectedLead}
         isEditingMode={isEditingMode}
@@ -1147,18 +1094,6 @@ const ColdLeads = () => {
         leadsData={leadsData}
       />
 
-      {/* Context Menu */}
-      {contextMenu.visible && (
-        <div 
-          className="context-menu" 
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-        >
-          <div className="context-menu-item" onClick={handleEditLead}>
-            <Edit2 size={14} /> Edit
-          </div>
-        </div>
-      )}
-
       {/* Add Lead Form */}
       {showAddForm && (
         <AddLeadForm
@@ -1166,7 +1101,6 @@ const ColdLeads = () => {
           onClose={handleCloseAddForm}
           onSubmit={handleAddLead}
           existingLeads={leadsData}
-          editLead={editLead}
         />
       )}
     </div>

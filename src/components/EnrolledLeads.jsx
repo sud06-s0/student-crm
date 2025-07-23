@@ -4,8 +4,9 @@ import { logStageChange } from '../utils/historyLogger';
 import AddLeadForm from './AddLeadForm';
 import LeftSidebar from './LeftSidebar';
 import LeadSidebar from './LeadSidebar';
-import DeleteConfirmationDialog from './DeleteConfirmationDialog'; // Import the new component
+import DeleteConfirmationDialog from './DeleteConfirmationDialog';
 import { FilterButton, applyFilters } from './FilterDropdown';
+import { useLeadState } from './LeadStateProvider'; // ← ADD THIS IMPORT
 import { 
   Search,
   Filter,
@@ -27,11 +28,25 @@ import {
   Link,
   DollarSign,
   CheckCircle,
-  Trash2 // Add Trash2 icon
+  Trash2
 } from 'lucide-react';
 
 const EnrolledLeads = () => {
-  const [selectedLead, setSelectedLead] = useState(null);
+  // ← REPLACE THESE LINES WITH CONTEXT
+  // OLD: const [selectedLead, setSelectedLead] = useState(null);
+  // OLD: const [leadsData, setLeadsData] = useState([]);
+  
+  // NEW: Use the context hook instead of local state
+  const { 
+    selectedLead, 
+    setSelectedLead, 
+    leadsData, 
+    setLeadsData,
+    updateCompleteLeadData,
+    getScoreFromStage,
+    getCategoryFromStage
+  } = useLeadState();
+
   const [showSidebar, setShowSidebar] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   
@@ -42,10 +57,6 @@ const EnrolledLeads = () => {
 
   // Stage dropdown states
   const [stageDropdownOpen, setStageDropdownOpen] = useState(null);
-
-  // Right-click edit functionality states
-  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, lead: null });
-  const [editLead, setEditLead] = useState(null);
 
   // Loading and error states
   const [loading, setLoading] = useState(true);
@@ -60,6 +71,10 @@ const EnrolledLeads = () => {
   // Sidebar editing states - UPDATED
   const [isEditingMode, setIsEditingMode] = useState(false);
   const [sidebarFormData, setSidebarFormData] = useState({
+    parentsName: '',
+    kidsName: '',
+    grade: '',
+    source: '',
     stage: '',
     offer: '',
     email: '',
@@ -78,7 +93,6 @@ const EnrolledLeads = () => {
   });
 
   // Real data from Supabase
-  const [leadsData, setLeadsData] = useState([]);
   const [lastActivityData, setLastActivityData] = useState({});
 
   //Filter states
@@ -154,8 +168,6 @@ const EnrolledLeads = () => {
       setSelectAll(false);
       setShowDeleteDialog(false);
       
-      {/*alert(`Successfully deleted ${selectedLeads.length} lead${selectedLeads.length > 1 ? 's' : ''}!`);*/}
-      
     } catch (error) {
       console.error('Error deleting leads:', error);
       alert('Error deleting leads: ' + error.message);
@@ -179,40 +191,6 @@ const EnrolledLeads = () => {
     return leadsData.filter(lead => lead.stage === stageName).length;
   };
 
-  // Updated scoring system to match new stages
-  const getScoreFromStage = (stage) => {
-    const scoreMap = {
-      'New Lead': 20,
-      'Connected': 30,
-      'Meeting Booked': 40,
-      'Meeting Done': 50,
-      'Proposal Sent': 60,
-      'Visit Booked': 70,
-      'Visit Done': 80,
-      'Registered': 90,
-      'Admission': 100,
-      'No Response': 0
-    };
-    return scoreMap[stage] || 20;
-  };
-
-  // Updated category mapping to match new stages
-  const getCategoryFromStage = (stage) => {
-    const categoryMap = {
-      'New Lead': 'New',
-      'Connected': 'Warm',
-      'Meeting Booked': 'Warm',
-      'Meeting Done': 'Warm',
-      'Proposal Sent': 'Warm',
-      'Visit Booked': 'Hot',
-      'Visit Done': 'Hot',
-      'Registered': 'Hot',
-      'Admission': 'Enrolled',
-      'No Response': 'Cold'
-    };
-    return categoryMap[stage] || 'New';
-  };
-
   // Get stage color
   const getStageColor = (stage) => {
     const stageObj = stages.find(s => s.value === stage);
@@ -227,26 +205,27 @@ const EnrolledLeads = () => {
     return firstTwoWords.map(word => word.charAt(0).toUpperCase()).join('');
   };
 
-// Fetch last activity data for all leads - USING DATABASE VIEW (FASTEST)
-  const fetchLastActivityData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('last_activity_by_lead')  // ← Use the database view
-        .select('*');
+  
+  // Fetch last activity data for all leads - USING DATABASE VIEW (FASTEST)
+    const fetchLastActivityData = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('last_activity_by_lead')  // ← Use the database view
+          .select('*');
 
-      if (error) throw error;
+        if (error) throw error;
 
-      // Simple processing - data is already grouped by database
-      const activityMap = {};
-      data.forEach(item => {
-        activityMap[item.record_id] = item.last_activity;
-      });
+        // Simple processing - data is already grouped by database
+        const activityMap = {};
+        data.forEach(item => {
+          activityMap[item.record_id] = item.last_activity;
+        });
 
-      setLastActivityData(activityMap);
-    } catch (error) {
-      console.error('Error fetching last activity data:', error);
-    }
-  };
+        setLastActivityData(activityMap);
+      } catch (error) {
+        console.error('Error fetching last activity data:', error);
+      }
+    };
 
   // Calculate days since last activity
   const getDaysSinceLastActivity = (leadId) => {
@@ -334,7 +313,6 @@ const EnrolledLeads = () => {
     };
   };
 
-  
   // Fetch leads from Supabase - USING DATABASE VIEW (FASTEST)
     const fetchLeads = async () => {
       try {
@@ -368,14 +346,14 @@ const EnrolledLeads = () => {
         setLoading(false);
       }
     };
-        // Fetch leads on component mount
-      useEffect(() => {
-        console.time('Page load time');
-        fetchLeads().then(() => {
-          console.timeEnd('Page load time');
-        });
-      }, []);
 
+  // Fetch leads on component mount
+      useEffect(() => {
+      console.time('Page load time');
+      fetchLeads().then(() => {
+        console.timeEnd('Page load time');
+      });
+    }, []);
 
   // Helper functions for styling
   const getStageClass = (stage) => {
@@ -409,6 +387,10 @@ const EnrolledLeads = () => {
     console.log('Opening sidebar for lead:', lead);
     setSelectedLead(lead);
     setSidebarFormData({
+      parentsName: lead.parentsName || '',
+      kidsName: lead.kidsName || '',
+      grade: lead.grade || '',
+      source: lead.source || 'Instagram',
       stage: lead.stage,
       offer: lead.offer || 'Welcome Kit',
       email: lead.email || '',
@@ -523,19 +505,31 @@ const EnrolledLeads = () => {
     }
   };
 
-  // COMPLETE: Handle update all fields function
+  // ← UPDATED: Handle update all fields function with context
   const handleUpdateAllFields = async () => {
     try {
       console.log('handleUpdateAllFields called with sidebarFormData:', sidebarFormData);
       
+      // Format phone number properly
+      let formattedPhone = sidebarFormData.phone;
+      if (formattedPhone && !formattedPhone.startsWith('+91')) {
+        // Remove any existing +91 and re-add it
+        formattedPhone = formattedPhone.replace(/^\+91/, '');
+        formattedPhone = `+91${formattedPhone}`;
+      }
+      
       // Prepare the update data
       const updateData = {
+        parents_name: sidebarFormData.parentsName,
+        kids_name: sidebarFormData.kidsName,
+        grade: sidebarFormData.grade,
+        source: sidebarFormData.source,
+        phone: formattedPhone,
         stage: sidebarFormData.stage,
         score: getScoreFromStage(sidebarFormData.stage),
         category: getCategoryFromStage(sidebarFormData.stage),
         offer: sidebarFormData.offer,
         email: sidebarFormData.email,
-        phone: sidebarFormData.phone,
         occupation: sidebarFormData.occupation,
         location: sidebarFormData.location,
         current_school: sidebarFormData.currentSchool,
@@ -564,6 +558,8 @@ const EnrolledLeads = () => {
         await logStageChange(selectedLead.id, oldStage, newStage, 'sidebar edit all');
       }
 
+      console.log('Database update data:', updateData);
+
       // Update in database
       const { error } = await supabase
         .from('Leads')
@@ -574,6 +570,8 @@ const EnrolledLeads = () => {
         throw error;
       }
 
+      console.log('Database update successful');
+
       // Refresh activity data after any updates
       await fetchLastActivityData();
 
@@ -583,14 +581,10 @@ const EnrolledLeads = () => {
       // Exit edit mode
       setIsEditingMode(false);
 
-      // Update selected lead
-      const updatedLead = {
-        ...selectedLead,
-        ...sidebarFormData,
-        score: getScoreFromStage(sidebarFormData.stage),
-        category: getCategoryFromStage(sidebarFormData.stage)
-      };
-      setSelectedLead(updatedLead);
+      // ← USE CONTEXT to update the lead state instead of manual setState
+      updateCompleteLeadData(selectedLead.id, sidebarFormData);
+
+      console.log('Sidebar refresh completed successfully');
 
     } catch (error) {
       console.error('Error updating lead:', error);
@@ -668,10 +662,16 @@ const EnrolledLeads = () => {
     }
   };
 
-      // UPDATED: Handle form submission with history logging
-    const handleAddLead = async (action = 'add') => {
-      await fetchLeads(); // This now includes activity data, no need for separate call
-    };
+  
+  // UPDATED: Handle form submission with history logging
+   // FIXED VERSION:
+const handleAddLead = async (action = 'add') => {
+  await fetchLeads(); // Refresh leads data (already includes activity data)
+  
+  // The key={selectedLead?.id} prop on LeadSidebar will automatically
+  // handle refreshing the sidebar when the lead data changes.
+  // No need for manual selectedLead updates here.
+};
 
   const handleShowAddForm = () => {
     setShowAddForm(true);
@@ -679,36 +679,11 @@ const EnrolledLeads = () => {
 
   const handleCloseAddForm = () => {
     setShowAddForm(false);
-    setEditLead(null);
   };
 
-  // Right-click context menu functionality
-  const handleRightClick = (e, lead) => {
-    e.preventDefault();
-    setContextMenu({
-      visible: true,
-      x: e.pageX,
-      y: e.pageY,
-      lead: lead
-    });
-  };
-
-  const handleEditLead = () => {
-    setEditLead(contextMenu.lead);
-    setShowAddForm(true);
-    setContextMenu({ visible: false, x: 0, y: 0, lead: null });
-  };
-
-  const handleCloseContextMenu = () => {
-    setContextMenu({ visible: false, x: 0, y: 0, lead: null });
-  };
-
-  // Close context menu when clicking elsewhere
+  // Close stage dropdown when clicking elsewhere
   useEffect(() => {
     const handleClickOutside = () => {
-      if (contextMenu.visible) {
-        handleCloseContextMenu();
-      }
       if (stageDropdownOpen) {
         setStageDropdownOpen(null);
       }
@@ -718,7 +693,7 @@ const EnrolledLeads = () => {
     return () => {
       document.removeEventListener('click', handleClickOutside);
     };
-  }, [contextMenu.visible, stageDropdownOpen]);
+  }, [stageDropdownOpen]);
 
   // Search functionality
   const handleSearchClick = () => {
@@ -788,7 +763,7 @@ const EnrolledLeads = () => {
         <div className="nova-header">
           <div className="header-left">
             <h1>Enrolled Leads</h1>
-            <span className="total-count">Total Leads {leadsData.length}</span>
+            <span className="total-count">Enrolled Leads {leadsData.length}</span>
             
             {/* DELETE BUTTON - Shows when leads are selected */}
             {selectedLeads.length > 0 && (
@@ -898,7 +873,6 @@ const EnrolledLeads = () => {
                   <tr 
                     key={lead.id} 
                     onClick={() => openSidebar(lead)} 
-                    onContextMenu={(e) => handleRightClick(e, lead)}
                     className="table-row"
                   >
                     <td>
@@ -1040,7 +1014,7 @@ const EnrolledLeads = () => {
               ) : !loading ? (
                 <tr>
                   <td colSpan="9" className="no-data">
-                    {searchTerm ? 'No results found for your search.' : 'No leads available. Click + Add Lead to create your first lead!'}
+                    {searchTerm ? 'No enrolled leads found for your search.' : 'No enrolled leads available. Enrolled leads will appear here as they progress through the stages.'}
                   </td>
                 </tr>
               ) : null}
@@ -1049,8 +1023,9 @@ const EnrolledLeads = () => {
         </div>
       </div>
 
-      {/* Lead Sidebar Component */}
+      {/* ← UPDATED: Lead Sidebar Component - removed onActionStatusUpdate prop */}
       <LeadSidebar
+        key={selectedLead?.id}
         showSidebar={showSidebar}
         selectedLead={selectedLead}
         isEditingMode={isEditingMode}
@@ -1077,18 +1052,6 @@ const EnrolledLeads = () => {
         leadsData={leadsData}
       />
 
-      {/* Context Menu */}
-      {contextMenu.visible && (
-        <div 
-          className="context-menu" 
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-        >
-          <div className="context-menu-item" onClick={handleEditLead}>
-            <Edit2 size={14} /> Edit
-          </div>
-        </div>
-      )}
-
       {/* Add Lead Form */}
       {showAddForm && (
         <AddLeadForm
@@ -1096,7 +1059,6 @@ const EnrolledLeads = () => {
           onClose={handleCloseAddForm}
           onSubmit={handleAddLead}
           existingLeads={leadsData}
-          editLead={editLead}
         />
       )}
     </div>

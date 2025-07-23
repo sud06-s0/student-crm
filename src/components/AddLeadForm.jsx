@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import Stage1ActionButton from './Stage1ActionButton';
 import { 
-  logLeadCreated, 
-  logSpecificChanges
+  logLeadCreated
 } from '../utils/historyLogger';
 
-const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead = null }) => {
+const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
   const [formData, setFormData] = useState({
     id: 0, // Will be auto-generated for new leads
     parentsName: '',
@@ -26,27 +25,12 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
     createdTime: ''
   });
 
-  const [originalData, setOriginalData] = useState({});
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // Check if we're in edit mode
-  const isEditMode = editLead !== null;
-
-  // Pre-populate form data when editing
+  // Reset form when modal opens
   useEffect(() => {
-    if (isEditMode && editLead) {
-      const editData = {
-        ...editLead,
-        phone: editLead.phone.replace('+91', ''), // Remove +91 prefix for editing
-        email: editLead.email || '',
-        source: editLead.source || 'Instagram',
-        occupation: editLead.occupation || ''
-      };
-      setFormData(editData);
-      setOriginalData(editData);
-    } else {
-      // Reset form for new lead
+    if (isOpen) {
       const defaultData = {
         id: 0,
         parentsName: '',
@@ -66,11 +50,9 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
         createdTime: ''
       };
       setFormData(defaultData);
-      setOriginalData({});
+      setErrors({});
     }
-  }, [isEditMode, editLead]);
-
-  
+  }, [isOpen]);
 
   // Updated Stage options with new stages
   const stages = [
@@ -189,9 +171,9 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [], editLead =
     return dbData;
   };
 
-  //filter states
-const [showStage1Action, setShowStage1Action] = useState(false);
-const [newLeadData, setNewLeadData] = useState(null);
+  // Filter states for Stage1ActionButton
+  const [showStage1Action, setShowStage1Action] = useState(false);
+  const [newLeadData, setNewLeadData] = useState(null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -203,8 +185,6 @@ const [newLeadData, setNewLeadData] = useState(null);
       updatedFormData.score = getScoreFromStage(value);
       updatedFormData.category = getCategoryFromStage(value);
     }
-
-    
 
     // Format phone number
     if (name === 'phone') {
@@ -234,8 +214,6 @@ const [newLeadData, setNewLeadData] = useState(null);
       newErrors.email = 'Email is required';
     }
 
-   
-
     if (!formData.kidsName.trim()) {
       newErrors.kidsName = 'Kids Name is required';
     }
@@ -255,33 +233,13 @@ const [newLeadData, setNewLeadData] = useState(null);
       newErrors.email = 'Please enter a valid email address';
     }
 
-     //Counsellor Assign Check
+    // Counsellor Assign Check
     if (formData.counsellor === 'Assign Counsellor') {
-  newErrors.counsellor = 'Please select a counsellor';
-}
+      newErrors.counsellor = 'Please select a counsellor';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  // Helper function to log changes when editing
-  const logEditChanges = async (leadId, originalData, newData) => {
-    const changes = {};
-    
-    // Compare all fields and track changes
-    Object.keys(newData).forEach(field => {
-      if (originalData[field] !== newData[field]) {
-        changes[field] = {
-          oldValue: originalData[field],
-          newValue: newData[field]
-        };
-      }
-    });
-
-    // Use detailed logging for form updates (basic fields only)
-    if (Object.keys(changes).length > 0) {
-      await logSpecificChanges(leadId, originalData, newData);
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -297,83 +255,55 @@ const [newLeadData, setNewLeadData] = useState(null);
       // Convert form data to database format
       const dbData = convertFormToDatabase(formData);
 
-      if (isEditMode) {
-        // UPDATE existing lead
-        const { error } = await supabase
-          .from('Leads')
-          .update(dbData)
-          .eq('id', formData.id);
+      // INSERT new lead
+      const { data, error } = await supabase
+        .from('Leads')
+        .insert([dbData])
+        .select();
 
-        if (error) {
-          throw error;
-        }
-
-        // Log the changes
-        await logEditChanges(formData.id, originalData, formData);
-
-        console.log('✅ Lead updated successfully');
-        alert('✅ Lead updated successfully!');
-
-      } else {
-  // INSERT new lead
-  const { data, error } = await supabase
-    .from('Leads')
-    .insert([dbData])
-    .select();
-
-  if (error) {
-    throw error;
-  }
-
-  const newLeadId = data[0].id;
-
-  // Log the new lead creation
-  await logLeadCreated(newLeadId, formData);
-
-  console.log('✅ New lead created:', data);
-
-  onSubmit();
-  
-  // Trigger Stage 1 API call
-  setNewLeadData({
-    phone: `+91${formData.phone}`,
-    parentsName: formData.parentsName,
-    kidsName: formData.kidsName,
-    grade: formData.grade
-  });
-  setShowStage1Action(true);
-
-  alert('✅ New lead added successfully!');
-
-  return;
-}
-
-      // Call parent's onSubmit to refresh data
-      
-
-      // Reset form only if not in edit mode
-      if (!isEditMode) {
-        setFormData({
-          id: 0,
-          parentsName: '',
-          kidsName: '',
-          location: '',
-          phone: '',
-          email: '',
-          grade: 'LKG',
-          notes: '',
-          stage: 'New Lead',
-          category: 'New',
-          counsellor: 'Assign Counsellor',
-          score: 20,
-          source: 'Instagram',
-          occupation: '',
-          createdTime: ''
-        });
+      if (error) {
+        throw error;
       }
-      
-      // Close the form
-      onClose();
+
+      const newLeadId = data[0].id;
+
+      // Log the new lead creation
+      await logLeadCreated(newLeadId, formData);
+
+      console.log('✅ New lead created:', data);
+
+      // Trigger Stage 1 API call
+      setNewLeadData({
+        phone: `+91${formData.phone}`,
+        parentsName: formData.parentsName,
+        kidsName: formData.kidsName,
+        grade: formData.grade
+      });
+      setShowStage1Action(true);
+
+      // Call onSubmit to refresh parent data
+      onSubmit();
+
+      alert('✅ New lead added successfully!');
+
+      // Reset form
+      setFormData({
+        id: 0,
+        parentsName: '',
+        kidsName: '',
+        location: '',
+        phone: '',
+        email: '',
+        grade: 'LKG',
+        notes: '',
+        stage: 'New Lead',
+        category: 'New',
+        counsellor: 'Assign Counsellor',
+        score: 20,
+        source: 'Instagram',
+        occupation: '',
+        createdTime: ''
+      });
 
     } catch (error) {
       console.error('❌ Database error:', error);
@@ -394,29 +324,13 @@ const [newLeadData, setNewLeadData] = useState(null);
       <div className="modal-dialog">
         <div className="modal-content">
           <div className="modal-header">
-            <h5 className="modal-title">
-              {isEditMode ? 'Edit Lead' : 'Add New Lead'}
-            </h5>
+            <h5 className="modal-title">Add New Lead</h5>
             <button type="button" className="close-modal-btn" onClick={onClose}>×</button>
           </div>
           
           <form onSubmit={handleSubmit}>
             <div className="modal-body">
               <div className="row">
-                {/*
-                <div className="col-md-6 mb-3">
-                  <label className="form-label">
-                    {isEditMode ? 'ID' : 'ID (Auto-generated)'}
-                  </label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    value={isEditMode ? formData.id : 'Auto-generated'}
-                    readOnly
-                    style={{ backgroundColor: '#f8f9fa', fontWeight: 'bold' }}
-                  />
-                </div>*/}
-
                 {/* Parents Name */}
                 <div className="col-md-6 mb-3">
                   <label className="form-label">Parents Name *</label>
@@ -514,20 +428,6 @@ const [newLeadData, setNewLeadData] = useState(null);
                   </select>
                 </div>
 
-                {/* Occupation */}
-                {/*<div className="col-md-6 mb-3">
-                  <label className="form-label">Occupation</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    name="occupation"
-                    value={formData.occupation}
-                    onChange={handleInputChange}
-                    placeholder="Enter occupation"
-                    disabled={loading}
-                  />
-                </div>*/}
-
                 {/* Grade */}
                 <div className="col-md-6 mb-3">
                   <label className="form-label">Grade *</label>
@@ -581,79 +481,12 @@ const [newLeadData, setNewLeadData] = useState(null);
                       </option>
                     ))}
                   </select>
+                  {errors.counsellor && <div className="invalid-feedback">{errors.counsellor}</div>}
                 </div>
-{errors.counsellor && <div className="invalid-feedback">{errors.counsellor}</div>}
-
-
-               {/*
-                <div className="col-md-6 mb-3">
-                  <label className="form-label">Offer</label>
-                  <select
-                    className="form-select"
-                    name="offer"
-                    value={formData.offer}
-                    onChange={handleInputChange}
-                    disabled={loading}
-                  >
-                    {offers.map(offer => (
-                      <option key={offer} value={offer}>
-                        {offer}
-                      </option>
-                    ))}
-                  </select>
-                </div>*/}
-
-                {/* Score (Read-only, auto-calculated) */}
-                {/*<div className="col-md-6 mb-3">
-                  <label className="form-label">Score (Auto-calculated)</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    name="score"
-                    value={formData.score}
-                    readOnly
-                    style={{ backgroundColor: '#f8f9fa' }}
-                  />
-                </div>*/}
-
-                {/* Category (Read-only, auto-calculated) */}
-                {/*<div className="col-md-6 mb-3">
-                  <label className="form-label">Category (Auto-assigned)</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    name="category"
-                    value={formData.category}
-                    readOnly
-                    style={{ backgroundColor: '#f8f9fa' }}
-                  />
-                </div>*/}
-
-                {/* Notes */}
-                {/*<div className="col-12 mb-3">
-                  <label className="form-label">Notes</label>
-                  <textarea
-                    className="form-control"
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleInputChange}
-                    rows="3"
-                    placeholder="Enter any additional notes..."
-                    disabled={loading}
-                  ></textarea>
-                </div>*/}
               </div>
             </div>
             
             <div className="modal-footer">
-              {/*<button 
-                type="button" 
-                className="btn btn-secondary" 
-                onClick={onClose}
-                disabled={loading}
-              >
-                Cancel
-              </button>*/}
               <button 
                 type="submit" 
                 className="btn btn-primary lead-add"
@@ -661,30 +494,29 @@ const [newLeadData, setNewLeadData] = useState(null);
               >
                 {loading ? (
                   <>
-                    <span>⏳ {isEditMode ? 'Updating...' : 'Adding...'}</span>
+                    <span>⏳ Adding...</span>
                   </>
                 ) : (
-                  <span>{isEditMode ? 'Update Lead' : 'Add Lead'}</span>
+                  <span>Add Lead</span>
                 )}
               </button>
             </div>
           </form>
         </div>
       </div>
-      {console.log('🔍 AddLeadForm render - showStage1Action:', showStage1Action, 'newLeadData:', newLeadData)}
 
+      {/* Stage 1 Action Button Component */}
       {showStage1Action && newLeadData && (
-      <Stage1ActionButton
-        leadData={newLeadData}
-        onComplete={(success, error) => {
-          console.log(success ? '✅ Stage 1 API call completed' : '❌ Stage 1 API call failed:', error);
-          setShowStage1Action(false);
-          setNewLeadData(null);
-
-          onClose();
-        }}
-      />
-    )}
+        <Stage1ActionButton
+          leadData={newLeadData}
+          onComplete={(success, error) => {
+            console.log(success ? '✅ Stage 1 API call completed' : '❌ Stage 1 API call failed:', error);
+            setShowStage1Action(false);
+            setNewLeadData(null);
+            onClose();
+          }}
+        />
+      )}
     </>
   );
 };
