@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
   logAction,
@@ -24,6 +24,19 @@ import Stage6ActionButton from './Stage6ActionButton';
 import Stage7ActionButton from './Stage7ActionButton';
 import Stage8ActionButton from './Stage8ActionButton';
 import Stage9ActionButton from './Stage9ActionButton';
+
+// Add debounce utility
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
 
 // Helper to check if date is today
 const isToday = (dateString) => {
@@ -108,63 +121,68 @@ const LeadSidebar = ({
 }, [selectedLead]);
 
   // Handle status updates from action buttons
-  const handleStatusUpdate = async (stageField, newStatus) => {
-    setStageStatuses(prev => ({
-      ...prev,
-      [stageField]: newStatus
-    }));
+        const handleStatusUpdate = async (stageField, newStatus) => {
+        setStageStatuses(prev => ({
+          ...prev,
+          [stageField]: newStatus
+        }));
 
-    try {
-      const { data, error } = await supabase
-        .from('Leads')
-        .update({ [stageField]: newStatus })
-        .eq('id', selectedLead.id);
+        try {
+          const { data, error } = await supabase
+            .from('Leads')
+            .update({ [stageField]: newStatus })
+            .eq('id', selectedLead.id);
 
-      if (error) throw error;
-      
-      // Log the WhatsApp message action
-      const stageNames = {
-        'stage2_status': 'Stage 2 - Connected',
-        'stage3_status': 'Stage 3 - Meeting Booked',
-        'stage4_status': 'Stage 4 - Meeting Done',
-        'stage5_status': 'Stage 5 - Proposal Sent',
-        'stage6_status': 'Stage 6 - Visit Booked',
-        'stage7_status': 'Stage 7 - Visit Done',
-        'stage8_status': 'Stage 8 - Registered',
-        'stage9_status': 'Stage 9 - Enrolled'
+          if (error) throw error;
+          
+          // Log the WhatsApp message action in background
+          const stageNames = {
+            'stage2_status': 'Stage 2 - Connected',
+            'stage3_status': 'Stage 3 - Meeting Booked',
+            'stage4_status': 'Stage 4 - Meeting Done',
+            'stage5_status': 'Stage 5 - Proposal Sent',
+            'stage6_status': 'Stage 6 - Visit Booked',
+            'stage7_status': 'Stage 7 - Visit Done',
+            'stage8_status': 'Stage 8 - Registered',
+            'stage9_status': 'Stage 9 - Enrolled'
+          };
+          
+          // Don't wait for logging - do it in background
+          logWhatsAppMessage(selectedLead.id, stageField, stageNames[stageField]);
+          
+          // Only refresh history if user is viewing history tab
+          if (activeTab === 'history') {
+            fetchHistory();
+          }
+          
+        } catch (error) {
+          setStageStatuses(prev => ({
+            ...prev,
+            [stageField]: ''
+          }));
+          alert(`Failed to update status: ${error.message}`);
+        }
       };
-      
-      await logWhatsAppMessage(selectedLead.id, stageField, stageNames[stageField]);
-      
-      // Refresh history
-      fetchHistory();
-      
-    } catch (error) {
-      setStageStatuses(prev => ({
-        ...prev,
-        [stageField]: ''
-      }));
-      alert(`Failed to update status: ${error.message}`);
-    }
-  };
 
   // New History
-  const fetchHistory = async () => {
-    if (!selectedLead?.id) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('logs')
-        .select('*')
-        .eq('record_id', selectedLead.id.toString())
-        .order('action_timestamp', { ascending: false });
+      const fetchHistory = async () => {
+      if (!selectedLead?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('logs')
+          .select('*')
+          .eq('record_id', selectedLead.id.toString())
+          .order('action_timestamp', { ascending: false })
+          .limit(50); // Only get recent 50 entries
 
-      if (error) throw error;
-      setHistoryData(data || []);
-    } catch (error) {
-      console.error('Error fetching history:', error);
-    }
-  };
+        if (error) throw error;
+        setHistoryData(data || []);
+      } catch (error) {
+        console.error('Error fetching history:', error);
+      }
+    };
+
 
   const handleManualHistoryUpdate = async () => {
     if (!manualAction.trim() || !manualDetails.trim()) {
@@ -197,7 +215,10 @@ const LeadSidebar = ({
         await onStageChange(selectedLead.id, newStage);
         
         // Refresh history
-        fetchHistory();
+        // Only refresh history if user is viewing history tab
+        if (activeTab === 'history') {
+          fetchHistory();
+        }
       }
     } catch (error) {
       console.error('Error updating stage:', error);
@@ -295,11 +316,12 @@ const handleUpdateAllFields = async () => {
   }, [stageDropdownOpen]);
 
   // Add this new useEffect
-  useEffect(() => {
-    if (selectedLead?.id) {
-      fetchHistory();
-    }
-  }, [selectedLead?.id]);
+  // Only fetch history when History tab is active
+    useEffect(() => {
+      if (selectedLead?.id && activeTab === 'history') {
+        fetchHistory();
+      }
+    }, [selectedLead?.id, activeTab]);
 
   if (!showSidebar) return null;
 

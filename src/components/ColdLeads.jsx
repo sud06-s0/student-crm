@@ -230,30 +230,26 @@ const ColdLeads = () => {
     return firstTwoWords.map(word => word.charAt(0).toUpperCase()).join('');
   };
 
-  // ADD LAST ACTIVITY DATA FUNCTIONS
-  const fetchLastActivityData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('logs')
-        .select('record_id, action_timestamp')
-        .order('action_timestamp', { ascending: false });
+  // Fetch last activity data for all leads - USING DATABASE VIEW (FASTEST)
+    const fetchLastActivityData = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('last_activity_by_lead')  // ← Use the database view
+          .select('*');
 
-      if (error) throw error;
+        if (error) throw error;
 
-      // Group by record_id and get the latest timestamp
-      const activityMap = {};
-      data.forEach(log => {
-        const leadId = log.record_id;
-        if (!activityMap[leadId] || new Date(log.action_timestamp) > new Date(activityMap[leadId])) {
-          activityMap[leadId] = log.action_timestamp;
-        }
-      });
+        // Simple processing - data is already grouped by database
+        const activityMap = {};
+        data.forEach(item => {
+          activityMap[item.record_id] = item.last_activity;
+        });
 
-      setLastActivityData(activityMap);
-    } catch (error) {
-      console.error('Error fetching last activity data:', error);
-    }
-  };
+        setLastActivityData(activityMap);
+      } catch (error) {
+        console.error('Error fetching last activity data:', error);
+      }
+    };
 
   // Calculate days since last activity
   const getDaysSinceLastActivity = (leadId) => {
@@ -718,11 +714,10 @@ const ColdLeads = () => {
     }
   };
 
-  // Handle form submission (refresh data after add/edit)
-  const handleAddLead = async (action = 'add') => {
-    await fetchColdLeads();
-    await fetchLastActivityData();
-  };
+  // UPDATED: Handle form submission with history logging
+    const handleAddLead = async (action = 'add') => {
+      await fetchLeads(); // This now includes activity data, no need for separate call
+    };
 
   const handleShowAddForm = () => {
     setShowAddForm(true);

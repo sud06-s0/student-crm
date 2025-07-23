@@ -171,7 +171,7 @@ const Dashboard = () => {
 
       {/* Main Dashboard Content */}
       <div className="nova-main">
-        <OverviewDashboard leadsData={leadsData} />
+        <OverviewDashboard />
       </div>
     </div>
   );

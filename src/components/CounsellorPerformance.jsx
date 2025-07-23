@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { supabase } from '../lib/supabase';
 import { 
   GraduationCap, 
   Trophy,
@@ -15,20 +16,111 @@ import registeredIcon from '../assets/icons/registered.png';
 import enrolledIcon from '../assets/icons/enrolled.png';
 import topPerformerIcon from '../assets/icons/top-performer.png'; // Add this line
 
-
-
-const CounsellorPerformance = ({ leadsData = [] }) => {
+const CounsellorPerformance = () => {
+  // ALL STATE HOOKS FIRST
+  const [leadsData, setLeadsData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
     fromDate: '',
     toDate: '',
     isActive: false
   });
+  const [selectedMetric, setSelectedMetric] = useState('enrolled');
+
+  // Convert database record to UI format
+  const convertDatabaseToUI = (dbRecord) => {
+    let meetingDate = '';
+    let meetingTime = '';
+    let visitDate = '';
+    let visitTime = '';
+
+    if (dbRecord.meet_datetime) {
+      const meetDateTime = new Date(dbRecord.meet_datetime);
+      meetingDate = meetDateTime.toISOString().split('T')[0];
+      meetingTime = meetDateTime.toTimeString().slice(0, 5);
+    }
+
+    if (dbRecord.visit_datetime) {
+      const visitDateTime = new Date(dbRecord.visit_datetime);
+      visitDate = visitDateTime.toISOString().split('T')[0];
+      visitTime = visitDateTime.toTimeString().slice(0, 5);
+    }
+
+    return {
+      id: dbRecord.id,
+      parentsName: dbRecord.parents_name,
+      kidsName: dbRecord.kids_name,
+      phone: dbRecord.phone,
+      location: dbRecord.location,
+      grade: dbRecord.grade,
+      stage: dbRecord.stage,
+      score: dbRecord.score,
+      category: dbRecord.category,
+      counsellor: dbRecord.counsellor,
+      offer: dbRecord.offer,
+      notes: dbRecord.notes,
+      email: dbRecord.email || '',
+      occupation: dbRecord.occupation || '',
+      source: dbRecord.source || 'Instagram',
+      currentSchool: dbRecord.current_school || '',
+      meetingDate: meetingDate,
+      meetingTime: meetingTime,
+      meetingLink: dbRecord.meet_link || '',
+      visitDate: visitDate,
+      visitTime: visitTime,
+      visitLocation: dbRecord.visit_location || '',
+      registrationFees: dbRecord.reg_fees || '',
+      enrolled: dbRecord.enrolled || '',
+      stage2_status: dbRecord.stage2_status || '',
+      stage3_status: dbRecord.stage3_status || '',
+      stage4_status: dbRecord.stage4_status || '',
+      stage5_status: dbRecord.stage5_status || '',
+      stage6_status: dbRecord.stage6_status || '',
+      stage7_status: dbRecord.stage7_status || '',
+      stage8_status: dbRecord.stage8_status || '',
+      stage9_status: dbRecord.stage9_status || '',
+      previousStage: dbRecord.previous_stage || '',
+      createdTime: new Date(dbRecord.created_at).toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      }).replace(',', '')
+    };
+  };
+
+  // Fetch leads function
+  const fetchLeads = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('Leads')
+        .select('*')
+        .order('id', { ascending: true });
+
+      if (error) throw error;
+
+      const convertedData = data.map(convertDatabaseToUI);
+      setLeadsData(convertedData);
+    } catch (error) {
+      console.error('Error fetching leads:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // USEEFFECT AFTER ALL STATE HOOKS
+  useEffect(() => {
+    fetchLeads();
+  }, []);
 
   // Get current date for max date validation
   const currentDate = new Date().toISOString().split('T')[0];
-  const [selectedMetric, setSelectedMetric] = useState('enrolled');
 
-
+  // ALL USEMEMO HOOKS TOGETHER
   // Filter leads by date range
   const getFilteredLeadsByDate = useMemo(() => {
     if (!Array.isArray(leadsData) || leadsData.length === 0) {
@@ -110,13 +202,29 @@ const CounsellorPerformance = ({ leadsData = [] }) => {
 
   // Prepare bar chart data
   const barChartData = useMemo(() => {
-  return counsellorData.map(counsellor => ({
-    name: counsellor.name.split(' ')[0],
-    value: counsellor[selectedMetric],
-    fullName: counsellor.name,
-    metric: selectedMetric
-  }));
-}, [counsellorData, selectedMetric]);
+    return counsellorData.map(counsellor => ({
+      name: counsellor.name.split(' ')[0],
+      value: counsellor[selectedMetric],
+      fullName: counsellor.name,
+      metric: selectedMetric
+    }));
+  }, [counsellorData, selectedMetric]);
+
+  // LOADING CHECK AFTER ALL HOOKS
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontSize: '18px',
+        color: '#666'
+      }}>
+        Loading counsellor performance...
+      </div>
+    );
+  }
 
   // Handle date filter submission
   const handleSubmit = () => {
@@ -326,19 +434,18 @@ const CounsellorPerformance = ({ leadsData = [] }) => {
               <h3 className="counsellor-chart-title">Success Rate by Counsellor</h3>
 
               {/*Dropdown for stages*/}
-
-                          <div className="counsellor-chart-controls">
-              <select 
-                value={selectedMetric}
-                onChange={(e) => setSelectedMetric(e.target.value)}
-                className="counsellor-metric-dropdown"
-              >
-                <option value="meetingsDone">Meetings Done</option>
-                <option value="visitsDone">Visits Done</option>
-                <option value="registered">Registered</option>
-                <option value="enrolled">Enrolled</option>
-              </select>
-            </div>
+              <div className="counsellor-chart-controls">
+                <select 
+                  value={selectedMetric}
+                  onChange={(e) => setSelectedMetric(e.target.value)}
+                  className="counsellor-metric-dropdown"
+                >
+                  <option value="meetingsDone">Meetings Done</option>
+                  <option value="visitsDone">Visits Done</option>
+                  <option value="registered">Registered</option>
+                  <option value="enrolled">Enrolled</option>
+                </select>
+              </div>
               
               {barChartData.length > 0 ? (
                 <>

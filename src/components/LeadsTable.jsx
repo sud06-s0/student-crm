@@ -227,30 +227,27 @@ const LeadsTable = () => {
     return firstTwoWords.map(word => word.charAt(0).toUpperCase()).join('');
   };
 
-  // Fetch last activity data for all leads
-  const fetchLastActivityData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('logs')
-        .select('record_id, action_timestamp')
-        .order('action_timestamp', { ascending: false });
+  
+  // Fetch last activity data for all leads - USING DATABASE VIEW (FASTEST)
+    const fetchLastActivityData = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('last_activity_by_lead')  // ← Use the database view
+          .select('*');
 
-      if (error) throw error;
+        if (error) throw error;
 
-      // Group by record_id and get the latest timestamp
-      const activityMap = {};
-      data.forEach(log => {
-        const leadId = log.record_id;
-        if (!activityMap[leadId] || new Date(log.action_timestamp) > new Date(activityMap[leadId])) {
-          activityMap[leadId] = log.action_timestamp;
-        }
-      });
+        // Simple processing - data is already grouped by database
+        const activityMap = {};
+        data.forEach(item => {
+          activityMap[item.record_id] = item.last_activity;
+        });
 
-      setLastActivityData(activityMap);
-    } catch (error) {
-      console.error('Error fetching last activity data:', error);
-    }
-  };
+        setLastActivityData(activityMap);
+      } catch (error) {
+        console.error('Error fetching last activity data:', error);
+      }
+    };
 
   // Calculate days since last activity
   const getDaysSinceLastActivity = (leadId) => {
@@ -338,39 +335,47 @@ const LeadsTable = () => {
     };
   };
 
-  // Fetch leads from Supabase
-  const fetchLeads = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const { data, error } = await supabase
-        .from('Leads')
-        .select('*')
-        .order('id', { ascending: false });
+  // Fetch leads from Supabase - USING DATABASE VIEW (FASTEST)
+    const fetchLeads = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Make both API calls in parallel using the fast view
+        const [leadsResponse, activityResponse] = await Promise.all([
+          supabase.from('Leads').select('*').order('id', { ascending: false }),
+          supabase.from('last_activity_by_lead').select('*')  // ← Use the view
+        ]);
 
-      if (error) {
-        throw error;
+        if (leadsResponse.error) throw leadsResponse.error;
+        if (activityResponse.error) throw activityResponse.error;
+
+        // Process leads data
+        const convertedData = leadsResponse.data.map(convertDatabaseToUI);
+        setLeadsData(convertedData);
+        
+        // Process activity data (super fast now)
+        const activityMap = {};
+        activityResponse.data.forEach(item => {
+          activityMap[item.record_id] = item.last_activity;
+        });
+        setLastActivityData(activityMap);
+        
+      } catch (error) {
+        console.error('Error fetching leads:', error);
+        setError(error.message);
+      } finally {
+        setLoading(false);
       }
-
-      const convertedData = data.map(convertDatabaseToUI);
-      setLeadsData(convertedData);
-      
-      // Also fetch last activity data
-      await fetchLastActivityData();
-      
-    } catch (error) {
-      console.error('Error fetching leads:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
   // Fetch leads on component mount
-  useEffect(() => {
-    fetchLeads();
-  }, []);
+      useEffect(() => {
+      console.time('Page load time');
+      fetchLeads().then(() => {
+        console.timeEnd('Page load time');
+      });
+    }, []);
 
   // Helper functions for styling
   const getStageClass = (stage) => {
@@ -663,11 +668,11 @@ const LeadsTable = () => {
     }
   };
 
+  
   // UPDATED: Handle form submission with history logging
-  const handleAddLead = async (action = 'add') => {
-    await fetchLeads();
-    await fetchLastActivityData();
-  };
+    const handleAddLead = async (action = 'add') => {
+      await fetchLeads(); // This now includes activity data, no need for separate call
+    };
 
   const handleShowAddForm = () => {
     setShowAddForm(true);
