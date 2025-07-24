@@ -4,7 +4,7 @@ import OverviewDashboard from './OverviewDashboard';
 import LeftSidebar from './LeftSidebar'; // If you want to include sidebar
 import { Play } from 'lucide-react'; // If you're using lucide icons
 
-const Dashboard = () => {
+const Dashboard = ({ onLogout, user }) => {
   const [leadsData, setLeadsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -167,6 +167,8 @@ const Dashboard = () => {
         getStageCount={getStageCount}
         stagesTitle="Stages"
         stagesIcon={Play}
+        onLogout={onLogout}
+        user={user}
       />
 
       {/* Main Dashboard Content */}

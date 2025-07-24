@@ -31,7 +31,7 @@ import {
   Trash2
 } from 'lucide-react';
 
-const WarmLeads = () => {
+const WarmLeads = ({ onLogout, user }) => {
   // ← REPLACE THESE LINES WITH CONTEXT
   // OLD: const [selectedLead, setSelectedLead] = useState(null);
   // OLD: const [leadsData, setLeadsData] = useState([]);
@@ -754,6 +754,8 @@ const handleAddLead = async (action = 'add') => {
         getStageCount={getStageCount}
         stagesTitle="Stages"
         stagesIcon={Play}
+        onLogout={onLogout}
+        user={user}
       />
 
       {/* Main Content */}

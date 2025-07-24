@@ -26,7 +26,7 @@ import {
   Trash2
 } from 'lucide-react';
 
-const ColdLeads = () => {
+const ColdLeads = ({ onLogout, user }) => {
   // ← USE CONTEXT INSTEAD OF LOCAL STATE
   const { 
     selectedLead, 
@@ -781,6 +781,8 @@ const ColdLeads = () => {
         getStageCount={getStageCount}
         stagesTitle="Cold Stages"
         stagesIcon={RefreshCw}
+        onLogout={onLogout}
+        user={user}
       />
 
       {/* Main Content */}

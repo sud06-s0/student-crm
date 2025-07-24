@@ -16,7 +16,7 @@ import registeredIcon from '../assets/icons/registered.png';
 import enrolledIcon from '../assets/icons/enrolled.png';
 import topPerformerIcon from '../assets/icons/top-performer.png'; // Add this line
 
-const CounsellorPerformance = () => {
+const CounsellorPerformance = ({ onLogout, user }) => {
   // ALL STATE HOOKS FIRST
   const [leadsData, setLeadsData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -278,6 +278,8 @@ const CounsellorPerformance = () => {
           getStageCount={() => 0}
           stagesTitle="Performance"
           stagesIcon={BarChart3}
+          onLogout={onLogout}
+          user={user}
         />
 
         {/* Main Content */}
@@ -303,6 +305,8 @@ const CounsellorPerformance = () => {
         getStageCount={() => 0}
         stagesTitle="Performance"
         stagesIcon={BarChart3}
+        onLogout={onLogout}
+        user={user}
       />
 
       {/* Main Content */}

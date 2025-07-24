@@ -237,10 +237,11 @@ const OverviewDashboard = () => {
       const count = filteredLeads.filter(lead => lead.stage === stage).length;
       // Calculate proportional width based on count relative to total leads
         const minWidth = 120;
-        const maxWidth = 350;
-        const normalizedValue = Math.sqrt(count / totalLeads);
+        const maxWidth = 550;
+        const percentage = totalLeads > 0 ? (count / totalLeads) * 100 : 0;
         const widthPx = totalLeads > 0 ? 
-          minWidth + (normalizedValue * (maxWidth - minWidth)) : minWidth;
+        minWidth + ((percentage / 100) * (maxWidth - minWidth)) : minWidth;
+
       
       return {
         stage,
@@ -516,7 +517,7 @@ const OverviewDashboard = () => {
                     style={{ 
                       backgroundColor: color,
                       width: `${widthPx}px`,
-                      maxWidth: '350px',
+                      maxWidth: '550px',
                       minWidth: '120px'
                     }}
                   >
