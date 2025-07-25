@@ -2402,3 +2402,641 @@
     font-size: 24px;
   }
 }
+
+/* Settings Container */
+.settings-container {
+  width: 100%;
+  padding: 24px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #f8fafc;
+  min-height: 100vh;
+}
+
+/* Header */
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.settings-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+/* Section Styling */
+.settings-section {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+
+.settings-section h2 {
+  margin: 0;
+  padding: 20px 24px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.settings-section-content {
+  padding: 24px;
+}
+
+/* School Profile Styling */
+.settings-school-profile {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.settings-logo-section {
+  flex-shrink: 0;
+}
+
+.settings-logo-placeholder {
+  width: 180px;
+  height: auto;
+  margin-top:25px;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.settings-profile-fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-field-group label {
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
+}
+
+.settings-field-group input,
+.settings-field-group select {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.settings-field-group input:focus,
+.settings-field-group select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.settings-field-row {
+  display: flex;
+  gap: 24px;
+}
+
+.settings-year-inputs,
+.settings-grade-inputs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-year-inputs input,
+.settings-grade-inputs select {
+  flex: 1;
+  min-width: 120px;
+}
+
+.settings-year-inputs span,
+.settings-grade-inputs span {
+  font-weight: 500;
+  color: #6b7280;
+}
+
+/* Table Styling */
+.settings-table-container {
+  overflow-x: auto;
+}
+
+.settings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.settings-table th,
+.settings-table td {
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.settings-table th {
+  background-color: #f9fafb;
+  font-weight: 600;
+  color: #374151;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.settings-table td {
+  color: #6b7280;
+  vertical-align: middle;
+}
+
+.settings-move-icon {
+  color: #9ca3af;
+  cursor: grab;
+}
+
+.settings-move-icon:active {
+  cursor: grabbing;
+}
+
+/* Mandatory Toggle */
+.settings-mandatory-toggle {
+  background: none;
+  border: 1px solid #d1d5db;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-mandatory-toggle:hover {
+  background-color: #f3f4f6;
+}
+
+.settings-mandatory-toggle.active {
+  background-color: #10b981;
+  border-color: #10b981;
+  color: white;
+}
+
+.settings-mandatory-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Remove Button */
+.settings-remove-btn {
+  background: none;
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-remove-btn:hover {
+  background-color: #ef4444;
+  color: white;
+}
+
+/* Stage Name Badge */
+.settings-stage-name-badge {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #1f2937;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  min-width: 120px;
+  text-align: center;
+}
+
+.settings-stage-status {
+  background-color: #e5e7eb;
+  color: #374151;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Edit Button */
+.settings-edit-btn {
+  background: none;
+  border: 1px solid #d1d5db;
+  color: #6b7280;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-edit-btn:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+/* Add Custom Section */
+.settings-add-custom-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.settings-add-custom-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.settings-add-btn {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+}
+
+.settings-add-btn:hover {
+  background-color: #2563eb;
+}
+
+/* List Section */
+.settings-list-section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.settings-add-new-section {
+  display: flex;
+  align-items: center;
+}
+
+.settings-add-new-btn {
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  padding: 10px 16px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.settings-add-new-btn:hover {
+  background-color: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.settings-add-input-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-add-input-group input {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  min-width: 200px;
+}
+
+.settings-submit-btn {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+}
+
+.settings-submit-btn:hover {
+  background-color: #059669;
+}
+
+.settings-cancel-btn {
+  background: none;
+  border: 1px solid #d1d5db;
+  color: #6b7280;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-cancel-btn:hover {
+  background-color: #f3f4f6;
+}
+
+/* List Items */
+.settings-list-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.settings-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-item-label {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.settings-item-value {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.settings-item-content input {
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.settings-item-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Footer */
+.settings-footer {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 32px;
+}
+
+.settings-update-btn {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 16px;
+  transition: background-color 0.2s ease;
+}
+
+.settings-update-btn:hover {
+  background-color: #059669;
+}
+
+/* Modal Styling */
+.settings-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.settings-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  z-index: 1001;
+  width: 90%;
+  max-width: 500px;
+}
+
+.settings-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.settings-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.settings-modal-close {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.settings-modal-close:hover {
+  background-color: #f3f4f6;
+}
+
+.settings-modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-checkbox-group {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.settings-checkbox-group input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+}
+
+.settings-modal-footer {
+  padding: 20px 24px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-modal-submit {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+}
+
+.settings-modal-submit:hover {
+  background-color: #2563eb;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .settings-container {
+    padding: 16px;
+  }
+  
+  .settings-school-profile {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .settings-field-row {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .settings-year-inputs,
+  .settings-grade-inputs {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .settings-year-inputs input,
+  .settings-grade-inputs select {
+    width: 100%;
+  }
+  
+  .settings-table-container {
+    overflow-x: scroll;
+  }
+  
+  .settings-list-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .settings-item-actions {
+    flex-direction: row;
+    align-self: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .settings-section-content {
+    padding: 16px;
+  }
+  
+  .settings-add-input-group {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .settings-add-input-group input {
+    min-width: unset;
+  }
+}
+
+.settings-move-btn {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-move-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.settings-move-btn:disabled {
+  cursor: not-allowed;
+}

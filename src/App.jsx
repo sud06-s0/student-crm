@@ -9,6 +9,8 @@ import EnrolledLeads from './components/EnrolledLeads';
 import Dashboard from './components/Dashboard'; 
 import CounsellorPerformance from './components/CounsellorPerformance';
 import Login from './components/Login';
+import SettingsPage from './components/SettingsPage';
+
 import { authService } from './services/authService';
 
 function App() {
@@ -87,6 +89,9 @@ function App() {
 
   return (
     <Router>
+      {/* 🔍 DEBUG COMPONENT - Shows user info when logged in */}
+      {/*<AccessDebug user={user} />*/}
+      
       {!user ? (
         <Login onLogin={handleLogin} />
       ) : (
@@ -118,6 +123,8 @@ function App() {
               path="/enrolled" 
               element={<EnrolledLeads onLogout={handleLogout} user={user} />} 
             />
+
+           
             {/* Only show counsellor performance to admins */}
             {user.role === 'admin' && (
               <Route 
@@ -132,6 +139,23 @@ function App() {
                 element={<Navigate to="/all-leads" replace />} 
               />
             )}
+            
+            {/* Only show settings to admins */}
+            {user.role === 'admin' && (
+              <Route 
+                path="/settings" 
+                element={<SettingsPage onLogout={handleLogout} user={user} />} 
+              />
+            )}
+            {/* Redirect unauthorized users */}
+            {user.role !== 'admin' && (
+              <Route 
+                path="/settings" 
+                element={<Navigate to="/all-leads" replace />} 
+              />
+            )}
+                     
+
           </Routes>
         </LeadStateProvider>
       )}

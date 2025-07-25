@@ -20,17 +20,20 @@ import {
 const LeftSidebar = ({ 
   activeNavItem = "leads", 
   activeSubmenuItem = "all",
-  onLogout,  // Add this prop
-  user       // Add this prop to get user info
+  onLogout,  
+  user       
 }) => {
   
+  // Check if user is admin
+  const isAdmin = user?.role === 'admin';
+  
   const handleLogout = async (e) => {
-    e.preventDefault(); // Prevent default link behavior
+    e.preventDefault();
     
     if (window.confirm('Are you sure you want to logout?')) {
       try {
         console.log('Logout initiated from sidebar');
-        await onLogout(); // Call the logout function from parent
+        await onLogout();
       } catch (error) {
         console.error('Logout failed:', error);
         alert('Logout failed. Please try again.');
@@ -58,23 +61,28 @@ const LeftSidebar = ({
         </a>
       </div>
 
-      {/* User Info (Optional - shows current logged in user) */}
+      {/* User Info */}
       {user && (
         <div className="nova-user-info" style={{
           padding: '10px 15px',
           marginBottom: '20px',
-          backgroundColor: '#f8f9fa',
+          backgroundColor: isAdmin ? '#fee2e2' : '#dbeafe', // Different color for admin vs user
           borderRadius: '8px',
-          border: '1px solid #e9ecef'
+          border: `1px solid ${isAdmin ? '#fecaca' : '#bfdbfe'}`
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <User size={16} style={{ color: '#6c757d' }} />
+            <User size={16} style={{ color: isAdmin ? '#dc2626' : '#2563eb' }} />
             <div>
               <div style={{ fontSize: '14px', fontWeight: '500', color: '#495057' }}>
                 {user.full_name || user.email}
               </div>
-              <div style={{ fontSize: '12px', color: '#6c757d', textTransform: 'capitalize' }}>
-                {user.role}
+              <div style={{ 
+                fontSize: '12px', 
+                color: isAdmin ? '#dc2626' : '#2563eb', 
+                textTransform: 'capitalize',
+                fontWeight: '500'
+              }}>
+                {user.role} {isAdmin}
               </div>
             </div>
           </div>
@@ -91,13 +99,16 @@ const LeftSidebar = ({
           Dashboard
         </a>
         
-        <a 
-          href="/counsellor-performance" 
-          className={`nova-nav-item ${activeNavItem === "counsellor" ? "active" : ""}`}
-        >
-          <TrendingUp size={18} className="nav-icon" />
-          Counsellor Performance
-        </a>
+        {/* ADMIN ONLY: Counsellor Performance */}
+        {isAdmin && (
+          <a 
+            href="/counsellor-performance" 
+            className={`nova-nav-item ${activeNavItem === "counsellor" ? "active" : ""}`}
+          >
+            <TrendingUp size={18} className="nav-icon" />
+            Counsellor Performance
+          </a>
+        )}
         
         <a 
           href="https://www.app.aisensy.com/projects/680f28f6e0cc850c02c34bb8/history" 
@@ -155,17 +166,19 @@ const LeftSidebar = ({
         </div>
       </div>
 
-      {/* Settings */}
+      {/* ADMIN ONLY: Settings */}
       <div className="nova-settings">
-        <a 
-          href="/settings" 
-          className={`nova-nav-item ${activeNavItem === "settings" ? "active" : ""}`}
-        >
-          <Settings size={18} className="nav-icon" />
-          Settings
-        </a>
+        {isAdmin && (
+          <a 
+            href="/settings" 
+            className={`nova-nav-item ${activeNavItem === "settings" ? "active" : ""}`}
+          >
+            <Settings size={18} className="nav-icon" />
+            Settings
+          </a>
+        )}
         
-        {/* Updated Logout - now calls the logout function */}
+        {/* Logout - available to all users */}
         <button 
           onClick={handleLogout}
           className={`nova-nav-item ${activeNavItem === "logout" ? "active" : ""}`}
