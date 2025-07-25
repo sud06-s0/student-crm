@@ -13,7 +13,6 @@ import {
 import LeftSidebar from './LeftSidebar';
 import { settingsService } from '../services/settingsService';
 
-
 const SettingsPage = ({ onLogout, user }) => {
   // Database states
   const [settingsData, setSettingsData] = useState({
@@ -21,16 +20,17 @@ const SettingsPage = ({ onLogout, user }) => {
     grades: [],
     counsellors: [],
     sources: [],
+    form_fields: [],
     school: {}
   });
 
-const [showStageEditModal, setShowStageEditModal] = useState(false);
-const [editingStage, setEditingStage] = useState({
-  id: null,
-  name: '',
-  color: '',
-  status: ''
-});
+  const [showStageEditModal, setShowStageEditModal] = useState(false);
+  const [editingStage, setEditingStage] = useState({
+    id: null,
+    name: '',
+    color: '',
+    status: ''
+  });
   
   // Loading states
   const [loading, setLoading] = useState(true);
@@ -43,22 +43,12 @@ const [editingStage, setEditingStage] = useState({
     academicYearTo: ''
   });
 
-  // Lead Form Fields State (keeping this local for now as requested)
-  const [leadFormFields, setLeadFormFields] = useState([
-    { id: 1, fieldName: 'Parent Name', fieldType: 'Single Line Text', mandatory: true, isDefault: true },
-    { id: 2, fieldName: 'Phone Number', fieldType: 'Single Line Phone', mandatory: true, isDefault: true },
-    { id: 3, fieldName: 'Email', fieldType: 'Single Line Email', mandatory: true, isDefault: true },
-    { id: 4, fieldName: 'Kid Name', fieldType: 'Single Line Text', mandatory: true, isDefault: true },
-    { id: 5, fieldName: 'Admission for Class', fieldType: 'Drop down List', mandatory: true, isDefault: true },
-    { id: 6, fieldName: 'Source of this Lead', fieldType: 'Drop down List', mandatory: true, isDefault: true }
-  ]);
-
   // Custom Fields Modal State
   const [showCustomFieldModal, setShowCustomFieldModal] = useState(false);
   const [customFieldData, setCustomFieldData] = useState({
     fieldName: '',
     fieldType: 'text',
-    mandatory: false
+    
   });
 
   // New item input states
@@ -80,52 +70,52 @@ const [editingStage, setEditingStage] = useState({
   ];
 
   // Stage editing functions
-const handleEditStage = (stage) => {
-  setEditingStage({
-    id: stage.id,
-    name: stage.name,
-    color: stage.color || '#B3D7FF',
-    status: stage.status || 'New'
-  });
-  setShowStageEditModal(true);
-};
-
-const handleUpdateStage = async () => {
-  try {
-    await settingsService.updateItem(editingStage.id, editingStage.name, {
-      color: editingStage.color,
-      status: editingStage.status,
-      score: 20,
-      category: 'New'
+  const handleEditStage = (stage) => {
+    setEditingStage({
+      id: stage.id,
+      name: stage.name,
+      color: stage.color || '#B3D7FF',
+      status: stage.status || 'New'
     });
-    await loadSettings();
-    setShowStageEditModal(false);
-    alert('Stage updated successfully!');
-  } catch (error) {
-    console.error('Error updating stage:', error);
-    alert('Error updating stage: ' + error.message);
-  }
-};
+    setShowStageEditModal(true);
+  };
 
-const moveStageUp = async (stageId) => {
-  try {
-    await settingsService.moveStage(stageId, 'up');
-    await loadSettings();
-  } catch (error) {
-    console.error('Error moving stage:', error);
-    alert('Error moving stage: ' + error.message);
-  }
-};
+  const handleUpdateStage = async () => {
+    try {
+      await settingsService.updateItem(editingStage.id, editingStage.name, {
+        color: editingStage.color,
+        status: editingStage.status,
+        score: 20,
+        category: 'New'
+      });
+      await loadSettings();
+      setShowStageEditModal(false);
+      alert('Stage updated successfully!');
+    } catch (error) {
+      console.error('Error updating stage:', error);
+      alert('Error updating stage: ' + error.message);
+    }
+  };
 
-const moveStageDown = async (stageId) => {
-  try {
-    await settingsService.moveStage(stageId, 'down');
-    await loadSettings();
-  } catch (error) {
-    console.error('Error moving stage:', error);
-    alert('Error moving stage: ' + error.message);
-  }
-};
+  const moveStageUp = async (stageId) => {
+    try {
+      await settingsService.moveStage(stageId, 'up');
+      await loadSettings();
+    } catch (error) {
+      console.error('Error moving stage:', error);
+      alert('Error moving stage: ' + error.message);
+    }
+  };
+
+  const moveStageDown = async (stageId) => {
+    try {
+      await settingsService.moveStage(stageId, 'down');
+      await loadSettings();
+    } catch (error) {
+      console.error('Error moving stage:', error);
+      alert('Error moving stage: ' + error.message);
+    }
+  };
 
   // Load data from database
   const loadSettings = async () => {
@@ -161,39 +151,183 @@ const moveStageDown = async (stageId) => {
     }));
   };
 
-  // Handle custom field modal (keeping this local for now)
-  const handleAddCustomField = () => {
+  // FORM FIELDS CRUD OPERATIONS
+  const addNewFormField = async () => {
     if (customFieldData.fieldName.trim()) {
-      const newField = {
-        id: Date.now(),
-        fieldName: customFieldData.fieldName,
-        fieldType: fieldTypeOptions.find(opt => opt.value === customFieldData.fieldType)?.label || 'Text',
-        mandatory: customFieldData.mandatory,
-        isDefault: false
-      };
-      
-      setLeadFormFields(prev => [...prev, newField]);
-      setCustomFieldData({ fieldName: '', fieldType: 'text', mandatory: false });
-      setShowCustomFieldModal(false);
+      try {
+        // Check custom fields count (only the 5 additional ones)
+        const customFieldsCount = await settingsService.getCustomFormFieldsCount();
+        
+        if (customFieldsCount >= 5) {
+          alert('Maximum 5 additional custom fields allowed!');
+          return;
+        }
+              
+        const fieldTypeLabel = fieldTypeOptions.find(opt => opt.value === customFieldData.fieldType)?.label || 'Text';
+        
+        await settingsService.createItem('form_fields', customFieldData.fieldName, {
+          field_type: fieldTypeLabel,
+          mandatory: customFieldData.mandatory,
+          is_default: false,
+          is_custom: true
+        });
+              
+        await loadSettings();
+        setCustomFieldData({ fieldName: '', fieldType: 'text', mandatory: false });
+        setShowCustomFieldModal(false);
+        alert('Form field added successfully!');
+      } catch (error) {
+        console.error('Error adding form field:', error);
+        alert('Error adding form field: ' + error.message);
+      }
     }
   };
 
-  // Handle field mandatory toggle
-  const toggleFieldMandatory = (fieldId) => {
-    setLeadFormFields(prev => 
-      prev.map(field => 
-        field.id === fieldId && !field.isDefault
-          ? { ...field, mandatory: !field.mandatory }
-          : field
-      )
-    );
+  // Toggle stage status
+  const toggleStageStatus = async (stageId) => {
+    try {
+      await settingsService.toggleItemStatus(stageId);
+      await loadSettings();
+      alert('Stage status updated successfully!');
+    } catch (error) {
+      console.error('Error updating stage status:', error);
+      alert('Error updating stage status: ' + error.message);
+    }
   };
 
-  // Handle remove custom field
-  const removeCustomField = (fieldId) => {
-    setLeadFormFields(prev => 
-      prev.filter(field => field.id !== fieldId || field.isDefault)
-    );
+  // Toggle form field status (only for custom fields)
+  const toggleFormFieldStatus = async (fieldId) => {
+    try {
+      await settingsService.toggleItemStatus(fieldId);
+      await loadSettings();
+      alert('Field status updated successfully!');
+    } catch (error) {
+      console.error('Error updating field status:', error);
+      alert('Error updating field status: ' + error.message);
+    }
+  };
+
+  // Add state for dropdown options
+  const [showDropdownOptionsModal, setShowDropdownOptionsModal] = useState(false);
+  const [dropdownOptions, setDropdownOptions] = useState(['']);
+  const [editingFieldId, setEditingFieldId] = useState(null);
+
+  // Handle dropdown options
+  const handleDropdownOptionsChange = (index, value) => {
+    const newOptions = [...dropdownOptions];
+    newOptions[index] = value;
+    setDropdownOptions(newOptions);
+  };
+
+  const addDropdownOption = () => {
+    setDropdownOptions([...dropdownOptions, '']);
+  };
+
+  const removeDropdownOption = (index) => {
+    if (dropdownOptions.length > 1) {
+      const newOptions = dropdownOptions.filter((_, i) => i !== index);
+      setDropdownOptions(newOptions);
+    }
+  };
+
+  const saveDropdownOptions = async () => {
+    try {
+      const field = settingsData.form_fields.find(f => f.id === editingFieldId);
+      const validOptions = dropdownOptions.filter(opt => opt.trim() !== '');
+      
+      if (validOptions.length === 0) {
+        alert('Please add at least one option');
+        return;
+      }
+
+      await settingsService.updateItem(editingFieldId, field.name, {
+        field_type: field.field_type,
+        mandatory: field.mandatory,
+        is_default: field.is_default || false,
+        dropdown_options: validOptions
+      });
+      
+      await loadSettings();
+      setShowDropdownOptionsModal(false);
+      setDropdownOptions(['']);
+      setEditingFieldId(null);
+      alert('Dropdown options updated successfully!');
+    } catch (error) {
+      console.error('Error updating dropdown options:', error);
+      alert('Error updating dropdown options: ' + error.message);
+    }
+  };
+
+  const openDropdownOptionsModal = (fieldId) => {
+    const field = settingsData.form_fields.find(f => f.id === fieldId);
+    setEditingFieldId(fieldId);
+    setDropdownOptions(field.dropdown_options || ['']);
+    setShowDropdownOptionsModal(true);
+  };
+
+  const toggleFieldMandatory = async (fieldId) => {
+    try {
+      const field = settingsData.form_fields.find(f => f.id === fieldId);
+      if (field && settingsService.canChangeMandatoryStatus(field.name)) {
+        await settingsService.updateItem(fieldId, field.name, {
+          field_type: field.field_type,
+          mandatory: !field.mandatory,
+          is_default: field.is_default || false,
+          dropdown_options: field.dropdown_options
+        });
+        await loadSettings();
+        alert('Field updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error updating field:', error);
+      alert('Error updating field: ' + error.message);
+    }
+  };
+
+  const removeCustomField = async (fieldId) => {
+    const field = settingsData.form_fields.find(f => f.id === fieldId);
+    if (field && settingsService.isFieldDeletable(field.name)) {
+      if (window.confirm('Are you sure you want to delete this field?')) {
+        try {
+          await settingsService.deleteItem(fieldId);
+          await loadSettings();
+          alert('Field deleted successfully!');
+        } catch (error) {
+          console.error('Error deleting field:', error);
+          alert('Error deleting field: ' + error.message);
+        }
+      }
+    }
+  };
+
+  // Toggle field name editing
+  const toggleFieldNameEdit = (id) => {
+    setEditingItems(prev => ({
+      ...prev,
+      [`field_name_${id}`]: !prev[`field_name_${id}`]
+    }));
+  };
+
+  // Handle field name change
+  const handleFieldNameChange = async (id, newName) => {
+    try {
+      const field = settingsData.form_fields.find(f => f.id === id);
+      await settingsService.updateItem(id, newName, {
+        field_type: field.field_type,
+        mandatory: field.mandatory,
+        is_default: field.is_default || false,
+        dropdown_options: field.dropdown_options
+      });
+      await loadSettings();
+      setEditingItems(prev => ({
+        ...prev,
+        [`field_name_${id}`]: false
+      }));
+      alert('Field name updated successfully!');
+    } catch (error) {
+      console.error('Error updating field name:', error);
+      alert('Error updating field name: ' + error.message);
+    }
   };
 
   // COUNSELLORS CRUD OPERATIONS
@@ -412,16 +546,17 @@ const moveStageDown = async (stageId) => {
                 <div className="settings-logo-section">
                   <div className="settings-logo-placeholder">
                     <img 
-                                src={novalogo} 
-                                alt="NOVA International School" 
-                                className="logo-image"
-                                style={{
-                                  width: '100%',
-                                  maxWidth: '180px',
-                                  height: 'auto',
-                                  marginBottom: '20px',
-                                  cursor: 'pointer'
-                                }}/>
+                      src={novalogo} 
+                      alt="NOVA International School" 
+                      className="logo-image"
+                      style={{
+                        width: '100%',
+                        maxWidth: '180px',
+                        height: 'auto',
+                        marginBottom: '20px',
+                        cursor: 'pointer'
+                      }}
+                    />
                   </div>
                 </div>
                 <div className="settings-profile-fields">
@@ -457,9 +592,32 @@ const moveStageDown = async (stageId) => {
                   </div>
                 </div>
               </div>
-            </div>
+              {/* Update Button */}
+          <div className="settings-footer">
+            <button 
+              className="settings-update-btn" 
+              onClick={handleSaveSettings}
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Check size={16} />
+                  Update School Profile
+                </>
+              )}
+            </button>
           </div>
-
+            </div>
+            
+          </div>
+           
+           {/*Two column section*/}
+           <div className='settings-two-column-row'>                    
           {/* Lead Form Fields Section */}
           <div className="settings-section">
             <h2>Lead Form Fields</h2>
@@ -468,42 +626,102 @@ const moveStageDown = async (stageId) => {
                 <table className="settings-table">
                   <thead>
                     <tr>
-                      <th>Move</th>
                       <th>Field Name</th>
                       <th>Field Type</th>
                       <th>Mandatory</th>
-                      <th></th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {leadFormFields.map((field) => (
-                      <tr key={field.id}>
-                        <td>
-                          <ArrowUpDown size={16} className="settings-move-icon" />
-                        </td>
-                        <td>{field.fieldName}</td>
-                        <td>{field.fieldType}</td>
-                        <td>
-                          <button
-                            className={`settings-mandatory-toggle ${field.mandatory ? 'active' : ''}`}
-                            onClick={() => toggleFieldMandatory(field.id)}
-                            disabled={field.isDefault}
-                          >
-                            {field.mandatory ? <Check size={16} /> : <X size={16} />}
-                          </button>
-                        </td>
-                        <td>
-                          {!field.isDefault && (
-                            <button
-                              className="settings-remove-btn"
-                              onClick={() => removeCustomField(field.id)}
-                            >
-                              <X size={16} />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {settingsData.form_fields.map((field) => {
+                      const isSuperConstant = settingsService.isSuperConstantField(field.name);
+                      const isConstant = settingsService.isConstantField(field.name);
+                      const isCustom = settingsService.isCustomField(field.name);
+                      
+                      return (
+                        <tr key={field.id} style={{ opacity: (isCustom && !field.is_active) ? 0.5 : 1 }}>
+                          <td>
+                            {editingItems[`field_name_${field.id}`] && (isConstant || isCustom) ? (
+                              <input
+                                type="text"
+                                defaultValue={field.name}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleFieldNameChange(field.id, e.target.value);
+                                  }
+                                }}
+                                onBlur={(e) => handleFieldNameChange(field.id, e.target.value)}
+                              />
+                            ) : (
+                              <span>{field.name}</span>
+                            )}
+                            {field.field_type === 'Dropdown' && field.dropdown_options && (
+                              <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                                Options: {field.dropdown_options.join(', ')}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {field.field_type}
+                            {field.field_type === 'Dropdown' && isCustom && field.is_active && (
+                              <button
+                                className="settings-edit-dropdown-btn"
+                                onClick={() => openDropdownOptionsModal(field.id)}
+                                style={{ marginLeft: '8px', fontSize: '12px', padding: '2px 6px' }}
+                              >
+                                Edit Options
+                              </button>
+                            )}
+                          </td>
+                          <td>
+                              {settingsService.canChangeMandatoryStatus(field.name) ? (
+                                <button
+                                  className={`settings-mandatory-toggle ${field.mandatory ? 'active' : ''}`}
+                                  onClick={() => toggleFieldMandatory(field.id)}
+                                >
+                                  {field.mandatory ? <Check size={16} /> : <X size={16} />}
+                                </button>
+                              ) : (
+                                <span style={{ color: '#999', fontSize: '14px' }}>N/A</span>
+                              )}
+                            </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              {/* ON/OFF Toggle - Only for custom fields */}
+                              {isCustom && (
+                                <button
+                                  className={`settings-toggle-btn ${field.is_active ? 'active' : 'inactive'}`}
+                                  onClick={() => toggleFormFieldStatus(field.id)}
+                                >
+                                  {field.is_active ? 'ON' : 'OFF'}
+                                </button>
+                              )}
+                              
+                              {/* Edit Name Button - For constant and custom fields */}
+                              {(isConstant || isCustom) && (
+                                <button 
+                                  className="settings-edit-btn"
+                                  onClick={() => toggleFieldNameEdit(field.id)}
+                                  disabled={isCustom && !field.is_active}
+                                >
+                                  <Edit size={16} />
+                                </button>
+                              )}
+                              
+                              {/* Delete Button - Only for custom fields */}
+                              {isCustom && (
+                                <button
+                                  className="settings-remove-btn"
+                                  onClick={() => removeCustomField(field.id)}
+                                >
+                                  <X size={16} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
                 
@@ -521,122 +739,135 @@ const moveStageDown = async (stageId) => {
             </div>
           </div>
 
+                  
           {/* Lead Stages Section */}
-{/* Lead Stages Section */}
-<div className="settings-section">
-  <h2>Lead Stages</h2>
-  <div className="settings-section-content">
-    <div className="settings-table-container">
-      <table className="settings-table">
-        <thead>
-          <tr>
-            <th>Move</th>
-            <th>Stage Name</th>
-            <th>Status</th>
-            <th>Edit</th>
-          </tr>
-        </thead>
-        <tbody>
-          {settingsData.stages.map((stage, index) => (
-            <tr key={stage.id}>
-              <td>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    className="settings-move-btn"
-                    onClick={() => moveStageUp(stage.id)}
-                    disabled={index === 0}
-                    style={{ opacity: index === 0 ? 0.3 : 1 }}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    className="settings-move-btn"
-                    onClick={() => moveStageDown(stage.id)}
-                    disabled={index === settingsData.stages.length - 1}
-                    style={{ opacity: index === settingsData.stages.length - 1 ? 0.3 : 1 }}
-                  >
-                    ↓
-                  </button>
-                </div>
-              </td>
-              <td>
-                <div 
-                  className="settings-stage-name-badge"
-                  style={{ backgroundColor: stage.color }}
-                >
-                  {stage.name}
-                </div>
-              </td>
-              <td>
-                <span className="settings-stage-status">{stage.status || 'New'}</span>
-              </td>
-              <td>
-                <button 
-                  className="settings-edit-btn"
-                  onClick={() => handleEditStage(stage)}
-                >
-                  <Edit size={16} />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
+          <div className="settings-section">
+            <h2>Lead Stages</h2>
+            <div className="settings-section-content">
+              <div className="settings-table-container">
+                <table className="settings-table">
+                  <thead>
+                    <tr>
+                      <th>Move</th>
+                      <th>Stage Name</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {settingsData.stages.map((stage, index) => (
+                      <tr key={stage.id} style={{ opacity: stage.is_active ? 1 : 0.5 }}>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              className="settings-move-btn"
+                              onClick={() => moveStageUp(stage.id)}
+                              disabled={index === 0 || !stage.is_active}
+                              style={{ opacity: (index === 0 || !stage.is_active) ? 0.3 : 1 }}
+                            >
+                              ↑
+                            </button>
+                            <button
+                              className="settings-move-btn"
+                              onClick={() => moveStageDown(stage.id)}
+                              disabled={index === settingsData.stages.length - 1 || !stage.is_active}
+                              style={{ opacity: (index === settingsData.stages.length - 1 || !stage.is_active) ? 0.3 : 1 }}
+                            >
+                              ↓
+                            </button>
+                          </div>
+                        </td>
+                        <td>
+                          <div 
+                            className="settings-stage-name-badge"
+                            style={{ backgroundColor: stage.color }}
+                          >
+                            {stage.name}
+                          </div>
+                        </td>
+                        <td>
+                          <span className="settings-stage-status">{stage.status || 'New'}</span>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              className={`settings-toggle-btn ${stage.is_active ? 'active' : 'inactive'}`}
+                              onClick={() => toggleStageStatus(stage.id)}
+                            >
+                              {stage.is_active ? 'ON' : 'OFF'}
+                            </button>
+                            <button 
+                              className="settings-edit-btn"
+                              onClick={() => handleEditStage(stage)}
+                              disabled={!stage.is_active}
+                            >
+                              <Edit size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-  {/* Stage Edit Modal */}
-{showStageEditModal && (
-  <>
-    <div className="settings-modal-overlay" onClick={() => setShowStageEditModal(false)}></div>
-    <div className="settings-modal">
-      <div className="settings-modal-header">
-        <h3>Edit Stage</h3>
-        <button 
-          className="settings-modal-close"
-          onClick={() => setShowStageEditModal(false)}
-        >
-          <X size={20} />
-        </button>
-      </div>
-      <div className="settings-modal-body">
-        <div className="settings-field-group">
-          <label>Stage Name</label>
-          <input
-            type="text"
-            value={editingStage.name}
-            onChange={(e) => setEditingStage(prev => ({ ...prev, name: e.target.value }))}
-          />
-        </div>
-        <div className="settings-field-group">
-          <label>Status</label>
-          <input
-            type="text"
-            value={editingStage.status}
-            onChange={(e) => setEditingStage(prev => ({ ...prev, status: e.target.value }))}
-          />
-        </div>
-        <div className="settings-field-group">
-          <label>Color</label>
-          <input
-            type="color"
-            value={editingStage.color}
-            onChange={(e) => setEditingStage(prev => ({ ...prev, color: e.target.value }))}
-          />
-        </div>
-      </div>
-      <div className="settings-modal-footer">
-        <button 
-          className="settings-modal-submit"
-          onClick={handleUpdateStage}
-        >
-          Update Stage
-        </button>
-      </div>
-    </div>
-  </>
-)}
-</div>
+            {/* Stage Edit Modal */}
+            {showStageEditModal && (
+              <>
+                <div className="settings-modal-overlay" onClick={() => setShowStageEditModal(false)}></div>
+                <div className="settings-modal">
+                  <div className="settings-modal-header">
+                    <h3>Edit Stage</h3>
+                    <button 
+                      className="settings-modal-close"
+                      onClick={() => setShowStageEditModal(false)}
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                  <div className="settings-modal-body">
+                    <div className="settings-field-group">
+                      <label>Stage Name</label>
+                      <input
+                        type="text"
+                        value={editingStage.name}
+                        onChange={(e) => setEditingStage(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="settings-field-group">
+                      <label>Status</label>
+                      <input
+                        type="text"
+                        value={editingStage.status}
+                        onChange={(e) => setEditingStage(prev => ({ ...prev, status: e.target.value }))}
+                      />
+                    </div>
+                    <div className="settings-field-group">
+                      <label>Color</label>
+                      <input
+                        type="color"
+                        value={editingStage.color}
+                        onChange={(e) => setEditingStage(prev => ({ ...prev, color: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-modal-footer">
+                    <button 
+                      className="settings-modal-submit"
+                      onClick={handleUpdateStage}
+                    >
+                      Update Stage
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          </div> 
+
+           {/* Two column section */}
+           <div className='settings-two-column-row'>
           {/* Counsellors Section */}
           <div className="settings-section">
             <h2>Counsellors</h2>
@@ -885,27 +1116,9 @@ const moveStageDown = async (stageId) => {
               </div>
             </div>
           </div>
+          </div> 
 
-          {/* Update Button */}
-          <div className="settings-footer">
-            <button 
-              className="settings-update-btn" 
-              onClick={handleSaveSettings}
-              disabled={saving}
-            >
-              {saving ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Check size={16} />
-                  Update my CRM
-                </>
-              )}
-            </button>
-          </div>
+          
 
           {/* Custom Field Modal */}
           {showCustomFieldModal && (
@@ -946,23 +1159,71 @@ const moveStageDown = async (stageId) => {
                     </select>
                   </div>
                   
-                  <div className="settings-field-group settings-checkbox-group">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={customFieldData.mandatory}
-                        onChange={(e) => setCustomFieldData(prev => ({ ...prev, mandatory: e.target.checked }))}
-                      />
-                      Mandatory
-                    </label>
-                  </div>
+                  
                 </div>
                 <div className="settings-modal-footer">
                   <button 
                     className="settings-modal-submit"
-                    onClick={handleAddCustomField}
+                    onClick={addNewFormField}
                   >
                     Add Field
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Dropdown Options Modal */}
+          {showDropdownOptionsModal && (
+            <>
+              <div className="settings-modal-overlay" onClick={() => setShowDropdownOptionsModal(false)}></div>
+              <div className="settings-modal">
+                <div className="settings-modal-header">
+                  <h3>Edit Dropdown Options</h3>
+                  <button 
+                    className="settings-modal-close"
+                    onClick={() => setShowDropdownOptionsModal(false)}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="settings-modal-body">
+                  {dropdownOptions.map((option, index) => (
+                    <div key={index} className="settings-field-group" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        value={option}
+                        onChange={(e) => handleDropdownOptionsChange(index, e.target.value)}
+                        placeholder={`Option ${index + 1}`}
+                        style={{ flex: 1 }}
+                      />
+                      {dropdownOptions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeDropdownOption(index)}
+                          className="settings-remove-btn"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={addDropdownOption}
+                    className="settings-add-btn"
+                    style={{ marginTop: '12px' }}
+                  >
+                    <Plus size={16} />
+                    Add Option
+                  </button>
+                </div>
+                <div className="settings-modal-footer">
+                  <button 
+                    className="settings-modal-submit"
+                    onClick={saveDropdownOptions}
+                  >
+                    Save Options
                   </button>
                 </div>
               </div>

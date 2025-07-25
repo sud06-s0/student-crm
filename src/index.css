@@ -3040,3 +3040,14 @@
 .settings-move-btn:disabled {
   cursor: not-allowed;
 }
+
+.settings-two-column-row {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.settings-two-column-row .settings-section {
+  flex: 1;
+  margin-bottom: 0;
+}

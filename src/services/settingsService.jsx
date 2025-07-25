@@ -6,7 +6,6 @@ export const settingsService = {
     const { data, error } = await supabase
       .from('settings')
       .select('*')
-      .eq('is_active', true)
       .order('sort_order');
       
     if (error) throw error;
@@ -17,23 +16,110 @@ export const settingsService = {
       grades: [],
       counsellors: [],
       sources: [],
+      form_fields: [],
       school: {}
     };
     
     data?.forEach(item => {
       if (item.type === 'school') {
         grouped.school = item.value || {};
-      } else {
-        grouped[item.type]?.push({
+      } else if (grouped[item.type]) {
+        grouped[item.type].push({
           id: item.id,
           name: item.name,
+          is_active: item.is_active, 
           ...(item.value || {}),
           sort_order: item.sort_order
         });
+      } else {
+        // Handle unexpected types - you can log this for debugging
+        console.warn(`Unexpected item type: ${item.type}`, item);
       }
     });
     
     return grouped;
+  },
+
+  // Toggle item active/inactive status
+  async toggleItemStatus(id) {
+    const { data: current, error: fetchError } = await supabase
+      .from('settings')
+      .select('is_active')
+      .eq('id', id)
+      .single();
+      
+    if (fetchError) throw fetchError;
+    
+    const { error } = await supabase
+      .from('settings')
+      .update({ is_active: !current.is_active })
+      .eq('id', id);
+      
+    if (error) throw error;
+  },
+
+  // Get count of custom form fields (only the 5 additional ones)
+  async getCustomFormFieldsCount() {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('id, name, value')
+      .eq('type', 'form_fields')
+      .eq('is_active', true);
+      
+    if (error) throw error;
+    
+    // Filter for custom fields only (not the 17 constant ones)
+    const customFields = data?.filter(field => 
+      this.isCustomField(field.name)
+    ) || [];
+    
+    return customFields.length;
+  },
+
+  // Check if field is super constant (no actions at all)
+  isSuperConstantField(fieldName) {
+    const superConstantFields = ['Parents Name', 'Kids Name', 'Phone', 'Email'];
+    return superConstantFields.includes(fieldName);
+  },
+
+  // Check if field is constant (only name editing allowed)
+  isConstantField(fieldName) {
+    const constantFields = [
+      'Location', 'Occupation', 'Current School', 'Offer', 'Notes',
+      'Meeting Date', 'Meeting Time', 'Meeting Link', 'Visit Date',
+      'Visit Time', 'Visit Location', 'Registration Fees', 'Enrolled'
+    ];
+    return constantFields.includes(fieldName);
+  },
+
+  // Check if field is custom (fully editable/deletable)
+  isCustomField(fieldName) {
+    return !this.isSuperConstantField(fieldName) && !this.isConstantField(fieldName);
+  },
+
+  // Check if field can be deleted (only custom fields)
+  isFieldDeletable(fieldName) {
+    return this.isCustomField(fieldName);
+  },
+
+  // Check if field name can be edited (constant + custom fields)
+  isFieldNameEditable(fieldName) {
+    return this.isConstantField(fieldName) || this.isCustomField(fieldName);
+  },
+
+  // Check if field status can be toggled (only custom fields)
+  canToggleFieldStatus(fieldName) {
+    return this.isCustomField(fieldName);
+  },
+
+  // Check if mandatory status can be changed (only custom fields)
+  canChangeMandatoryStatus(fieldName) {
+    return this.isSuperConstantField(fieldName);
+  },
+
+  // Check if dropdown options can be edited (only custom fields)
+  canEditDropdownOptions(fieldName) {
+    return this.isCustomField(fieldName);
   },
 
   // Create new item
@@ -46,7 +132,8 @@ export const settingsService = {
         type,
         name,
         value: Object.keys(additionalData).length > 0 ? additionalData : null,
-        sort_order: maxOrder + 1
+        sort_order: maxOrder + 1,
+        is_active: true
       }])
       .select();
       
@@ -54,29 +141,29 @@ export const settingsService = {
     return data[0];
   },
 
- // Update item
+  // Update item
   async updateItem(id, name, additionalData = {}) {
-  const updateData = {
-    name
-  };
-  
-  if (Object.keys(additionalData).length > 0) {
-    updateData.value = additionalData;
-  }
-  
-  const { error } = await supabase
-    .from('settings')
-    .update(updateData)
-    .eq('id', id);
+    const updateData = {
+      name
+    };
     
-  if (error) throw error;
-},
+    if (Object.keys(additionalData).length > 0) {
+      updateData.value = additionalData;
+    }
+    
+    const { error } = await supabase
+      .from('settings')
+      .update(updateData)
+      .eq('id', id);
+      
+    if (error) throw error;
+  },
 
-  // Delete item
+  // Delete item (for custom fields only)
   async deleteItem(id) {
     const { error } = await supabase
       .from('settings')
-      .update({ is_active: false })
+      .delete()
       .eq('id', id);
       
     if (error) throw error;
