@@ -1,20 +1,19 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { supabase } from '../lib/supabase';
-import { useSettingsData } from '../contexts/SettingsDataProvider'; // ← UPDATED: Import settings
+import { useSettingsData } from '../contexts/SettingsDataProvider';
 
 const OverviewDashboard = () => {
-  // ← UPDATED: Use settings data context with stage_key support
   const { 
     settingsData, 
-    getFieldLabel, // ← NEW: For dynamic field labels
+    getFieldLabel,
     getStageInfo,
     getStageColor,
     getStageScore,
     getStageCategory,
-    getStageKeyFromName, // ← NEW: Convert stage name to stage_key
-    getStageNameFromKey, // ← NEW: Convert stage_key to stage name
-    stageKeyToDataMapping, // ← NEW: Direct stage data mapping
+    getStageKeyFromName,
+    getStageNameFromKey,
+    stageKeyToDataMapping,
     loading: settingsLoading 
   } = useSettingsData();
 
@@ -27,46 +26,54 @@ const OverviewDashboard = () => {
     isActive: false
   });
 
-  // ← NEW: Helper functions for stage_key conversion
+  // ← NEW: Generate dynamic source colors based on settings
+  const generateSourceColors = useMemo(() => {
+    const colors = [
+      '#2A89DD', '#F6BD51', '#EE6E55', '#647BCA', '#30B2B6', 
+      '#9D91CE', '#8B5CF6', '#F59E0B', '#6B7280', '#10B981',
+      '#3B82F6', '#8B5A2B', '#EC4899', '#14B8A6', '#F97316'
+    ];
+    
+    const sourceColors = {};
+    
+    // Get sources from settings or use defaults
+    const availableSources = settingsData?.sources || [];
+    
+    availableSources.forEach((source, index) => {
+      sourceColors[source.name] = colors[index % colors.length];
+    });
+    
+    // Add fallback for Unknown
+    sourceColors['Unknown'] = '#9D91CE';
+    
+    console.log('=== DYNAMIC SOURCE COLORS ===');
+    console.log('Available sources from settings:', availableSources);
+    console.log('Generated source colors:', sourceColors);
+    
+    return sourceColors;
+  }, [settingsData?.sources]);
+
+  // Helper functions for stage_key conversion
   const getStageKeyForLead = (stageValue) => {
-    // If it's already a stage_key, return it
     if (stageKeyToDataMapping[stageValue]) {
       return stageValue;
     }
-    // Otherwise, convert stage name to stage_key
     return getStageKeyFromName(stageValue) || stageValue;
   };
 
   const getStageDisplayName = (stageValue) => {
-    // If it's a stage_key, get the display name
     if (stageKeyToDataMapping[stageValue]) {
       return getStageNameFromKey(stageValue);
     }
-    // Otherwise, it's probably already a stage name
     return stageValue;
   };
 
-  // ← UPDATED: Get stage color using stage_key
   const getStageColorFromSettings = (stageValue) => {
     const stageKey = getStageKeyForLead(stageValue);
     return getStageColor(stageKey);
   };
 
-  // ← UPDATED: Get dynamic source colors (can be enhanced with settings later)
-  const sourceColors = {
-    'Google Ads': '#2A89DD',
-    'Instagram': '#F6BD51',
-    'Facebook': '#EE6E55',
-    'Walk-in': '#647BCA',
-    'Website': '#30B2B6',
-    'Referral': '#9D91CE',
-    'Phone Call': '#8B5CF6',
-    'Email': '#F59E0B',
-    'Other': '#6B7280',
-    'Unknown': '#9D91CE'
-  };
-
-  // ← UPDATED: Convert database record to UI format with stage_key support
+  // Convert database record to UI format with stage_key support
   const convertDatabaseToUI = (dbRecord) => {
     let meetingDate = '';
     let meetingTime = '';
@@ -85,7 +92,6 @@ const OverviewDashboard = () => {
       visitTime = visitDateTime.toTimeString().slice(0, 5);
     }
 
-    // ← NEW: Handle stage value - could be stage name or stage_key
     const stageValue = dbRecord.stage;
     const stageKey = getStageKeyForLead(stageValue);
     const displayName = getStageDisplayName(stageValue);
@@ -97,8 +103,8 @@ const OverviewDashboard = () => {
       phone: dbRecord.phone,
       location: dbRecord.location,
       grade: dbRecord.grade,
-      stage: stageKey, // ← Store stage_key internally
-      stageDisplayName: displayName, // ← Store display name for UI
+      stage: stageKey,
+      stageDisplayName: displayName,
       score: dbRecord.score,
       category: dbRecord.category,
       counsellor: dbRecord.counsellor,
@@ -106,7 +112,8 @@ const OverviewDashboard = () => {
       notes: dbRecord.notes,
       email: dbRecord.email || '',
       occupation: dbRecord.occupation || '',
-      source: dbRecord.source || (settingsData?.sources?.[0]?.name || 'Instagram'), // ← UPDATED: Dynamic default source
+      // ← UPDATED: Use first available source from settings as default
+      source: dbRecord.source || (settingsData?.sources?.[0]?.name || 'Unknown'),
       currentSchool: dbRecord.current_school || '',
       meetingDate: meetingDate,
       meetingTime: meetingTime,
@@ -160,7 +167,6 @@ const OverviewDashboard = () => {
     }
   };
 
-  // USEEFFECT AFTER ALL STATE HOOKS
   useEffect(() => {
     fetchLeads();
   }, []);
@@ -168,25 +174,6 @@ const OverviewDashboard = () => {
   // Get current date for max date validation
   const currentDate = new Date().toISOString().split('T')[0];
 
-  // ← UPDATED: Function to normalize source names for display using settings
-  const normalizeSourceForDisplay = (source) => {
-    // ← NEW: Could be enhanced to use dynamic source settings in the future
-    const sourceMap = {
-      'Instagram': 'Instagram Ads',
-      'Facebook': 'Facebook Ads', 
-      'Walk-in': 'Walk-ins',
-      'Website': 'Website Enquiry',
-      'Google Ads': 'Google Ads',
-      'Referral': 'Referral',
-      'Phone Call': 'Phone Call',
-      'Email': 'Email',
-      'Other': 'Other'
-    };
-    
-    return sourceMap[source] || source;
-  };
-
-  // ALL USEMEMO HOOKS TOGETHER
   // Filter leads by date range
   const getFilteredLeadsByDate = useMemo(() => {
     if (!Array.isArray(leadsData) || leadsData.length === 0) {
@@ -199,16 +186,15 @@ const OverviewDashboard = () => {
     
     return leadsData.filter(lead => {
       try {
-        // Parse the createdTime which is in format "23 Jul 2025, 14:30:45"
         const leadDate = new Date(lead.createdTime?.replace(/(\d{2}) (\w{3}) (\d{4})/, '$2 $1, $3'));
         const fromDate = new Date(dateRange.fromDate);
         const toDate = new Date(dateRange.toDate);
-        toDate.setHours(23, 59, 59, 999); // Include the entire end date
+        toDate.setHours(23, 59, 59, 999);
         
         return leadDate >= fromDate && leadDate <= toDate;
       } catch (error) {
         console.error('Error parsing lead date:', lead.createdTime, error);
-        return true; // Include lead if date parsing fails
+        return true;
       }
     });
   }, [leadsData, dateRange]);
@@ -228,37 +214,47 @@ const OverviewDashboard = () => {
     return counts;
   }, [getFilteredLeadsByDate]);
 
-  // ← UPDATED: Calculate source performance data using dynamic sources
+  // ← UPDATED: Calculate source performance data using dynamic sources from settings
   const sourceData = useMemo(() => {
     const filteredLeads = getFilteredLeadsByDate;
     
+    console.log('=== SOURCE DATA CALCULATION ===');
+    console.log('Filtered leads:', filteredLeads);
+    console.log('Available sources from settings:', settingsData?.sources);
+    console.log('Generated source colors:', generateSourceColors);
+    
     const sourceCount = filteredLeads.reduce((acc, lead) => {
-      // Handle null, undefined, or empty source values
       let source = lead.source;
       if (!source || source === null || source === undefined || source.trim() === '') {
         source = 'Unknown';
       }
+      
+      console.log(`Lead ${lead.id} has source: "${source}"`);
       acc[source] = (acc[source] || 0) + 1;
       return acc;
     }, {});
 
+    console.log('Source counts:', sourceCount);
+
     const data = Object.entries(sourceCount).map(([name, value]) => {
-      const color = sourceColors[name] || '#9D91CE'; // Default fallback color
-      const displayName = normalizeSourceForDisplay(name);
+      const color = generateSourceColors[name] || '#9D91CE';
+      
+      console.log(`Source "${name}": ${value} leads, color: ${color}`);
       
       return {
-        name: displayName,
-        originalName: name, // Keep original for reference
+        name: name, // ← UPDATED: Use the actual source name from settings
+        originalName: name,
         value,
         percentage: filteredLeads.length > 0 ? ((value / filteredLeads.length) * 100).toFixed(1) : 0,
-        fill: color // Use 'fill' instead of 'color' for Recharts
+        fill: color
       };
     });
 
+    console.log('Final source data:', data);
     return data;
-  }, [getFilteredLeadsByDate]);
+  }, [getFilteredLeadsByDate, generateSourceColors, settingsData?.sources]);
 
-  // ← UPDATED: Calculate stage data with stage_key support
+  // Calculate stage data with stage_key support
   const stageData = useMemo(() => {
     const filteredLeads = getFilteredLeadsByDate;
     const totalLeads = filteredLeads.length;
@@ -267,7 +263,6 @@ const OverviewDashboard = () => {
     console.log('Filtered leads:', filteredLeads.length);
     console.log('Settings stages:', settingsData?.stages);
     
-    // ← UPDATED: Get dynamic stages from settings with stage_key support
     const dynamicStages = settingsData?.stages?.filter(stage => stage.is_active) || [];
     
     return dynamicStages.map(stageConfig => {
@@ -276,7 +271,6 @@ const OverviewDashboard = () => {
       
       console.log(`Processing stage: ${stageName} (key: ${stageKey})`);
       
-      // ← UPDATED: Count leads using stage_key comparison
       const count = filteredLeads.filter(lead => {
         const leadStageKey = getStageKeyForLead(lead.stage);
         const matches = leadStageKey === stageKey || lead.stage === stageName;
@@ -290,7 +284,6 @@ const OverviewDashboard = () => {
       
       console.log(`  Final count for ${stageName}: ${count}`);
       
-      // Calculate proportional width based on count relative to total leads
       const minWidth = 120;
       const maxWidth = 550;
       const percentage = totalLeads > 0 ? (count / totalLeads) * 100 : 0;
@@ -298,16 +291,15 @@ const OverviewDashboard = () => {
         minWidth + ((percentage / 100) * (maxWidth - minWidth)) : minWidth;
 
       return {
-        stage: stageName, // ← Display name for UI
-        stageKey: stageKey, // ← Store stage_key for reference
+        stage: stageName,
+        stageKey: stageKey,
         count,
         widthPx,
-        color: getStageColorFromSettings(stageKey) // ← NEW: Use stage_key for color lookup
+        color: getStageColorFromSettings(stageKey)
       };
     });
   }, [getFilteredLeadsByDate, settingsData?.stages, getStageColorFromSettings, getStageKeyForLead]);
 
-  // ← UPDATED: Loading check for both data and settings
   if (loading || settingsLoading) {
     return (
       <div style={{ 
@@ -455,7 +447,7 @@ const OverviewDashboard = () => {
         {/* Source Performance Chart */}
         <div className="dashboard-chart-container">
           <h3 className="dashboard-chart-title">
-            {getFieldLabel('source') || 'Source'} Performance {/* ← NEW: Dynamic field label */}
+            {getFieldLabel('source') || 'Source'} Performance
           </h3>
           
           {sourceData.length > 0 ? (
@@ -472,7 +464,6 @@ const OverviewDashboard = () => {
                       paddingAngle={1}
                       dataKey="value"
                       label={({ name, percentage }) => {
-                        // Only show label if percentage is significant enough
                         if (parseFloat(percentage) > 8) {
                           return `${name}`;
                         }
@@ -499,7 +490,6 @@ const OverviewDashboard = () => {
               <div className="dashboard-source-legend">
                 {sourceData.map((source, index) => (
                   <div key={index} className="dashboard-source-legend-item">
-                    {/* Color indicator */}
                     <div 
                       className="dashboard-source-color-indicator"
                       style={{ backgroundColor: source.fill }}
@@ -516,41 +506,18 @@ const OverviewDashboard = () => {
           ) : (
             <div className="dashboard-chart-empty">
               <div>No source data available</div>
-              {/* Test with sample data */}
-              <div className="dashboard-sample-chart">
-                <ResponsiveContainer width={250} height={150}>
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: 'Google Ads', value: 132, color: '#2A89DD' },
-                        { name: 'Instagram Ads', value: 60, color: '#F6BD51' },
-                        { name: 'Facebook Ads', value: 35, color: '#EE6E55' },
-                        { name: 'Walk-ins', value: 18, color: '#647BCA' },
-                        { name: 'Website Enquiry', value: 9, color: '#30B2B6' },
-                        { name: 'Referral', value: 42, color: '#9D91CE' }
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={60}
-                      dataKey="value"
-                    >
-                      {[
-                        { name: 'Google Ads', value: 132, color: '#2A89DD' },
-                        { name: 'Instagram Ads', value: 60, color: '#F6BD51' },
-                        { name: 'Facebook Ads', value: 35, color: '#EE6E55' },
-                        { name: 'Walk-ins', value: 18, color: '#647BCA' },
-                        { name: 'Website Enquiry', value: 9, color: '#30B2B6' },
-                        { name: 'Referral', value: 42, color: '#9D91CE' }
-                      ].map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+              {/* ← UPDATED: Show available sources from settings */}
+              <div style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
+                {settingsData?.sources?.length > 0 && (
+                  <div>
+                    <strong>Available sources from settings:</strong>
+                    <ul style={{ marginTop: '5px' }}>
+                      {settingsData.sources.map(source => (
+                        <li key={source.id}>{source.name}</li>
                       ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="dashboard-sample-text">
-                  Sample chart (will show when data is available)
-                </div>
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -560,7 +527,7 @@ const OverviewDashboard = () => {
         <div className="dashboard-stages-container">
           <div className="dashboard-stages-header">
             <h3 className="dashboard-stages-title">
-              {getFieldLabel('stage') || 'Stages'} {/* ← NEW: Dynamic field label */}
+              {getFieldLabel('stage') || 'Stages'}
             </h3>
             <div className="dashboard-total-leads-badge" style={{paddingBottom:'15px'}}>
               Total Leads: {categoryCounts.allLeads}
@@ -580,7 +547,7 @@ const OverviewDashboard = () => {
                       minWidth: '120px'
                     }}
                   >
-                    <span className="dashboard-stage-label">{stage}</span> {/* ← Display stage name */}
+                    <span className="dashboard-stage-label">{stage}</span>
                   </div>
                   <span className="dashboard-stage-count">{count}</span>
                 </div>
