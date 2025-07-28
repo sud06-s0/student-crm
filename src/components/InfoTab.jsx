@@ -388,6 +388,40 @@ const InfoTab = ({
           </div>
         </div>
       </div>
+
+      {/* Counsellor Details Section - NEW */}
+      <div className="lead-sidebar-section">
+        <div className="lead-sidebar-section-layout">
+          <div className="lead-sidebar-section-title-container">
+            <h6 className="lead-sidebar-section-title">
+              Counsellor Details
+            </h6>
+          </div>
+          <div className="lead-sidebar-section-content">
+            <div className="lead-sidebar-form-row">
+              <label className="lead-sidebar-form-label">{getFieldLabel('counsellor')}</label>
+              {!isEditingMode ? (
+                <div className="lead-sidebar-field-value">
+                  {sidebarFormData.counsellor || selectedLead?.counsellor || 'Not Assigned'}
+                </div>
+              ) : (
+                <select
+                  value={sidebarFormData.counsellor || ''}
+                  onChange={(e) => onFieldChange('counsellor', e.target.value)}
+                  className="lead-sidebar-form-select"
+                >
+                  <option value="" disabled>Select Counsellor</option>
+                  {settingsData?.counsellors?.map(counsellor => (
+                    <option key={counsellor.id} value={counsellor.name}>
+                      {counsellor.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

@@ -568,6 +568,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
       {showStage1Action && newLeadData && (
         <Stage1ActionButton
           leadData={newLeadData}
+          getFieldLabel={getFieldLabel}
           onComplete={(success, error) => {
             console.log(success ? '✅ Stage 1 API call completed' : '❌ Stage 1 API call failed:', error);
             setShowStage1Action(false);

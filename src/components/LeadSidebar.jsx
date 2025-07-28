@@ -159,6 +159,7 @@ const LeadSidebar = ({
         grade: selectedLead.grade || '',
         source: selectedLead.source || (settingsData?.sources?.[0]?.name || 'Instagram'),
         stage: selectedLead.stage,
+        counsellor: selectedLead.counsellor || '', 
         offer: selectedLead.offer || 'Welcome Kit',
         email: selectedLead.email || '',
         phone: selectedLead.phone || '',

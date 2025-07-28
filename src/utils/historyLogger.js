@@ -453,7 +453,7 @@ export const logSpecificChanges = async (leadId, oldData, newData) => {
   }
   
   // Log contact info changes (including notes)
-  const contactFields = ['email', 'phone', 'occupation', 'location', 'source', 'currentSchool', 'notes'];
+  const contactFields = ['email', 'phone', 'occupation', 'location', 'source', 'currentSchool'];
   for (const field of contactFields) {
     if (oldData[field] !== newData[field]) {
       await logContactInfoUpdated(leadId, field, oldData[field], newData[field]);

@@ -37,25 +37,25 @@ const Stage1ActionButton = ({
   };
 
   const handleApiCall = async () => {
-    // Prevent duplicate calls
-    if (hasCalledApi.current) {
-      console.log('🟡 API call already made, skipping...');
-      return;
-    }
+  // Prevent duplicate calls
+  if (hasCalledApi.current) {
+    console.log('🟡 API call already made, skipping...');
+    return;
+  }
 
-    // ← NEW: Optional validation check with field_key support
-    const missingParams = validateParameters();
-    if (missingParams.length > 0) {
-      console.log('🔴 Missing required parameters:', missingParams);
-      if (onComplete) {
-        onComplete(false, `Missing required information: ${missingParams.join(', ')}`);
-      }
-      return;
+  // ← NEW: Optional validation check with field_key support
+  const missingParams = validateParameters();
+  if (missingParams.length > 0) {
+    console.log('🔴 Missing required parameters:', missingParams);
+    if (onComplete) {
+      onComplete(false, `Missing required information: ${missingParams.join(', ')}`);
     }
-    
-    hasCalledApi.current = true; // Mark as called
-    console.log('🟡 handleApiCall started');
-    setIsLoading(true);
+    return;
+  }
+  
+  console.log('🟡 handleApiCall started');
+  hasCalledApi.current = true; // ← MOVED: Mark as called AFTER validation passes
+  setIsLoading(true);
     
     try {
       console.log('🟡 Making API call with data:', {
@@ -117,6 +117,8 @@ const Stage1ActionButton = ({
       console.log('🔴 No leadData found or API already called!');
     }
   }, [leadData]);
+
+  
 
   console.log('🔵 Stage1ActionButton returning (invisible)');
   // Return nothing (invisible component)

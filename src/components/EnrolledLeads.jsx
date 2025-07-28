@@ -421,6 +421,7 @@ const EnrolledLeads = ({ onLogout, user }) => {
       grade: lead.grade || '',
       source: lead.source || settingsData.sources?.[0]?.name || 'Instagram',
       stage: lead.stage, // ← This is now stage_key
+      counsellor: lead.counsellor || '',
       offer: lead.offer || 'Welcome Kit',
       email: lead.email || '',
       phone: lead.phone || '',
@@ -434,8 +435,8 @@ const EnrolledLeads = ({ onLogout, user }) => {
       visitTime: lead.visitTime || '',
       visitLocation: lead.visitLocation || '',
       registrationFees: lead.registrationFees || '',
-      enrolled: lead.enrolled || '',
-      notes: lead.notes || '' // ← Added notes field
+      enrolled: lead.enrolled || ''
+      
     });
     setShowSidebar(true);
     setIsEditingMode(false);
@@ -572,6 +573,7 @@ const EnrolledLeads = ({ onLogout, user }) => {
         stage: stageKey, // ← Store stage_key
         score: getStageScore(stageKey),
         category: getStageCategory(stageKey),
+        counsellor: sidebarFormData.counsellor,
         offer: sidebarFormData.offer,
         email: sidebarFormData.email,
         occupation: sidebarFormData.occupation,

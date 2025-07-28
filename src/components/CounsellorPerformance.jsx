@@ -306,7 +306,11 @@ const CounsellorPerformance = ({ onLogout, user }) => {
       name,
       ...stats,
       conversionRate: stats.totalLeads > 0 ? ((stats.admission || 0) / stats.totalLeads * 100).toFixed(0) : 0
-    })).sort((a, b) => b.conversionRate - a.conversionRate);
+    })).filter(counsellor => {
+  // Only show counsellors that exist in settings
+  const validCounsellors = settingsData?.counsellors?.map(c => c.name) || [];
+  return validCounsellors.includes(counsellor.name);
+}).sort((a, b) => b.conversionRate - a.conversionRate);
   }, [getFilteredLeadsByDate, performanceStages, getLeadStageKey]);
 
   // Get top performer
