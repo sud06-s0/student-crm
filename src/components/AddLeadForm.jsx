@@ -43,6 +43,19 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
+  // Filter states for Stage1ActionButton
+  const [showStage1Action, setShowStage1Action] = useState(false);
+  const [newLeadData, setNewLeadData] = useState(null);
+
+  // ← NEW: Add debugging for state changes
+  useEffect(() => {
+    console.log('🔍 showStage1Action changed:', showStage1Action);
+  }, [showStage1Action]);
+
+  useEffect(() => {
+    console.log('🔍 newLeadData changed:', newLeadData);
+  }, [newLeadData]);
+
   // ← NEW: Helper functions for stage_key conversion
   const getStageKeyForLead = (stageValue) => {
     // If it's already a stage_key, return it
@@ -168,10 +181,6 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
     return dbData;
   };
 
-  // Filter states for Stage1ActionButton
-  const [showStage1Action, setShowStage1Action] = useState(false);
-  const [newLeadData, setNewLeadData] = useState(null);
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
@@ -283,19 +292,24 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
 
       console.log('✅ New lead created:', data);
 
-      // Trigger Stage 1 API call
-      setNewLeadData({
+      // ← FIXED: Prepare Stage 1 API call data with proper validation
+      const stage1Data = {
         phone: `+91${formData.phone}`,
         parentsName: formData.parentsName,
         kidsName: formData.kidsName,
         grade: formData.grade
-      });
+      };
+
+      console.log('🔵 Preparing Stage1ActionButton with data:', stage1Data);
+
+      // ← FIXED: Show alert first, then set stage1 states
+      alert('✅ New lead added successfully!');
+
+      // ← FIXED: Set the data and trigger the Stage1ActionButton AFTER alert
+      setNewLeadData(stage1Data);
       setShowStage1Action(true);
 
-      // Call onSubmit to refresh parent data
-      onSubmit();
-
-      alert('✅ New lead added successfully!');
+      // ← FIXED: onSubmit() will be called in the onComplete callback instead
 
       // ← UPDATED: Reset form with current settings data and stage_key
       const defaultStageKey = stages[0]?.value || '';
@@ -496,52 +510,6 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
                   </select>
                   {errors.counsellor && <div className="invalid-feedback">{errors.counsellor}</div>}
                 </div>
-
-                {/* ← COMMENTED: Offer field - Dynamic from Settings */}
-                {/*<div className="col-md-6 mb-3">
-                  <label className="form-label">{getFieldLabel('offer')}</label>
-                  <select
-                    className="form-select"
-                    name="offer"
-                    value={formData.offer}
-                    onChange={handleInputChange}
-                    disabled={loading}
-                  >
-                    {offers.map(offer => (
-                      <option key={offer} value={offer}>
-                        {offer}
-                      </option>
-                    ))}
-                  </select>
-                </div>*/}
-
-                {/* ← COMMENTED: Occupation with dynamic field label */}
-               {/*<div className="col-md-6 mb-3">
-                  <label className="form-label">{getFieldLabel('occupation')}</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    name="occupation"
-                    value={formData.occupation}
-                    onChange={handleInputChange}
-                    placeholder={`Enter ${getFieldLabel('occupation').toLowerCase()}`}
-                    disabled={loading}
-                  />
-                </div>*/}
-
-                {/* ← COMMENTED: Notes with dynamic field label */}
-                {/*<div className="col-md-12 mb-3">
-                  <label className="form-label">{getFieldLabel('notes')}</label>
-                  <textarea
-                    className="form-control"
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleInputChange}
-                    placeholder={`Enter ${getFieldLabel('notes').toLowerCase()}`}
-                    rows="3"
-                    disabled={loading}
-                  />
-                </div>*/}
               </div>
             </div>
             
@@ -564,13 +532,18 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
         </div>
       </div>
 
-      {/* Stage 1 Action Button Component */}
+      {/* ← FIXED: Stage 1 Action Button Component with proper props and timing */}
       {showStage1Action && newLeadData && (
         <Stage1ActionButton
           leadData={newLeadData}
-          getFieldLabel={getFieldLabel}
+          getFieldLabel={getFieldLabel} // ← FIXED: Pass the getFieldLabel function
           onComplete={(success, error) => {
             console.log(success ? '✅ Stage 1 API call completed' : '❌ Stage 1 API call failed:', error);
+            
+            // ← FIXED: Call onSubmit to refresh parent data AFTER API call completes
+            onSubmit();
+            
+            // Clean up state
             setShowStage1Action(false);
             setNewLeadData(null);
             onClose();

@@ -7,55 +7,78 @@ const Stage1ActionButton = ({
 }) => {
   console.log('🔵 Stage1ActionButton component rendered!');
   console.log('🔵 leadData received:', leadData);
+  console.log('🔵 leadData type:', typeof leadData);
+  console.log('🔵 leadData keys:', leadData ? Object.keys(leadData) : 'N/A');
   
   const [isLoading, setIsLoading] = useState(false);
   const hasCalledApi = useRef(false); // Add this to track if API was already called
 
-  // ← NEW: Optional validation function with field_key support
+  // ← UPDATED: Enhanced validation function with better field_key support
   const validateParameters = () => {
-    if (!getFieldLabel) {
-      // If no getFieldLabel function provided, use default validation
-      return [];
-    }
-
     const missingParams = [];
     
+    // Define field labels - use getFieldLabel if available, otherwise fallback to defaults
+    const getLabel = (fieldKey) => {
+      if (getFieldLabel && typeof getFieldLabel === 'function') {
+        return getFieldLabel(fieldKey);
+      }
+      // Fallback labels
+      const fallbackLabels = {
+        'phone': 'Phone',
+        'parentsName': 'Parent Name',
+        'kidsName': 'Student Name',
+        'grade': 'Grade'
+      };
+      return fallbackLabels[fieldKey] || fieldKey;
+    };
+    
+    // Validate required fields
     if (!leadData?.phone || leadData.phone.trim() === '') {
-      missingParams.push(getFieldLabel('phone'));
+      missingParams.push(getLabel('phone'));
     }
     if (!leadData?.parentsName || leadData.parentsName.trim() === '') {
-      missingParams.push(getFieldLabel('parentsName'));
+      missingParams.push(getLabel('parentsName'));
     }
     if (!leadData?.kidsName || leadData.kidsName.trim() === '') {
-      missingParams.push(getFieldLabel('kidsName'));
+      missingParams.push(getLabel('kidsName'));
     }
     if (!leadData?.grade || leadData.grade.trim() === '') {
-      missingParams.push(getFieldLabel('grade'));
+      missingParams.push(getLabel('grade'));
     }
+    
+    console.log('🔍 Validation check:', {
+      phone: leadData?.phone,
+      parentsName: leadData?.parentsName,
+      kidsName: leadData?.kidsName,
+      grade: leadData?.grade,
+      missingParams
+    });
     
     return missingParams;
   };
 
   const handleApiCall = async () => {
-  // Prevent duplicate calls
-  if (hasCalledApi.current) {
-    console.log('🟡 API call already made, skipping...');
-    return;
-  }
-
-  // ← NEW: Optional validation check with field_key support
-  const missingParams = validateParameters();
-  if (missingParams.length > 0) {
-    console.log('🔴 Missing required parameters:', missingParams);
-    if (onComplete) {
-      onComplete(false, `Missing required information: ${missingParams.join(', ')}`);
+    // Prevent duplicate calls
+    if (hasCalledApi.current) {
+      console.log('🟡 API call already made, skipping...');
+      return;
     }
-    return;
-  }
-  
-  console.log('🟡 handleApiCall started');
-  hasCalledApi.current = true; // ← MOVED: Mark as called AFTER validation passes
-  setIsLoading(true);
+
+    console.log('🟡 handleApiCall started');
+    console.log('🔍 Lead data validation:', leadData);
+
+    // ← UPDATED: Enhanced validation check with better error reporting
+    const missingParams = validateParameters();
+    if (missingParams.length > 0) {
+      console.log('🔴 Missing required parameters:', missingParams);
+      if (onComplete) {
+        onComplete(false, `Missing required information: ${missingParams.join(', ')}`);
+      }
+      return;
+    }
+    
+    hasCalledApi.current = true; // Mark as called
+    setIsLoading(true);
     
     try {
       console.log('🟡 Making API call with data:', {
@@ -83,7 +106,9 @@ const Stage1ActionButton = ({
       console.log('🟡 API response status:', response.status);
 
       if (!response.ok) {
-        throw new Error(`API call failed: ${response.status}`);
+        const errorText = await response.text();
+        console.log('🔴 API response error:', errorText);
+        throw new Error(`API call failed: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
@@ -107,18 +132,42 @@ const Stage1ActionButton = ({
     }
   };
 
-  // ← This component auto-triggers the API call when mounted
+  // ← UPDATED: Enhanced useEffect with better debugging
   useEffect(() => {
     console.log('🔵 useEffect triggered!');
-    if (leadData && !hasCalledApi.current) { // Add the hasCalledApi check
+    console.log('🔍 useEffect conditions:', {
+      leadDataExists: !!leadData,
+      leadDataValue: leadData,
+      hasCalledApi: hasCalledApi.current,
+      shouldCall: leadData && !hasCalledApi.current
+    });
+    
+    if (leadData && !hasCalledApi.current) {
       console.log('🔵 leadData exists and API not called yet, calling handleApiCall');
-      handleApiCall();
+      console.log('🔵 Full leadData object:', JSON.stringify(leadData, null, 2));
+      
+      // Add a small delay to ensure all state is properly set
+      setTimeout(() => {
+        console.log('🔵 About to call handleApiCall after timeout');
+        handleApiCall();
+      }, 100);
     } else {
-      console.log('🔴 No leadData found or API already called!');
+      console.log('🔴 Conditions not met for API call:', {
+        noLeadData: !leadData,
+        alreadyCalled: hasCalledApi.current,
+        leadDataType: typeof leadData,
+        leadDataKeys: leadData ? Object.keys(leadData) : 'N/A'
+      });
     }
   }, [leadData]);
 
-  
+  // ← NEW: Debug logging for component lifecycle
+  useEffect(() => {
+    console.log('🔵 Stage1ActionButton mounted');
+    return () => {
+      console.log('🔵 Stage1ActionButton unmounted');
+    };
+  }, []);
 
   console.log('🔵 Stage1ActionButton returning (invisible)');
   // Return nothing (invisible component)
