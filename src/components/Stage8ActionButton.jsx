@@ -1,13 +1,38 @@
 import React, { useState } from 'react';
 
-const Stage8ActionButton = ({ leadId, currentStatus, onStatusUpdate, phone }) => {
+const Stage8ActionButton = ({ 
+  leadId, 
+  currentStatus, 
+  onStatusUpdate,
+  getFieldLabel, // ← Field_key aware label function
+  phone 
+}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showHover, setShowHover] = useState(false);
 
+  // ← NEW: Function to validate required parameters with field_key support
+  const validateParameters = () => {
+    const missingParams = [];
+    
+    if (!phone || phone.trim() === '') {
+      missingParams.push(getFieldLabel('phone')); // ← Dynamic field label
+    }
+    
+    return missingParams;
+  };
+
   const handleClick = async () => {
+    // ← NEW: Validate parameters before proceeding
+    const missingParams = validateParameters();
+    
+    if (missingParams.length > 0) {
+      alert(`Cannot send message. The following required information is missing:\n\n${missingParams.join('\n')}\n\nPlease update the lead information and try again.`);
+      return; // Stop execution, no API call
+    }
+
     setIsLoading(true);
     try {
-      // API call to send WhatsApp message
+      // ← API call to send WhatsApp message (unchanged - working correctly)
       const response = await fetch('https://backend.aisensy.com/campaign/t1/api/v2', {
         method: 'POST',
         headers: {
@@ -43,7 +68,7 @@ const Stage8ActionButton = ({ leadId, currentStatus, onStatusUpdate, phone }) =>
     }
   };
 
-  // Hover message - you can customize this message
+  // ← Hover message showing template preview (not actual field labels)
   const hoverMessage = `We have received the Registration amount of Rs.500/-`;
 
   return (

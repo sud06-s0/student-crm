@@ -29,7 +29,8 @@ const SettingsPage = ({ onLogout, user }) => {
     id: null,
     name: '',
     color: '',
-    status: ''
+    status: '',
+    stage_key: '' // ← NEW: Add stage_key to editing state
   });
   
   // Loading states
@@ -48,7 +49,6 @@ const SettingsPage = ({ onLogout, user }) => {
   const [customFieldData, setCustomFieldData] = useState({
     fieldName: '',
     fieldType: 'text',
-    
   });
 
   // New item input states
@@ -69,13 +69,14 @@ const SettingsPage = ({ onLogout, user }) => {
     { value: 'numeric', label: 'Numeric' }
   ];
 
-  // Stage editing functions
+  // ← UPDATED: Stage editing functions with stage_key support
   const handleEditStage = (stage) => {
     setEditingStage({
       id: stage.id,
       name: stage.name,
       color: stage.color || '#B3D7FF',
-      status: stage.status || 'New'
+      status: stage.status || 'New',
+      stage_key: stage.stage_key || '' // ← NEW: Include stage_key
     });
     setShowStageEditModal(true);
   };
@@ -87,6 +88,7 @@ const SettingsPage = ({ onLogout, user }) => {
         status: editingStage.status,
         score: 20,
         category: 'New'
+        // Note: stage_key should not be updated once set
       });
       await loadSettings();
       setShowStageEditModal(false);
@@ -155,7 +157,6 @@ const SettingsPage = ({ onLogout, user }) => {
   const addNewFormField = async () => {
     if (customFieldData.fieldName.trim()) {
       try {
-        // Check custom fields count (only the 5 additional ones)
         const customFieldsCount = await settingsService.getCustomFormFieldsCount();
         
         if (customFieldsCount >= 5) {
@@ -268,7 +269,10 @@ const SettingsPage = ({ onLogout, user }) => {
   const toggleFieldMandatory = async (fieldId) => {
     try {
       const field = settingsData.form_fields.find(f => f.id === fieldId);
-      if (field && settingsService.canChangeMandatoryStatus(field.name)) {
+      // Use field_key based check when available
+      if (field && (field.field_key ? 
+        settingsService.canChangeMandatoryStatusByKey(field.field_key) : 
+        settingsService.canChangeMandatoryStatus(field.name))) {
         await settingsService.updateItem(fieldId, field.name, {
           field_type: field.field_type,
           mandatory: !field.mandatory,
@@ -286,7 +290,10 @@ const SettingsPage = ({ onLogout, user }) => {
 
   const removeCustomField = async (fieldId) => {
     const field = settingsData.form_fields.find(f => f.id === fieldId);
-    if (field && settingsService.isFieldDeletable(field.name)) {
+    // Use field_key based check when available
+    if (field && (field.field_key ? 
+      settingsService.isFieldDeletableByKey(field.field_key) : 
+      settingsService.isFieldDeletable(field.name))) {
       if (window.confirm('Are you sure you want to delete this field?')) {
         try {
           await settingsService.deleteItem(fieldId);
@@ -330,7 +337,7 @@ const SettingsPage = ({ onLogout, user }) => {
     }
   };
 
-  // COUNSELLORS CRUD OPERATIONS
+  // COUNSELLORS, SOURCES, GRADES CRUD OPERATIONS (unchanged)
   const addNewCounsellor = async () => {
     if (newCounsellor.trim()) {
       try {
@@ -381,7 +388,6 @@ const SettingsPage = ({ onLogout, user }) => {
     }
   };
 
-  // SOURCES CRUD OPERATIONS
   const addNewSource = async () => {
     if (newSource.trim()) {
       try {
@@ -432,7 +438,6 @@ const SettingsPage = ({ onLogout, user }) => {
     }
   };
 
-  // GRADES CRUD OPERATIONS
   const addNewGrade = async () => {
     if (newGrade.trim()) {
       try {
@@ -592,89 +597,103 @@ const SettingsPage = ({ onLogout, user }) => {
                   </div>
                 </div>
               </div>
-              {/* Update Button */}
-          <div className="settings-footer">
-            <button 
-              className="settings-update-btn" 
-              onClick={handleSaveSettings}
-              disabled={saving}
-            >
-              {saving ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Check size={16} />
-                  Update School Profile
-                </>
-              )}
-            </button>
-          </div>
+              <div className="settings-footer">
+                <button 
+                  className="settings-update-btn" 
+                  onClick={handleSaveSettings}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      Update School Profile
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-            
           </div>
            
-           {/*Two column section*/}
-           <div className='settings-two-column-row'>                    
-          {/* Lead Form Fields Section */}
-          <div className="settings-section">
-            <h2>Lead Form Fields</h2>
-            <div className="settings-section-content">
-              <div className="settings-table-container">
-                <table className="settings-table">
-                  <thead>
-                    <tr>
-                      <th>Field Name</th>
-                      <th>Field Type</th>
-                      <th>Mandatory</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {settingsData.form_fields.map((field) => {
-                      const isSuperConstant = settingsService.isSuperConstantField(field.name);
-                      const isConstant = settingsService.isConstantField(field.name);
-                      const isCustom = settingsService.isCustomField(field.name);
-                      
-                      return (
-                        <tr key={field.id} style={{ opacity: (isCustom && !field.is_active) ? 0.5 : 1 }}>
-                          <td>
-                            {editingItems[`field_name_${field.id}`] && (isConstant || isCustom) ? (
-                              <input
-                                type="text"
-                                defaultValue={field.name}
-                                onKeyPress={(e) => {
-                                  if (e.key === 'Enter') {
-                                    handleFieldNameChange(field.id, e.target.value);
-                                  }
-                                }}
-                                onBlur={(e) => handleFieldNameChange(field.id, e.target.value)}
-                              />
-                            ) : (
-                              <span>{field.name}</span>
-                            )}
-                            {field.field_type === 'Dropdown' && field.dropdown_options && (
-                              <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                                Options: {field.dropdown_options.join(', ')}
-                              </div>
-                            )}
-                          </td>
-                          <td>
-                            {field.field_type}
-                            {field.field_type === 'Dropdown' && isCustom && field.is_active && (
-                              <button
-                                className="settings-edit-dropdown-btn"
-                                onClick={() => openDropdownOptionsModal(field.id)}
-                                style={{ marginLeft: '8px', fontSize: '12px', padding: '2px 6px' }}
-                              >
-                                Edit Options
-                              </button>
-                            )}
-                          </td>
-                          <td>
-                              {settingsService.canChangeMandatoryStatus(field.name) ? (
+          <div className='settings-two-column-row'>                    
+            {/* Lead Form Fields Section */}
+            <div className="settings-section">
+              <h2>Lead Form Fields</h2>
+              <div className="settings-section-content">
+                <div className="settings-table-container">
+                  <table className="settings-table">
+                    <thead>
+                      <tr>
+                        <th>Field Name</th>
+                        <th>Field Type</th>
+                        <th>Mandatory</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {settingsData.form_fields.map((field) => {
+                        // Use field_key for more reliable classification
+                        const isSuperConstant = field.field_key ? 
+                          settingsService.isSuperConstantFieldByKey(field.field_key) : 
+                          settingsService.isSuperConstantField(field.name);
+                        
+                        const isConstant = field.field_key ? 
+                          settingsService.isConstantFieldByKey(field.field_key) : 
+                          settingsService.isConstantField(field.name);
+                        
+                        const isCustom = field.field_key ? 
+                          settingsService.isCustomFieldByKey(field.field_key) : 
+                          settingsService.isCustomField(field.name);
+                        
+                        return (
+                          <tr key={field.id} style={{ opacity: (isCustom && !field.is_active) ? 0.5 : 1 }}>
+                            <td>
+                              {editingItems[`field_name_${field.id}`] && (isConstant || isCustom) ? (
+                                <input
+                                  type="text"
+                                  defaultValue={field.name}
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleFieldNameChange(field.id, e.target.value);
+                                    }
+                                  }}
+                                  onBlur={(e) => handleFieldNameChange(field.id, e.target.value)}
+                                />
+                              ) : (
+                                <span>{field.name}</span>
+                              )}
+                              {field.field_type === 'Dropdown' && field.dropdown_options && (
+                                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                                  Options: {field.dropdown_options.join(', ')}
+                                </div>
+                              )}
+                              {/* Show field_key for debugging */}
+                              {field.field_key && (
+                                <div style={{ fontSize: '10px', color: '#999', marginTop: '2px' }}>
+                                  Key: {field.field_key}
+                                </div>
+                              )}
+                            </td>
+                            <td>
+                              {field.field_type}
+                              {field.field_type === 'Dropdown' && isCustom && field.is_active && (
+                                <button
+                                  className="settings-edit-dropdown-btn"
+                                  onClick={() => openDropdownOptionsModal(field.id)}
+                                  style={{ marginLeft: '8px', fontSize: '12px', padding: '2px 6px' }}
+                                >
+                                  Edit Options
+                                </button>
+                              )}
+                            </td>
+                            <td>
+                              {(field.field_key ? 
+                                settingsService.canChangeMandatoryStatusByKey(field.field_key) : 
+                                settingsService.canChangeMandatoryStatus(field.name)) ? (
                                 <button
                                   className={`settings-mandatory-toggle ${field.mandatory ? 'active' : ''}`}
                                   onClick={() => toggleFieldMandatory(field.id)}
@@ -685,440 +704,452 @@ const SettingsPage = ({ onLogout, user }) => {
                                 <span style={{ color: '#999', fontSize: '14px' }}>N/A</span>
                               )}
                             </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                {isCustom && (
+                                  <button
+                                    className={`settings-toggle-btn ${field.is_active ? 'active' : 'inactive'}`}
+                                    onClick={() => toggleFormFieldStatus(field.id)}
+                                  >
+                                    {field.is_active ? 'ON' : 'OFF'}
+                                  </button>
+                                )}
+                                
+                                {(isConstant || isCustom) && (
+                                  <button 
+                                    className="settings-edit-btn"
+                                    onClick={() => toggleFieldNameEdit(field.id)}
+                                    disabled={isCustom && !field.is_active}
+                                  >
+                                    <Edit size={16} />
+                                  </button>
+                                )}
+                                
+                                {isCustom && (
+                                  <button
+                                    className="settings-remove-btn"
+                                    onClick={() => removeCustomField(field.id)}
+                                  >
+                                    <X size={16} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  
+                  <div className="settings-add-custom-section">
+                    <h3>Add Custom Fields</h3>
+                    <button 
+                      className="settings-add-btn"
+                      onClick={() => setShowCustomFieldModal(true)}
+                    >
+                      <Plus size={16} />
+                      Add Field
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Lead Stages Section */}
+            <div className="settings-section">
+              <h2>Lead Stages</h2>
+              <div className="settings-section-content">
+                <div className="settings-table-container">
+                  <table className="settings-table">
+                    <thead>
+                      <tr>
+                        <th>Move</th>
+                        <th>Stage Name</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {settingsData.stages.map((stage, index) => (
+                        <tr key={stage.id} style={{ opacity: stage.is_active ? 1 : 0.5 }}>
                           <td>
                             <div style={{ display: 'flex', gap: '8px' }}>
-                              {/* ON/OFF Toggle - Only for custom fields */}
-                              {isCustom && (
-                                <button
-                                  className={`settings-toggle-btn ${field.is_active ? 'active' : 'inactive'}`}
-                                  onClick={() => toggleFormFieldStatus(field.id)}
-                                >
-                                  {field.is_active ? 'ON' : 'OFF'}
-                                </button>
-                              )}
-                              
-                              {/* Edit Name Button - For constant and custom fields */}
-                              {(isConstant || isCustom) && (
-                                <button 
-                                  className="settings-edit-btn"
-                                  onClick={() => toggleFieldNameEdit(field.id)}
-                                  disabled={isCustom && !field.is_active}
-                                >
-                                  <Edit size={16} />
-                                </button>
-                              )}
-                              
-                              {/* Delete Button - Only for custom fields */}
-                              {isCustom && (
-                                <button
-                                  className="settings-remove-btn"
-                                  onClick={() => removeCustomField(field.id)}
-                                >
-                                  <X size={16} />
-                                </button>
-                              )}
+                              <button
+                                className="settings-move-btn"
+                                onClick={() => moveStageUp(stage.id)}
+                                disabled={index === 0 || !stage.is_active}
+                                style={{ opacity: (index === 0 || !stage.is_active) ? 0.3 : 1 }}
+                              >
+                                ↑
+                              </button>
+                              <button
+                                className="settings-move-btn"
+                                onClick={() => moveStageDown(stage.id)}
+                                disabled={index === settingsData.stages.length - 1 || !stage.is_active}
+                                style={{ opacity: (index === settingsData.stages.length - 1 || !stage.is_active) ? 0.3 : 1 }}
+                              >
+                                ↓
+                              </button>
+                            </div>
+                          </td>
+                          <td>
+                            <div 
+                              className="settings-stage-name-badge"
+                              style={{ backgroundColor: stage.color }}
+                            >
+                              {stage.name}
+                            </div>
+                            {/* ← NEW: Show stage_key for debugging */}
+                            {stage.stage_key && (
+                              <div style={{ fontSize: '10px', color: '#999', marginTop: '2px' }}>
+                                Key: {stage.stage_key}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <span className="settings-stage-status">{stage.status || 'New'}</span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                className={`settings-toggle-btn ${stage.is_active ? 'active' : 'inactive'}`}
+                                onClick={() => toggleStageStatus(stage.id)}
+                              >
+                                {stage.is_active ? 'ON' : 'OFF'}
+                              </button>
+                              <button 
+                                className="settings-edit-btn"
+                                onClick={() => handleEditStage(stage)}
+                                disabled={!stage.is_active}
+                              >
+                                <Edit size={16} />
+                              </button>
                             </div>
                           </td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                
-                <div className="settings-add-custom-section">
-                  <h3>Add Custom Fields</h3>
-                  <button 
-                    className="settings-add-btn"
-                    onClick={() => setShowCustomFieldModal(true)}
-                  >
-                    <Plus size={16} />
-                    Add Field
-                  </button>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            </div>
-          </div>
 
+              {/* ← UPDATED: Stage Edit Modal with stage_key display */}
+              {showStageEditModal && (
+                <>
+                  <div className="settings-modal-overlay" onClick={() => setShowStageEditModal(false)}></div>
+                  <div className="settings-modal">
+                    <div className="settings-modal-header">
+                      <h3>Edit Stage</h3>
+                      <button 
+                        className="settings-modal-close"
+                        onClick={() => setShowStageEditModal(false)}
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
+                    <div className="settings-modal-body">
+                      <div className="settings-field-group">
+                        <label>Stage Name</label>
+                        <input
+                          type="text"
+                          value={editingStage.name}
+                          onChange={(e) => setEditingStage(prev => ({ ...prev, name: e.target.value }))}
+                        />
+                      </div>
+                      <div className="settings-field-group">
+                        <label>Status</label>
+                        <input
+                          type="text"
+                          value={editingStage.status}
+                          onChange={(e) => setEditingStage(prev => ({ ...prev, status: e.target.value }))}
+                        />
+                      </div>
+                      <div className="settings-field-group">
+                        <label>Color</label>
+                        <input
+                          type="color"
+                          value={editingStage.color}
+                          onChange={(e) => setEditingStage(prev => ({ ...prev, color: e.target.value }))}
+                        />
+                      </div>
+                      {/* ← NEW: Show stage_key in modal (read-only) */}
+                      {editingStage.stage_key && (
+                        <div className="settings-field-group">
+                          <label>Stage Key (Read-only)</label>
+                          <input
+                            type="text"
+                            value={editingStage.stage_key}
+                            disabled
+                            style={{ backgroundColor: '#f5f5f5', color: '#666' }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="settings-modal-footer">
+                      <button 
+                        className="settings-modal-submit"
+                        onClick={handleUpdateStage}
+                      >
+                        Update Stage
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div> 
+
+          {/* Two column section - Counsellors, Sources, Grades (unchanged sections) */}
+          <div className='settings-two-column-row'>
+            {/* Counsellors Section */}
+            <div className="settings-section">
+              <h2>Counsellors</h2>
+              <div className="settings-section-content">
+                <div className="settings-list-section">
+                  <div className="settings-add-new-section">
+                    {!showNewCounsellorInput ? (
+                      <button 
+                        className="settings-add-new-btn"
+                        onClick={() => setShowNewCounsellorInput(true)}
+                      >
+                        <Plus size={16} />
+                        Add New
+                      </button>
+                    ) : (
+                      <div className="settings-add-input-group">
+                        <input
+                          type="text"
+                          value={newCounsellor}
+                          onChange={(e) => setNewCounsellor(e.target.value)}
+                          placeholder="Enter counsellor name"
+                          onKeyPress={(e) => e.key === 'Enter' && addNewCounsellor()}
+                        />
+                        <button className="settings-submit-btn" onClick={addNewCounsellor}>
+                          Submit
+                        </button>
+                        <button 
+                          className="settings-cancel-btn" 
+                          onClick={() => {
+                            setShowNewCounsellorInput(false);
+                            setNewCounsellor('');
+                          }}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   
-          {/* Lead Stages Section */}
-          <div className="settings-section">
-            <h2>Lead Stages</h2>
-            <div className="settings-section-content">
-              <div className="settings-table-container">
-                <table className="settings-table">
-                  <thead>
-                    <tr>
-                      <th>Move</th>
-                      <th>Stage Name</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {settingsData.stages.map((stage, index) => (
-                      <tr key={stage.id} style={{ opacity: stage.is_active ? 1 : 0.5 }}>
-                        <td>
+                  <div className="settings-list-items">
+                    {settingsData.counsellors.map((counsellor) => (
+                      <div key={counsellor.id} className="settings-list-item">
+                        <div className="settings-item-content">
+                          <span className="settings-item-label">Counsellor Name</span>
+                          {editingItems[`counsellor_${counsellor.id}`] ? (
+                            <input
+                              type="text"
+                              defaultValue={counsellor.name}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleCounsellorNameChange(counsellor.id, e.target.value);
+                                }
+                              }}
+                              onBlur={(e) => handleCounsellorNameChange(counsellor.id, e.target.value)}
+                            />
+                          ) : (
+                            <span className="settings-item-value">{counsellor.name}</span>
+                          )}
+                        </div>
+                        <div className="settings-item-actions">
+                          <span className="settings-item-label">Edit</span>
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
-                              className="settings-move-btn"
-                              onClick={() => moveStageUp(stage.id)}
-                              disabled={index === 0 || !stage.is_active}
-                              style={{ opacity: (index === 0 || !stage.is_active) ? 0.3 : 1 }}
-                            >
-                              ↑
-                            </button>
-                            <button
-                              className="settings-move-btn"
-                              onClick={() => moveStageDown(stage.id)}
-                              disabled={index === settingsData.stages.length - 1 || !stage.is_active}
-                              style={{ opacity: (index === settingsData.stages.length - 1 || !stage.is_active) ? 0.3 : 1 }}
-                            >
-                              ↓
-                            </button>
-                          </div>
-                        </td>
-                        <td>
-                          <div 
-                            className="settings-stage-name-badge"
-                            style={{ backgroundColor: stage.color }}
-                          >
-                            {stage.name}
-                          </div>
-                        </td>
-                        <td>
-                          <span className="settings-stage-status">{stage.status || 'New'}</span>
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
-                              className={`settings-toggle-btn ${stage.is_active ? 'active' : 'inactive'}`}
-                              onClick={() => toggleStageStatus(stage.id)}
-                            >
-                              {stage.is_active ? 'ON' : 'OFF'}
-                            </button>
                             <button 
                               className="settings-edit-btn"
-                              onClick={() => handleEditStage(stage)}
-                              disabled={!stage.is_active}
+                              onClick={() => toggleCounsellorEdit(counsellor.id)}
                             >
                               <Edit size={16} />
                             </button>
+                            <button 
+                              className="settings-remove-btn"
+                              onClick={() => removeCounsellor(counsellor.id)}
+                            >
+                              <X size={16} />
+                            </button>
                           </div>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Stage Edit Modal */}
-            {showStageEditModal && (
-              <>
-                <div className="settings-modal-overlay" onClick={() => setShowStageEditModal(false)}></div>
-                <div className="settings-modal">
-                  <div className="settings-modal-header">
-                    <h3>Edit Stage</h3>
-                    <button 
-                      className="settings-modal-close"
-                      onClick={() => setShowStageEditModal(false)}
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-                  <div className="settings-modal-body">
-                    <div className="settings-field-group">
-                      <label>Stage Name</label>
-                      <input
-                        type="text"
-                        value={editingStage.name}
-                        onChange={(e) => setEditingStage(prev => ({ ...prev, name: e.target.value }))}
-                      />
-                    </div>
-                    <div className="settings-field-group">
-                      <label>Status</label>
-                      <input
-                        type="text"
-                        value={editingStage.status}
-                        onChange={(e) => setEditingStage(prev => ({ ...prev, status: e.target.value }))}
-                      />
-                    </div>
-                    <div className="settings-field-group">
-                      <label>Color</label>
-                      <input
-                        type="color"
-                        value={editingStage.color}
-                        onChange={(e) => setEditingStage(prev => ({ ...prev, color: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                  <div className="settings-modal-footer">
-                    <button 
-                      className="settings-modal-submit"
-                      onClick={handleUpdateStage}
-                    >
-                      Update Stage
-                    </button>
                   </div>
                 </div>
-              </>
-            )}
-          </div>
-          </div> 
+              </div>
+            </div>
 
-           {/* Two column section */}
-           <div className='settings-two-column-row'>
-          {/* Counsellors Section */}
-          <div className="settings-section">
-            <h2>Counsellors</h2>
-            <div className="settings-section-content">
-              <div className="settings-list-section">
-                <div className="settings-add-new-section">
-                  {!showNewCounsellorInput ? (
-                    <button 
-                      className="settings-add-new-btn"
-                      onClick={() => setShowNewCounsellorInput(true)}
-                    >
-                      <Plus size={16} />
-                      Add New
-                    </button>
-                  ) : (
-                    <div className="settings-add-input-group">
-                      <input
-                        type="text"
-                        value={newCounsellor}
-                        onChange={(e) => setNewCounsellor(e.target.value)}
-                        placeholder="Enter counsellor name"
-                        onKeyPress={(e) => e.key === 'Enter' && addNewCounsellor()}
-                      />
-                      <button className="settings-submit-btn" onClick={addNewCounsellor}>
-                        Submit
-                      </button>
+            {/* Lead Source Section */}
+            <div className="settings-section">
+              <h2>Lead Source</h2>
+              <div className="settings-section-content">
+                <div className="settings-list-section">
+                  <div className="settings-add-new-section">
+                    {!showNewSourceInput ? (
                       <button 
-                        className="settings-cancel-btn" 
-                        onClick={() => {
-                          setShowNewCounsellorInput(false);
-                          setNewCounsellor('');
-                        }}
+                        className="settings-add-new-btn"
+                        onClick={() => setShowNewSourceInput(true)}
                       >
-                        <X size={16} />
+                        <Plus size={16} />
+                        Add New
                       </button>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="settings-list-items">
-                  {settingsData.counsellors.map((counsellor) => (
-                    <div key={counsellor.id} className="settings-list-item">
-                      <div className="settings-item-content">
-                        <span className="settings-item-label">Counsellor Name</span>
-                        {editingItems[`counsellor_${counsellor.id}`] ? (
-                          <input
-                            type="text"
-                            defaultValue={counsellor.name}
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter') {
-                                handleCounsellorNameChange(counsellor.id, e.target.value);
-                              }
-                            }}
-                            onBlur={(e) => handleCounsellorNameChange(counsellor.id, e.target.value)}
-                          />
-                        ) : (
-                          <span className="settings-item-value">{counsellor.name}</span>
-                        )}
+                    ) : (
+                      <div className="settings-add-input-group">
+                        <input
+                          type="text"
+                          value={newSource}
+                          onChange={(e) => setNewSource(e.target.value)}
+                          placeholder="Enter source name"
+                          onKeyPress={(e) => e.key === 'Enter' && addNewSource()}
+                        />
+                        <button className="settings-submit-btn" onClick={addNewSource}>
+                          Submit
+                        </button>
+                        <button 
+                          className="settings-cancel-btn" 
+                          onClick={() => {
+                            setShowNewSourceInput(false);
+                            setNewSource('');
+                          }}
+                        >
+                          <X size={16} />
+                        </button>
                       </div>
-                      <div className="settings-item-actions">
-                        <span className="settings-item-label">Edit</span>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button 
-                            className="settings-edit-btn"
-                            onClick={() => toggleCounsellorEdit(counsellor.id)}
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button 
-                            className="settings-remove-btn"
-                            onClick={() => removeCounsellor(counsellor.id)}
-                          >
-                            <X size={16} />
-                          </button>
+                    )}
+                  </div>
+                  
+                  <div className="settings-list-items">
+                    {settingsData.sources.map((source) => (
+                      <div key={source.id} className="settings-list-item">
+                        <div className="settings-item-content">
+                          <span className="settings-item-label">Lead Source</span>
+                          {editingItems[`source_${source.id}`] ? (
+                            <input
+                              type="text"
+                              defaultValue={source.name}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleSourceNameChange(source.id, e.target.value);
+                                }
+                              }}
+                              onBlur={(e) => handleSourceNameChange(source.id, e.target.value)}
+                            />
+                          ) : (
+                            <span className="settings-item-value">{source.name}</span>
+                          )}
+                        </div>
+                        <div className="settings-item-actions">
+                          <span className="settings-item-label">Edit</span>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              className="settings-edit-btn"
+                              onClick={() => toggleSourceEdit(source.id)}
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button 
+                              className="settings-remove-btn"
+                              onClick={() => removeSource(source.id)}
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Grades Section */}
+            <div className="settings-section">
+              <h2>Grades</h2>
+              <div className="settings-section-content">
+                <div className="settings-list-section">
+                  <div className="settings-add-new-section">
+                    {!showNewGradeInput ? (
+                      <button 
+                        className="settings-add-new-btn"
+                        onClick={() => setShowNewGradeInput(true)}
+                      >
+                        <Plus size={16} />
+                        Add New
+                      </button>
+                    ) : (
+                      <div className="settings-add-input-group">
+                        <input
+                          type="text"
+                          value={newGrade}
+                          onChange={(e) => setNewGrade(e.target.value)}
+                          placeholder="Enter grade name"
+                          onKeyPress={(e) => e.key === 'Enter' && addNewGrade()}
+                        />
+                        <button className="settings-submit-btn" onClick={addNewGrade}>
+                          Submit
+                        </button>
+                        <button 
+                          className="settings-cancel-btn" 
+                          onClick={() => {
+                            setShowNewGradeInput(false);
+                            setNewGrade('');
+                          }}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="settings-list-items">
+                    {settingsData.grades.map((grade) => (
+                      <div key={grade.id} className="settings-list-item">
+                        <div className="settings-item-content">
+                          <span className="settings-item-label">Grade</span>
+                          {editingItems[`grade_${grade.id}`] ? (
+                            <input
+                              type="text"
+                              defaultValue={grade.name}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleGradeNameChange(grade.id, e.target.value);
+                                }
+                              }}
+                              onBlur={(e) => handleGradeNameChange(grade.id, e.target.value)}
+                            />
+                          ) : (
+                            <span className="settings-item-value">{grade.name}</span>
+                          )}
+                        </div>
+                        <div className="settings-item-actions">
+                          <span className="settings-item-label">Edit</span>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              className="settings-edit-btn"
+                              onClick={() => toggleGradeEdit(grade.id)}
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button 
+                              className="settings-remove-btn"
+                              onClick={() => removeGrade(grade.id)}
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Lead Source Section */}
-          <div className="settings-section">
-            <h2>Lead Source</h2>
-            <div className="settings-section-content">
-              <div className="settings-list-section">
-                <div className="settings-add-new-section">
-                  {!showNewSourceInput ? (
-                    <button 
-                      className="settings-add-new-btn"
-                      onClick={() => setShowNewSourceInput(true)}
-                    >
-                      <Plus size={16} />
-                      Add New
-                    </button>
-                  ) : (
-                    <div className="settings-add-input-group">
-                      <input
-                        type="text"
-                        value={newSource}
-                        onChange={(e) => setNewSource(e.target.value)}
-                        placeholder="Enter source name"
-                        onKeyPress={(e) => e.key === 'Enter' && addNewSource()}
-                      />
-                      <button className="settings-submit-btn" onClick={addNewSource}>
-                        Submit
-                      </button>
-                      <button 
-                        className="settings-cancel-btn" 
-                        onClick={() => {
-                          setShowNewSourceInput(false);
-                          setNewSource('');
-                        }}
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="settings-list-items">
-                  {settingsData.sources.map((source) => (
-                    <div key={source.id} className="settings-list-item">
-                      <div className="settings-item-content">
-                        <span className="settings-item-label">Lead Source</span>
-                        {editingItems[`source_${source.id}`] ? (
-                          <input
-                            type="text"
-                            defaultValue={source.name}
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter') {
-                                handleSourceNameChange(source.id, e.target.value);
-                              }
-                            }}
-                            onBlur={(e) => handleSourceNameChange(source.id, e.target.value)}
-                          />
-                        ) : (
-                          <span className="settings-item-value">{source.name}</span>
-                        )}
-                      </div>
-                      <div className="settings-item-actions">
-                        <span className="settings-item-label">Edit</span>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button 
-                            className="settings-edit-btn"
-                            onClick={() => toggleSourceEdit(source.id)}
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button 
-                            className="settings-remove-btn"
-                            onClick={() => removeSource(source.id)}
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Grades Section */}
-          <div className="settings-section">
-            <h2>Grades</h2>
-            <div className="settings-section-content">
-              <div className="settings-list-section">
-                <div className="settings-add-new-section">
-                  {!showNewGradeInput ? (
-                    <button 
-                      className="settings-add-new-btn"
-                      onClick={() => setShowNewGradeInput(true)}
-                    >
-                      <Plus size={16} />
-                      Add New
-                    </button>
-                  ) : (
-                    <div className="settings-add-input-group">
-                      <input
-                        type="text"
-                        value={newGrade}
-                        onChange={(e) => setNewGrade(e.target.value)}
-                        placeholder="Enter grade name"
-                        onKeyPress={(e) => e.key === 'Enter' && addNewGrade()}
-                      />
-                      <button className="settings-submit-btn" onClick={addNewGrade}>
-                        Submit
-                      </button>
-                      <button 
-                        className="settings-cancel-btn" 
-                        onClick={() => {
-                          setShowNewGradeInput(false);
-                          setNewGrade('');
-                        }}
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="settings-list-items">
-                  {settingsData.grades.map((grade) => (
-                    <div key={grade.id} className="settings-list-item">
-                      <div className="settings-item-content">
-                        <span className="settings-item-label">Grade</span>
-                        {editingItems[`grade_${grade.id}`] ? (
-                          <input
-                            type="text"
-                            defaultValue={grade.name}
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter') {
-                                handleGradeNameChange(grade.id, e.target.value);
-                              }
-                            }}
-                            onBlur={(e) => handleGradeNameChange(grade.id, e.target.value)}
-                          />
-                        ) : (
-                          <span className="settings-item-value">{grade.name}</span>
-                        )}
-                      </div>
-                      <div className="settings-item-actions">
-                        <span className="settings-item-label">Edit</span>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button 
-                            className="settings-edit-btn"
-                            onClick={() => toggleGradeEdit(grade.id)}
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button 
-                            className="settings-remove-btn"
-                            onClick={() => removeGrade(grade.id)}
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          </div> 
-
-          
 
           {/* Custom Field Modal */}
           {showCustomFieldModal && (
@@ -1158,8 +1189,6 @@ const SettingsPage = ({ onLogout, user }) => {
                       ))}
                     </select>
                   </div>
-                  
-                  
                 </div>
                 <div className="settings-modal-footer">
                   <button 

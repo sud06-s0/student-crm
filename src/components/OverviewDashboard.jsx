@@ -1,8 +1,23 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { supabase } from '../lib/supabase';
+import { useSettingsData } from '../contexts/SettingsDataProvider'; // ← UPDATED: Import settings
 
 const OverviewDashboard = () => {
+  // ← UPDATED: Use settings data context with stage_key support
+  const { 
+    settingsData, 
+    getFieldLabel, // ← NEW: For dynamic field labels
+    getStageInfo,
+    getStageColor,
+    getStageScore,
+    getStageCategory,
+    getStageKeyFromName, // ← NEW: Convert stage name to stage_key
+    getStageNameFromKey, // ← NEW: Convert stage_key to stage name
+    stageKeyToDataMapping, // ← NEW: Direct stage data mapping
+    loading: settingsLoading 
+  } = useSettingsData();
+
   // ALL STATE HOOKS FIRST
   const [leadsData, setLeadsData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,35 +27,46 @@ const OverviewDashboard = () => {
     isActive: false
   });
 
-  // Stage colors mapping
-  const stageColors = {
-    'New Lead': '#B3D7FF',
-    'Connected': '#E9FF9A',
-    'Meeting Booked': '#FFEC9F',
-    'Meeting Done': '#FF9697',
-    'Proposal Sent': '#FFC796',
-    'Visit Booked': '#D1A4FF',
-    'Visit Done': '#B1FFFF',
-    'Registered': '#FFCCF5',
-    'Admission': '#98FFB4',
-    'No Response': '#B5BAB1'
+  // ← NEW: Helper functions for stage_key conversion
+  const getStageKeyForLead = (stageValue) => {
+    // If it's already a stage_key, return it
+    if (stageKeyToDataMapping[stageValue]) {
+      return stageValue;
+    }
+    // Otherwise, convert stage name to stage_key
+    return getStageKeyFromName(stageValue) || stageValue;
   };
 
-  // Updated source colors mapping to match form values
+  const getStageDisplayName = (stageValue) => {
+    // If it's a stage_key, get the display name
+    if (stageKeyToDataMapping[stageValue]) {
+      return getStageNameFromKey(stageValue);
+    }
+    // Otherwise, it's probably already a stage name
+    return stageValue;
+  };
+
+  // ← UPDATED: Get stage color using stage_key
+  const getStageColorFromSettings = (stageValue) => {
+    const stageKey = getStageKeyForLead(stageValue);
+    return getStageColor(stageKey);
+  };
+
+  // ← UPDATED: Get dynamic source colors (can be enhanced with settings later)
   const sourceColors = {
-    'Google Ads': '#2A89DD',       // Form: "Google Ads" -> Chart: "Google Ads"
-    'Instagram': '#F6BD51',        // Form: "Instagram" -> Chart: "Instagram Ads"  
-    'Facebook': '#EE6E55',         // Form: "Facebook" -> Chart: "Facebook Ads"
-    'Walk-in': '#647BCA',          // Form: "Walk-in" -> Chart: "Walk-ins"
-    'Website': '#30B2B6',          // Form: "Website" -> Chart: "Website Enquiry"
-    'Referral': '#9D91CE',         // Form: "Referral" -> Chart: "Referral"
-    'Phone Call': '#8B5CF6',       // Form: "Phone Call" -> Chart: "Phone Call"
-    'Email': '#F59E0B',            // Form: "Email" -> Chart: "Email"
-    'Other': '#6B7280',            // Form: "Other" -> Chart: "Other"
-    'Unknown': '#9D91CE'           // Fallback for null/undefined values
+    'Google Ads': '#2A89DD',
+    'Instagram': '#F6BD51',
+    'Facebook': '#EE6E55',
+    'Walk-in': '#647BCA',
+    'Website': '#30B2B6',
+    'Referral': '#9D91CE',
+    'Phone Call': '#8B5CF6',
+    'Email': '#F59E0B',
+    'Other': '#6B7280',
+    'Unknown': '#9D91CE'
   };
 
-  // Convert database record to UI format
+  // ← UPDATED: Convert database record to UI format with stage_key support
   const convertDatabaseToUI = (dbRecord) => {
     let meetingDate = '';
     let meetingTime = '';
@@ -59,6 +85,11 @@ const OverviewDashboard = () => {
       visitTime = visitDateTime.toTimeString().slice(0, 5);
     }
 
+    // ← NEW: Handle stage value - could be stage name or stage_key
+    const stageValue = dbRecord.stage;
+    const stageKey = getStageKeyForLead(stageValue);
+    const displayName = getStageDisplayName(stageValue);
+
     return {
       id: dbRecord.id,
       parentsName: dbRecord.parents_name,
@@ -66,7 +97,8 @@ const OverviewDashboard = () => {
       phone: dbRecord.phone,
       location: dbRecord.location,
       grade: dbRecord.grade,
-      stage: dbRecord.stage,
+      stage: stageKey, // ← Store stage_key internally
+      stageDisplayName: displayName, // ← Store display name for UI
       score: dbRecord.score,
       category: dbRecord.category,
       counsellor: dbRecord.counsellor,
@@ -74,7 +106,7 @@ const OverviewDashboard = () => {
       notes: dbRecord.notes,
       email: dbRecord.email || '',
       occupation: dbRecord.occupation || '',
-      source: dbRecord.source || 'Instagram',
+      source: dbRecord.source || (settingsData?.sources?.[0]?.name || 'Instagram'), // ← UPDATED: Dynamic default source
       currentSchool: dbRecord.current_school || '',
       meetingDate: meetingDate,
       meetingTime: meetingTime,
@@ -116,7 +148,10 @@ const OverviewDashboard = () => {
 
       if (error) throw error;
 
+      console.log('=== OVERVIEW DASHBOARD DATA FETCH ===');
+      console.log('Raw data from Supabase:', data);
       const convertedData = data.map(convertDatabaseToUI);
+      console.log('Converted data with stage_key:', convertedData);
       setLeadsData(convertedData);
     } catch (error) {
       console.error('Error fetching leads:', error);
@@ -133,8 +168,9 @@ const OverviewDashboard = () => {
   // Get current date for max date validation
   const currentDate = new Date().toISOString().split('T')[0];
 
-  // Function to normalize source names for display
+  // ← UPDATED: Function to normalize source names for display using settings
   const normalizeSourceForDisplay = (source) => {
+    // ← NEW: Could be enhanced to use dynamic source settings in the future
     const sourceMap = {
       'Instagram': 'Instagram Ads',
       'Facebook': 'Facebook Ads', 
@@ -192,7 +228,7 @@ const OverviewDashboard = () => {
     return counts;
   }, [getFilteredLeadsByDate]);
 
-  // Calculate source performance data
+  // ← UPDATED: Calculate source performance data using dynamic sources
   const sourceData = useMemo(() => {
     const filteredLeads = getFilteredLeadsByDate;
     
@@ -222,38 +258,57 @@ const OverviewDashboard = () => {
     return data;
   }, [getFilteredLeadsByDate]);
 
-  // Calculate stage data with proportional widths
+  // ← UPDATED: Calculate stage data with stage_key support
   const stageData = useMemo(() => {
     const filteredLeads = getFilteredLeadsByDate;
     const totalLeads = filteredLeads.length;
-    const maxBarWidth = 350; // Maximum bar width in pixels
     
-    const stages = [
-      'New Lead', 'Connected', 'Meeting Booked', 'Meeting Done', 
-      'Proposal Sent', 'Visit Booked', 'Visit Done', 'Registered', 'Admission'
-    ];
+    console.log('=== STAGE DATA CALCULATION ===');
+    console.log('Filtered leads:', filteredLeads.length);
+    console.log('Settings stages:', settingsData?.stages);
     
-    return stages.map(stage => {
-      const count = filteredLeads.filter(lead => lead.stage === stage).length;
+    // ← UPDATED: Get dynamic stages from settings with stage_key support
+    const dynamicStages = settingsData?.stages?.filter(stage => stage.is_active) || [];
+    
+    return dynamicStages.map(stageConfig => {
+      const stageName = stageConfig.name;
+      const stageKey = stageConfig.stage_key || stageName;
+      
+      console.log(`Processing stage: ${stageName} (key: ${stageKey})`);
+      
+      // ← UPDATED: Count leads using stage_key comparison
+      const count = filteredLeads.filter(lead => {
+        const leadStageKey = getStageKeyForLead(lead.stage);
+        const matches = leadStageKey === stageKey || lead.stage === stageName;
+        
+        if (matches) {
+          console.log(`  Lead ${lead.id} matches stage ${stageName}`);
+        }
+        
+        return matches;
+      }).length;
+      
+      console.log(`  Final count for ${stageName}: ${count}`);
+      
       // Calculate proportional width based on count relative to total leads
-        const minWidth = 120;
-        const maxWidth = 550;
-        const percentage = totalLeads > 0 ? (count / totalLeads) * 100 : 0;
-        const widthPx = totalLeads > 0 ? 
+      const minWidth = 120;
+      const maxWidth = 550;
+      const percentage = totalLeads > 0 ? (count / totalLeads) * 100 : 0;
+      const widthPx = totalLeads > 0 ? 
         minWidth + ((percentage / 100) * (maxWidth - minWidth)) : minWidth;
 
-      
       return {
-        stage,
+        stage: stageName, // ← Display name for UI
+        stageKey: stageKey, // ← Store stage_key for reference
         count,
         widthPx,
-        color: stageColors[stage]
+        color: getStageColorFromSettings(stageKey) // ← NEW: Use stage_key for color lookup
       };
     });
-  }, [getFilteredLeadsByDate, stageColors]);
+  }, [getFilteredLeadsByDate, settingsData?.stages, getStageColorFromSettings, getStageKeyForLead]);
 
-  // LOADING CHECK AFTER ALL HOOKS
-  if (loading) {
+  // ← UPDATED: Loading check for both data and settings
+  if (loading || settingsLoading) {
     return (
       <div style={{ 
         display: 'flex', 
@@ -399,7 +454,9 @@ const OverviewDashboard = () => {
       <div className="dashboard-charts-grid">
         {/* Source Performance Chart */}
         <div className="dashboard-chart-container">
-          <h3 className="dashboard-chart-title">Source Performance</h3>
+          <h3 className="dashboard-chart-title">
+            {getFieldLabel('source') || 'Source'} Performance {/* ← NEW: Dynamic field label */}
+          </h3>
           
           {sourceData.length > 0 ? (
             <>
@@ -502,7 +559,9 @@ const OverviewDashboard = () => {
         {/* Stages Section */}
         <div className="dashboard-stages-container">
           <div className="dashboard-stages-header">
-            <h3 className="dashboard-stages-title">Stages</h3>
+            <h3 className="dashboard-stages-title">
+              {getFieldLabel('stage') || 'Stages'} {/* ← NEW: Dynamic field label */}
+            </h3>
             <div className="dashboard-total-leads-badge" style={{paddingBottom:'15px'}}>
               Total Leads: {categoryCounts.allLeads}
             </div>
@@ -510,8 +569,8 @@ const OverviewDashboard = () => {
           
           {getFilteredLeadsByDate.length > 0 ? (
             <div className="dashboard-stages-list">
-              {stageData.map(({ stage, count, widthPx, color }) => (
-                <div key={stage} className="dashboard-stage-item">
+              {stageData.map(({ stage, stageKey, count, widthPx, color }) => (
+                <div key={stageKey || stage} className="dashboard-stage-item">
                   <div 
                     className="dashboard-stage-bar" 
                     style={{ 
@@ -521,7 +580,7 @@ const OverviewDashboard = () => {
                       minWidth: '120px'
                     }}
                   >
-                    <span className="dashboard-stage-label">{stage}</span>
+                    <span className="dashboard-stage-label">{stage}</span> {/* ← Display stage name */}
                   </div>
                   <span className="dashboard-stage-count">{count}</span>
                 </div>

@@ -18,8 +18,8 @@ import {
 } from 'lucide-react';
 
 const LeftSidebar = ({ 
-  activeNavItem = "leads", 
-  activeSubmenuItem = "all",
+  activeNavItem = "", 
+  activeSubmenuItem = "",
   onLogout,  
   user       
 }) => {
@@ -66,7 +66,7 @@ const LeftSidebar = ({
         <div className="nova-user-info" style={{
           padding: '10px 15px',
           marginBottom: '20px',
-          backgroundColor: isAdmin ? '#fee2e2' : '#dbeafe', // Different color for admin vs user
+          backgroundColor: isAdmin ? '#fee2e2' : '#dbeafe',
           borderRadius: '8px',
           border: `1px solid ${isAdmin ? '#fecaca' : '#bfdbfe'}`
         }}>
@@ -82,7 +82,7 @@ const LeftSidebar = ({
                 textTransform: 'capitalize',
                 fontWeight: '500'
               }}>
-                {user.role} {isAdmin}
+                {user.role}
               </div>
             </div>
           </div>
@@ -166,8 +166,9 @@ const LeftSidebar = ({
         </div>
       </div>
 
-      {/* ADMIN ONLY: Settings */}
+      {/* Settings & Logout */}
       <div className="nova-settings">
+        {/* ADMIN ONLY: Settings */}
         {isAdmin && (
           <a 
             href="/settings" 
@@ -197,6 +198,17 @@ const LeftSidebar = ({
           Log out
         </button>
       </div>
+
+      {/* ← NEW: Add CSS for submenu behavior */}
+      <style jsx>{`
+        
+        /* Ensure submenu only shows when parent is active */
+        .nova-all-leads .all-leads-submenu {
+          opacity: 1;
+          max-height: 300px;
+          transition: all 0.3s ease;
+        }
+      `}</style>
     </div>
   );
 };

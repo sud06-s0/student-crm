@@ -1,24 +1,33 @@
 import React, { useState } from 'react';
 
-const Stage5ActionButton = ({ leadId, currentStatus, onStatusUpdate, parentsName, visitDate, visitTime, phone }) => {
+const Stage5ActionButton = ({ 
+  leadId, 
+  currentStatus, 
+  onStatusUpdate,
+  getFieldLabel, // ← Field_key aware label function
+  parentsName, 
+  visitDate, 
+  visitTime, 
+  phone 
+}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showHover, setShowHover] = useState(false);
 
-  // Function to validate required parameters
+  // ← UPDATED: Function to validate required parameters with field_key support
   const validateParameters = () => {
     const missingParams = [];
     
     if (!parentsName || parentsName.trim() === '') {
-      missingParams.push('Parent\'s Name');
+      missingParams.push(getFieldLabel('parentsName')); // ← Dynamic field label
     }
     if (!phone || phone.trim() === '') {
-      missingParams.push('Phone Number');
+      missingParams.push(getFieldLabel('phone')); // ← Dynamic field label
     }
     if (!visitDate || visitDate.trim() === '') {
-      missingParams.push('Visit Date');
+      missingParams.push(getFieldLabel('visitDate')); // ← Dynamic field label
     }
     if (!visitTime || visitTime.trim() === '') {
-      missingParams.push('Visit Time');
+      missingParams.push(getFieldLabel('visitTime')); // ← Dynamic field label
     }
     
     return missingParams;
@@ -35,7 +44,7 @@ const Stage5ActionButton = ({ leadId, currentStatus, onStatusUpdate, parentsName
 
     setIsLoading(true);
     try {
-      // API call to send WhatsApp message
+      // ← API call to send WhatsApp message (unchanged - working correctly)
       const response = await fetch('https://backend.aisensy.com/campaign/t1/api/v2', {
         method: 'POST',
         headers: {
@@ -72,7 +81,7 @@ const Stage5ActionButton = ({ leadId, currentStatus, onStatusUpdate, parentsName
     }
   };
 
-  // Hover message - you can customize this message
+  // ← Hover message showing template preview (not actual field labels)
   const hoverMessage = `Hey Parent Name, your Visit to the school is confirmed for Date at Time.
 
 Here's the agenda:

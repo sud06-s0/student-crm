@@ -4,6 +4,7 @@ const Stage2ActionButton = ({
   leadId, 
   currentStatus, 
   onStatusUpdate, 
+  getFieldLabel, // ← Field_key aware label function
   parentsName, 
   meetingDate, 
   meetingTime, 
@@ -13,26 +14,25 @@ const Stage2ActionButton = ({
   const [isLoading, setIsLoading] = useState(false);
   const [showHover, setShowHover] = useState(false);
 
-  // Function to validate required parameters
+  // ← UPDATED: Function to validate required parameters with field_key support
   const validateParameters = () => {
     const missingParams = [];
     
     if (!parentsName || parentsName.trim() === '') {
-      missingParams.push('Parent\'s Name');
+      missingParams.push(getFieldLabel('parentsName')); // ← Dynamic field label
     }
     if (!meetingDate || meetingDate.trim() === '') {
-      missingParams.push('Meeting Date');
+      missingParams.push(getFieldLabel('meetingDate')); // ← Dynamic field label
     }
     if (!meetingTime || meetingTime.trim() === '') {
-      missingParams.push('Meeting Time');
+      missingParams.push(getFieldLabel('meetingTime')); // ← Dynamic field label
     }
     if (!meetingLink || meetingLink.trim() === '') {
-      missingParams.push('Meeting Link');
+      missingParams.push(getFieldLabel('meetingLink')); // ← Dynamic field label
     }
     if (!phone || phone.trim() === '') {
-      missingParams.push('Phone Number');
+      missingParams.push(getFieldLabel('phone')); // ← Dynamic field label
     }
-    
     return missingParams;
   };
 
@@ -47,7 +47,7 @@ const Stage2ActionButton = ({
 
     setIsLoading(true);
     try {
-      // API call to send WhatsApp message
+      // ← API call to send WhatsApp message (unchanged - working correctly)
       const response = await fetch('https://backend.aisensy.com/campaign/t1/api/v2', {
         method: 'POST',
         headers: {
@@ -84,7 +84,7 @@ const Stage2ActionButton = ({
     }
   };
 
-  // Hover message - you can customize this message
+  // ← Hover message showing template preview (not actual field labels)
   const hoverMessage = `Hey Name, our Meeting is confirmed for Date at Time. Here's the Link to join: LinkMessage
 
 Here's the agenda:  

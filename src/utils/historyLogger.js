@@ -2,6 +2,19 @@
 import { supabase } from '../lib/supabase';
 
 /**
+ * IMPORTANT NOTE: Stage_key Migration
+ * 
+ * When calling stage-related logging functions, always pass DISPLAY NAMES (what users see)
+ * rather than internal stage_keys. Components should convert stage_keys to display names
+ * before calling these functions using getStageDisplayName() from SettingsDataProvider.
+ * 
+ * Example:
+ * const oldStageName = getStageDisplayName(oldStageKey);
+ * const newStageName = getStageDisplayName(newStageKey);
+ * await logStageChange(leadId, oldStageName, newStageName, 'sidebar');
+ */
+
+/**
  * Log an action to the history/logs table
  * @param {number} leadId - The ID of the lead
  * @param {string} mainAction - The main action type (e.g., 'Lead Created', 'Stage Updated')
@@ -32,7 +45,7 @@ export const logAction = async (leadId, mainAction, description) => {
 /**
  * Log when a new lead is created
  * @param {number} leadId - The ID of the newly created lead
- * @param {object} leadData - The lead data object
+ * @param {object} leadData - The lead data object (should contain display names, not keys)
  * @returns {Promise<void>}
  */
 export const logLeadCreated = async (leadId, leadData) => {
@@ -54,8 +67,8 @@ export const logLeadUpdated = async (leadId, changeDescription) => {
 /**
  * Log stage changes
  * @param {number} leadId - The ID of the lead
- * @param {string} oldStage - Previous stage
- * @param {string} newStage - New stage
+ * @param {string} oldStage - Previous stage DISPLAY NAME (not stage_key)
+ * @param {string} newStage - New stage DISPLAY NAME (not stage_key)
  * @param {string} source - Source of the change (e.g., 'sidebar', 'table dropdown', 'form')
  * @returns {Promise<void>}
  */
@@ -197,7 +210,8 @@ export const logContactInfoUpdated = async (leadId, field, oldValue, newValue) =
     occupation: 'Occupation',
     location: 'Location',
     source: 'Source',
-    currentSchool: 'Current School'
+    currentSchool: 'Current School',
+    notes: 'Notes' // ← Added notes field support
   };
   
   const label = fieldLabels[field] || field;
@@ -252,7 +266,7 @@ export const logCounsellorChange = async (leadId, oldCounsellor, newCounsellor) 
  * Log WhatsApp message sending (for action buttons)
  * @param {number} leadId - The ID of the lead
  * @param {string} stageField - Stage field (e.g., 'stage2_status')
- * @param {string} stageName - Human readable stage name
+ * @param {string} stageName - Human readable stage name (DISPLAY NAME, not stage_key)
  * @returns {Promise<void>}
  */
 export const logWhatsAppMessage = async (leadId, stageField, stageName) => {
@@ -273,7 +287,7 @@ export const logManualEntry = async (leadId, actionType, details) => {
 
 /**
  * Generate a comprehensive change description for multiple field updates
- * @param {object} changes - Object containing field changes
+ * @param {object} changes - Object containing field changes (should use display names for stages)
  * @returns {string} Formatted change description
  */
 export const generateChangeDescription = (changes) => {
@@ -296,7 +310,7 @@ export const generateChangeDescription = (changes) => {
     source: 'Source',
     phone: 'Phone',
     grade: 'Grade',
-    notes: 'Notes'
+    notes: 'Notes' // ← Added notes field support
   };
 
   const changeDescriptions = Object.entries(changes).map(([field, { oldValue, newValue }]) => {
@@ -356,7 +370,7 @@ export const formatDateTimeForLog = (date, time) => {
  * Log form submission (for Add/Edit lead forms)
  * @param {number} leadId - The ID of the lead
  * @param {string} formType - Type of form ('add' or 'edit')
- * @param {object} leadData - The lead data
+ * @param {object} leadData - The lead data (should contain display names, not keys)
  * @returns {Promise<void>}
  */
 export const logFormSubmission = async (leadId, formType, leadData) => {
@@ -371,12 +385,12 @@ export const logFormSubmission = async (leadId, formType, leadData) => {
 /**
  * Helper function to detect and log specific types of changes
  * @param {number} leadId - The ID of the lead
- * @param {object} oldData - Original data
- * @param {object} newData - New data
+ * @param {object} oldData - Original data (should contain display names for stages)
+ * @param {object} newData - New data (should contain display names for stages)
  * @returns {Promise<void>}
  */
 export const logSpecificChanges = async (leadId, oldData, newData) => {
-  // Log stage changes
+  // Log stage changes (expects display names, not stage_keys)
   if (oldData.stage !== newData.stage) {
     await logStageChange(leadId, oldData.stage, newData.stage, 'form');
   }
@@ -438,13 +452,32 @@ export const logSpecificChanges = async (leadId, oldData, newData) => {
     await logAdmissionStatusChange(leadId, 'enrolled', oldData.enrolled, newData.enrolled);
   }
   
-  // Log contact info changes
-  const contactFields = ['email', 'phone', 'occupation', 'location', 'source', 'currentSchool'];
+  // Log contact info changes (including notes)
+  const contactFields = ['email', 'phone', 'occupation', 'location', 'source', 'currentSchool', 'notes'];
   for (const field of contactFields) {
     if (oldData[field] !== newData[field]) {
       await logContactInfoUpdated(leadId, field, oldData[field], newData[field]);
     }
   }
+};
+
+/**
+ * UTILITY FUNCTION: Convert stage_key to display name for logging
+ * This function can be used by components that need to log stage changes
+ * but only have access to stage_keys.
+ * 
+ * @param {string} stageKeyOrName - Either a stage_key or stage display name
+ * @param {function} getStageDisplayName - Function from SettingsDataProvider to convert stage_key to display name
+ * @returns {string} Display name for logging
+ */
+export const getStageDisplayNameForLogging = (stageKeyOrName, getStageDisplayName) => {
+  if (!getStageDisplayName) {
+    console.warn('getStageDisplayName function not provided, using value as-is for logging');
+    return stageKeyOrName;
+  }
+  
+  // Try to get display name, fallback to original value if conversion fails
+  return getStageDisplayName(stageKeyOrName) || stageKeyOrName;
 };
 
 // Export all functions as default object for easy importing
@@ -466,5 +499,6 @@ export default {
   logFormSubmission,
   logSpecificChanges,
   formatDateTimeForLog,
-  generateChangeDescription
+  generateChangeDescription,
+  getStageDisplayNameForLogging // ← New utility function
 };

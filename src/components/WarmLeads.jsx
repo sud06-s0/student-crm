@@ -6,7 +6,8 @@ import LeftSidebar from './LeftSidebar';
 import LeadSidebar from './LeadSidebar';
 import DeleteConfirmationDialog from './DeleteConfirmationDialog';
 import { FilterButton, applyFilters } from './FilterDropdown';
-import { useLeadState } from './LeadStateProvider'; // ← ADD THIS IMPORT
+import LeadStateProvider,{ useLeadState } from './LeadStateProvider';
+import SettingsDataProvider, { useSettingsData } from '../contexts/SettingsDataProvider';
 import { 
   Search,
   Filter,
@@ -32,11 +33,20 @@ import {
 } from 'lucide-react';
 
 const WarmLeads = ({ onLogout, user }) => {
-  // ← REPLACE THESE LINES WITH CONTEXT
-  // OLD: const [selectedLead, setSelectedLead] = useState(null);
-  // OLD: const [leadsData, setLeadsData] = useState([]);
+  // ← UPDATED: Use settings data context with stage_key support
+  const { 
+    settingsData, 
+    getFieldLabel, // ← NEW: For dynamic field labels
+    getStageInfo,
+    getStageColor, 
+    getStageScore, 
+    getStageCategory,
+    getStageKeyFromName, // ← NEW: Convert stage name to stage_key
+    getStageNameFromKey, // ← NEW: Convert stage_key to stage name
+    stageKeyToDataMapping, // ← NEW: Direct stage data mapping
+    loading: settingsLoading 
+  } = useSettingsData();
   
-  // NEW: Use the context hook instead of local state
   const { 
     selectedLead, 
     setSelectedLead, 
@@ -68,7 +78,7 @@ const WarmLeads = ({ onLogout, user }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Sidebar editing states - UPDATED
+  // ← UPDATED: Sidebar editing states with field_key support
   const [isEditingMode, setIsEditingMode] = useState(false);
   const [sidebarFormData, setSidebarFormData] = useState({
     parentsName: '',
@@ -89,7 +99,8 @@ const WarmLeads = ({ onLogout, user }) => {
     visitTime: '',
     visitLocation: '',
     registrationFees: '',
-    enrolled: ''
+    enrolled: '',
+    notes: '' // ← Added notes field
   });
 
   // Real data from Supabase
@@ -101,26 +112,33 @@ const WarmLeads = ({ onLogout, user }) => {
   const [stageFilters, setStageFilters] = useState([]);
   const [statusFilters, setStatusFilters] = useState([]);
 
-  // Updated Stage options with new stages and colors
-  const stages = [
-    { value: 'New Lead', label: 'New Lead', color: '#B3D7FF' },
-    { value: 'Connected', label: 'Connected', color: '#E9FF9A' },
-    { value: 'Meeting Booked', label: 'Meeting Booked', color: '#FFEC9F' },
-    { value: 'Meeting Done', label: 'Meeting Done', color: '#FF9697' },
-    { value: 'Proposal Sent', label: 'Proposal Sent', color: '#FFC796' },
-    { value: 'Visit Booked', label: 'Visit Booked', color: '#D1A4FF' },
-    { value: 'Visit Done', label: 'Visit Done', color: '#B1FFFF' },
-    { value: 'Registered', label: 'Registered', color: '#FF99EB' },
-    { value: 'Admission', label: 'Admission', color: '#98FFB4' },
-    { value: 'No Response', label: 'No Response', color: '#B5BAB1' }
-  ];
+  // ← NEW: Helper functions for stage_key conversion
+  const getStageKeyForLead = (stageValue) => {
+    // If it's already a stage_key, return it
+    if (stageKeyToDataMapping[stageValue]) {
+      return stageValue;
+    }
+    // Otherwise, convert stage name to stage_key
+    return getStageKeyFromName(stageValue) || stageValue;
+  };
 
-  const offers = [
-    '30000 Scholarship',
-    '10000 Discount',
-    'Welcome Kit',
-    'Accessible Kit'
-  ];
+  const getStageDisplayName = (stageValue) => {
+    // If it's a stage_key, get the display name
+    if (stageKeyToDataMapping[stageValue]) {
+      return getStageNameFromKey(stageValue);
+    }
+    // Otherwise, it's probably already a stage name
+    return stageValue;
+  };
+
+  // ← UPDATED: Get dynamic stages with stage_key support
+  const stages = settingsData.stages.map(stage => ({
+    value: stage.stage_key || stage.name, // ← Use stage_key if available
+    label: stage.name, // ← Display name
+    color: stage.color || '#B3D7FF',
+    score: stage.score || 10,
+    category: stage.status || 'New'
+  }));
 
   // DELETE FUNCTIONALITY - NEW FUNCTIONS
   const handleIndividualCheckboxChange = (leadId, checked) => {
@@ -186,15 +204,33 @@ const WarmLeads = ({ onLogout, user }) => {
     setSelectAll(false);
   }, [searchTerm, counsellorFilters, stageFilters, statusFilters]);
 
-  // Calculate stage counts
+  // ← UPDATED: Calculate stage counts using stage_key
   const getStageCount = (stageName) => {
-    return leadsData.filter(lead => lead.stage === stageName).length;
+    console.log('=== WARM LEADS STAGE COUNT ===');
+    console.log('Looking for stage:', stageName);
+    
+    const stageKey = getStageKeyFromName(stageName);
+    console.log('Stage key for', stageName, ':', stageKey);
+    
+    const count = leadsData.filter(lead => {
+      const leadStageKey = getStageKeyForLead(lead.stage);
+      const matches = leadStageKey === stageKey || lead.stage === stageName;
+      
+      if (matches) {
+        console.log(`Warm lead ${lead.id} matches stage ${stageName} (key: ${stageKey})`);
+      }
+      
+      return matches;
+    }).length;
+    
+    console.log(`Final warm leads count for ${stageName}:`, count);
+    return count;
   };
 
-  // Get stage color
-  const getStageColor = (stage) => {
-    const stageObj = stages.find(s => s.value === stage);
-    return stageObj ? stageObj.color : '#B3D7FF';
+  // ← UPDATED: Get stage color using stage_key
+  const getStageColorFromSettings = (stageValue) => {
+    const stageKey = getStageKeyForLead(stageValue);
+    return getStageColor(stageKey);
   };
 
   // Get counsellor initials from first two words
@@ -247,7 +283,7 @@ const WarmLeads = ({ onLogout, user }) => {
     return days >= 3;
   };
 
-  // Convert database record to UI format - UPDATED
+  // ← UPDATED: Convert database record to UI format with stage_key support
   const convertDatabaseToUI = (dbRecord) => {
     // Parse datetime fields
     let meetingDate = '';
@@ -267,6 +303,11 @@ const WarmLeads = ({ onLogout, user }) => {
       visitTime = visitDateTime.toTimeString().slice(0, 5);
     }
 
+    // ← NEW: Handle stage value - could be stage name or stage_key
+    const stageValue = dbRecord.stage;
+    const stageKey = getStageKeyForLead(stageValue);
+    const displayName = getStageDisplayName(stageValue);
+
     return {
       id: dbRecord.id,
       parentsName: dbRecord.parents_name,
@@ -274,7 +315,8 @@ const WarmLeads = ({ onLogout, user }) => {
       phone: dbRecord.phone,
       location: dbRecord.location,
       grade: dbRecord.grade,
-      stage: dbRecord.stage,
+      stage: stageKey, // ← Store stage_key internally
+      stageDisplayName: displayName, // ← Store display name for UI
       score: dbRecord.score,
       category: dbRecord.category,
       counsellor: dbRecord.counsellor,
@@ -282,7 +324,7 @@ const WarmLeads = ({ onLogout, user }) => {
       notes: dbRecord.notes,
       email: dbRecord.email || '',
       occupation: dbRecord.occupation || '',
-      source: dbRecord.source || 'Instagram',
+      source: dbRecord.source || (settingsData?.sources?.[0]?.name || 'Instagram'),
       currentSchool: dbRecord.current_school || '',
       meetingDate: meetingDate,
       meetingTime: meetingTime,
@@ -319,6 +361,8 @@ const WarmLeads = ({ onLogout, user }) => {
         setLoading(true);
         setError(null);
         
+        console.log('=== FETCHING WARM LEADS ===');
+        
         // Make both API calls in parallel using the fast view
         const [leadsResponse, activityResponse] = await Promise.all([
           supabase.from('Leads').select('*').order('id', { ascending: false }),
@@ -328,8 +372,11 @@ const WarmLeads = ({ onLogout, user }) => {
         if (leadsResponse.error) throw leadsResponse.error;
         if (activityResponse.error) throw activityResponse.error;
 
+        console.log('Raw warm leads from database:', leadsResponse.data);
+
         // Process leads data
         const convertedData = leadsResponse.data.map(convertDatabaseToUI);
+        console.log('Converted warm leads with stage_key:', convertedData);
         setLeadsData(convertedData);
         
         // Process activity data (super fast now)
@@ -349,9 +396,9 @@ const WarmLeads = ({ onLogout, user }) => {
 
   // Fetch leads on component mount
       useEffect(() => {
-      console.time('Page load time');
+      console.time('Warm leads page load time');
       fetchLeads().then(() => {
-        console.timeEnd('Page load time');
+        console.timeEnd('Warm leads page load time');
       });
     }, []);
 
@@ -383,15 +430,16 @@ const WarmLeads = ({ onLogout, user }) => {
     return categoryMap[category] || "status-new";
   };
 
+  // ← UPDATED: openSidebar with field_key support
   const openSidebar = (lead) => {
-    console.log('Opening sidebar for lead:', lead);
+    console.log('Opening sidebar for warm lead:', lead);
     setSelectedLead(lead);
     setSidebarFormData({
       parentsName: lead.parentsName || '',
       kidsName: lead.kidsName || '',
       grade: lead.grade || '',
-      source: lead.source || 'Instagram',
-      stage: lead.stage,
+      source: lead.source || settingsData.sources[0]?.name || 'Instagram',
+      stage: lead.stage, // ← This is now stage_key
       offer: lead.offer || 'Welcome Kit',
       email: lead.email || '',
       phone: lead.phone || '',
@@ -405,7 +453,8 @@ const WarmLeads = ({ onLogout, user }) => {
       visitTime: lead.visitTime || '',
       visitLocation: lead.visitLocation || '',
       registrationFees: lead.registrationFees || '',
-      enrolled: lead.enrolled || ''
+      enrolled: lead.enrolled || '',
+      notes: lead.notes || '' // ← Added notes field
     });
     setShowSidebar(true);
     setIsEditingMode(false);
@@ -433,36 +482,47 @@ const WarmLeads = ({ onLogout, user }) => {
     }));
   };
 
-  // UPDATED: Handle stage change from sidebar with history logging
-  const handleSidebarStageChange = async (leadId, newStage) => {
+  // ← UPDATED: Handle stage change from sidebar with stage_key support
+  const handleSidebarStageChange = async (leadId, newStageKey) => {
     try {
       const lead = leadsData.find(l => l.id === leadId);
-      const oldStage = lead.stage;
-      const updatedScore = getScoreFromStage(newStage);
-      const updatedCategory = getCategoryFromStage(newStage);
+      const oldStageKey = lead.stage;
+      const updatedScore = getStageScore(newStageKey);
+      const updatedCategory = getStageCategory(newStageKey);
+      
+      // Get display names for logging
+      const oldStageName = getStageDisplayName(oldStageKey);
+      const newStageName = getStageDisplayName(newStageKey);
+      
+      console.log('=== WARM LEADS STAGE CHANGE ===');
+      console.log('Lead ID:', leadId);
+      console.log('Old stage:', oldStageName, '(key:', oldStageKey, ')');
+      console.log('New stage:', newStageName, '(key:', newStageKey, ')');
       
       // Log the stage change FIRST (before database update)
-      if (oldStage !== newStage) {
-        await logStageChange(leadId, oldStage, newStage, 'sidebar');
+      if (oldStageKey !== newStageKey) {
+        await logStageChange(leadId, oldStageName, newStageName, 'sidebar');
       }
 
-      // Update in database
+      // ← UPDATED: Store stage_key in database
       let updateData = { 
-        stage: newStage, 
+        stage: newStageKey, // ← Store stage_key
         score: updatedScore, 
         category: updatedCategory,
         updated_at: new Date().toISOString()
       };
 
-      // Store previous stage if moving TO 'No Response' FROM any other stage
-      if (newStage === 'No Response' && oldStage !== 'No Response') {
-        updateData.previous_stage = oldStage;
+      // Handle 'No Response' logic with stage_key
+      const noResponseKey = getStageKeyFromName('No Response');
+      if (newStageKey === noResponseKey && oldStageKey !== noResponseKey) {
+        updateData.previous_stage = oldStageKey;
       }
 
-      // Clear previous stage if moving FROM 'No Response' TO any other stage
-      if (oldStage === 'No Response' && newStage !== 'No Response') {
+      if (oldStageKey === noResponseKey && newStageKey !== noResponseKey) {
         updateData.previous_stage = null;
       }
+
+      console.log('Database update data:', updateData);
 
       // Update in database
       const { error } = await supabase
@@ -480,7 +540,13 @@ const WarmLeads = ({ onLogout, user }) => {
       // Update local state
       const updatedLeads = leadsData.map(lead => 
         lead.id === leadId 
-          ? { ...lead, stage: newStage, score: updatedScore, category: updatedCategory }
+          ? { 
+              ...lead, 
+              stage: newStageKey, 
+              stageDisplayName: newStageName,
+              score: updatedScore, 
+              category: updatedCategory 
+            }
           : lead
       );
       
@@ -490,7 +556,8 @@ const WarmLeads = ({ onLogout, user }) => {
       if (selectedLead && selectedLead.id === leadId) {
         setSelectedLead({
           ...selectedLead,
-          stage: newStage,
+          stage: newStageKey,
+          stageDisplayName: newStageName,
           score: updatedScore,
           category: updatedCategory
         });
@@ -505,7 +572,7 @@ const WarmLeads = ({ onLogout, user }) => {
     }
   };
 
-  // ← UPDATED: Handle update all fields function with context
+  // ← UPDATED: Handle update all fields function with stage_key support
   const handleUpdateAllFields = async () => {
     try {
       console.log('handleUpdateAllFields called with sidebarFormData:', sidebarFormData);
@@ -518,6 +585,9 @@ const WarmLeads = ({ onLogout, user }) => {
         formattedPhone = `+91${formattedPhone}`;
       }
       
+      // ← UPDATED: Handle stage_key in updates
+      const stageKey = getStageKeyForLead(sidebarFormData.stage);
+      
       // Prepare the update data
       const updateData = {
         parents_name: sidebarFormData.parentsName,
@@ -525,9 +595,9 @@ const WarmLeads = ({ onLogout, user }) => {
         grade: sidebarFormData.grade,
         source: sidebarFormData.source,
         phone: formattedPhone,
-        stage: sidebarFormData.stage,
-        score: getScoreFromStage(sidebarFormData.stage),
-        category: getCategoryFromStage(sidebarFormData.stage),
+        stage: stageKey, // ← Store stage_key
+        score: getStageScore(stageKey),
+        category: getStageCategory(stageKey),
         offer: sidebarFormData.offer,
         email: sidebarFormData.email,
         occupation: sidebarFormData.occupation,
@@ -537,6 +607,7 @@ const WarmLeads = ({ onLogout, user }) => {
         visit_location: sidebarFormData.visitLocation,
         reg_fees: sidebarFormData.registrationFees,
         enrolled: sidebarFormData.enrolled,
+        notes: sidebarFormData.notes, // ← Added notes field
         updated_at: new Date().toISOString()
       };
 
@@ -550,12 +621,14 @@ const WarmLeads = ({ onLogout, user }) => {
       }
 
       // Check if stage changed for logging
-      const oldStage = selectedLead.stage;
-      const newStage = sidebarFormData.stage;
+      const oldStageKey = selectedLead.stage;
+      const newStageKey = stageKey;
       
       // Log stage change if it occurred
-      if (oldStage !== newStage) {
-        await logStageChange(selectedLead.id, oldStage, newStage, 'sidebar edit all');
+      if (oldStageKey !== newStageKey) {
+        const oldStageName = getStageDisplayName(oldStageKey);
+        const newStageName = getStageDisplayName(newStageKey);
+        await logStageChange(selectedLead.id, oldStageName, newStageName, 'sidebar edit all');
       }
 
       console.log('Database update data:', updateData);
@@ -582,7 +655,7 @@ const WarmLeads = ({ onLogout, user }) => {
       setIsEditingMode(false);
 
       // ← USE CONTEXT to update the lead state instead of manual setState
-      updateCompleteLeadData(selectedLead.id, sidebarFormData);
+      updateCompleteLeadData(selectedLead.id, sidebarFormData, getStageScore, getStageCategory);
 
       console.log('Sidebar refresh completed successfully');
 
@@ -598,36 +671,40 @@ const WarmLeads = ({ onLogout, user }) => {
     setStageDropdownOpen(stageDropdownOpen === leadId ? null : leadId);
   };
 
-  // UPDATED: Handle stage change from dropdown with history logging
-  const handleStageChangeFromDropdown = async (e, leadId, newStage) => {
+  // ← UPDATED: Handle stage change from dropdown with stage_key support
+  const handleStageChangeFromDropdown = async (e, leadId, newStageKey) => {
     e.stopPropagation();
     
     try {
       const lead = leadsData.find(l => l.id === leadId);
-      const oldStage = lead.stage;
-      const updatedScore = getScoreFromStage(newStage);
-      const updatedCategory = getCategoryFromStage(newStage);
+      const oldStageKey = lead.stage;
+      const updatedScore = getStageScore(newStageKey);
+      const updatedCategory = getStageCategory(newStageKey);
+      
+      // Get display names for logging
+      const oldStageName = getStageDisplayName(oldStageKey);
+      const newStageName = getStageDisplayName(newStageKey);
       
       // Log the stage change FIRST (before database update)
-      if (oldStage !== newStage) {
-        await logStageChange(leadId, oldStage, newStage, 'table dropdown');
+      if (oldStageKey !== newStageKey) {
+        await logStageChange(leadId, oldStageName, newStageName, 'table dropdown');
       }
 
-      // Update in database
+      // ← UPDATED: Store stage_key in database
       let updateData = { 
-        stage: newStage, 
+        stage: newStageKey, // ← Store stage_key
         score: updatedScore, 
         category: updatedCategory,
         updated_at: new Date().toISOString()
       };
 
-      // Store previous stage if moving TO 'No Response' FROM any other stage
-      if (newStage === 'No Response' && oldStage !== 'No Response') {
-        updateData.previous_stage = oldStage;
+      // Handle 'No Response' logic with stage_key
+      const noResponseKey = getStageKeyFromName('No Response');
+      if (newStageKey === noResponseKey && oldStageKey !== noResponseKey) {
+        updateData.previous_stage = oldStageKey;
       }
 
-      // Clear previous stage if moving FROM 'No Response' TO any other stage
-      if (oldStage === 'No Response' && newStage !== 'No Response') {
+      if (oldStageKey === noResponseKey && newStageKey !== noResponseKey) {
         updateData.previous_stage = null;
       }
 
@@ -647,7 +724,13 @@ const WarmLeads = ({ onLogout, user }) => {
       // Update local state
       const updatedLeads = leadsData.map(lead => 
         lead.id === leadId 
-          ? { ...lead, stage: newStage, score: updatedScore, category: updatedCategory }
+          ? { 
+              ...lead, 
+              stage: newStageKey, 
+              stageDisplayName: newStageName,
+              score: updatedScore, 
+              category: updatedCategory 
+            }
           : lead
       );
       
@@ -700,6 +783,7 @@ const handleAddLead = async (action = 'add') => {
     setShowSearch(true);
   };
 
+  // ← UPDATED: Search functionality with field_key support
   const handleSearchChange = (e) => {
     const term = e.target.value;
     setSearchTerm(term);
@@ -711,8 +795,13 @@ const handleAddLead = async (action = 'add') => {
         lead.parentsName.toLowerCase().includes(term.toLowerCase()) ||
         lead.kidsName.toLowerCase().includes(term.toLowerCase()) ||
         lead.phone.toLowerCase().includes(term.toLowerCase()) ||
-        lead.stage.toLowerCase().includes(term.toLowerCase()) ||
-        lead.counsellor.toLowerCase().includes(term.toLowerCase())
+        getStageDisplayName(lead.stage).toLowerCase().includes(term.toLowerCase()) ||
+        lead.counsellor.toLowerCase().includes(term.toLowerCase()) ||
+        (lead.email && lead.email.toLowerCase().includes(term.toLowerCase())) ||
+        (lead.occupation && lead.occupation.toLowerCase().includes(term.toLowerCase())) ||
+        (lead.location && lead.location.toLowerCase().includes(term.toLowerCase())) ||
+        (lead.currentSchool && lead.currentSchool.toLowerCase().includes(term.toLowerCase())) ||
+        (lead.source && lead.source.toLowerCase().includes(term.toLowerCase()))
       );
       setFilteredLeads(filtered);
     }
@@ -726,23 +815,42 @@ const handleAddLead = async (action = 'add') => {
 
   // Determine which data to display
   const getDisplayLeads = () => {
-    let filtered = leadsData.filter(lead => lead.category === 'Warm');    
+    let filtered = leadsData.filter(lead => lead.category === 'Warm');
+    
     // Apply search first
     if (searchTerm.trim() !== '') {
-      filtered = leadsData.filter(lead => 
+      filtered = filtered.filter(lead => 
         lead.parentsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.kidsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.stage.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.counsellor.toLowerCase().includes(searchTerm.toLowerCase())
+        getStageDisplayName(lead.stage).toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.counsellor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (lead.email && lead.email.toLowerCase().includes(term.toLowerCase())) ||
+        (lead.occupation && lead.occupation.toLowerCase().includes(term.toLowerCase())) ||
+        (lead.location && lead.location.toLowerCase().includes(term.toLowerCase())) ||
+        (lead.currentSchool && lead.currentSchool.toLowerCase().includes(term.toLowerCase())) ||
+        (lead.source && lead.source.toLowerCase().includes(term.toLowerCase()))
       );
     }
     
     // Then apply filters
-    return applyFilters(filtered, counsellorFilters, stageFilters, statusFilters);
+    return applyFilters(filtered, counsellorFilters, stageFilters, statusFilters, getStageDisplayName, getStageKeyFromName);
   };
 
   const displayLeads = getDisplayLeads();
+
+  // Show loading if either leads or settings are loading
+  if (loading || settingsLoading) {
+    return (
+      <div className="nova-crm" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <div className="nova-main">
+          <div className="loading-message">
+            <Loader2 size={16} className="animate-spin" /> Loading...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="nova-crm" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -752,7 +860,7 @@ const handleAddLead = async (action = 'add') => {
         activeSubmenuItem="warm"
         stages={stages}
         getStageCount={getStageCount}
-        stagesTitle="Stages"
+        stagesTitle={getFieldLabel('stage') || 'Stages'} // ← NEW: Dynamic field label
         stagesIcon={Play}
         onLogout={onLogout}
         user={user}
@@ -761,10 +869,11 @@ const handleAddLead = async (action = 'add') => {
       {/* Main Content */}
       <div className="nova-main">
         {/* Header */}
+        
         <div className="nova-header">
           <div className="header-left">
             <h1>Warm Leads</h1>
-            <span className="total-count">Warm Leads {leadsData.length}</span>
+            <span className="total-count">Total Warm Leads {displayLeads.length}</span>
             
             {/* DELETE BUTTON - Shows when leads are selected */}
             {selectedLeads.length > 0 && (
@@ -824,6 +933,10 @@ const handleAddLead = async (action = 'add') => {
               setCounsellorFilters={setCounsellorFilters}
               setStageFilters={setStageFilters}
               setStatusFilters={setStatusFilters}  
+              settingsData={settingsData}
+              getFieldLabel={getFieldLabel} // ← NEW
+              getStageKeyFromName={getStageKeyFromName} // ← NEW
+              getStageDisplayName={getStageDisplayName} // ← NEW
             />
             <button className="add-lead-btn" onClick={handleShowAddForm}>
               + Add Lead
@@ -838,14 +951,7 @@ const handleAddLead = async (action = 'add') => {
           </div>
         )}
 
-        {/* Loading Display */}
-        {loading && (
-          <div className="loading-message">
-            <Loader2 size={16} className="animate-spin" /> Loading leads...
-          </div>
-        )}
-
-        {/* Leads Table */}
+        {/* ← UPDATED: Leads Table with field_key support for headers */}
         <div className="nova-table-container">
           <table className="nova-table">
             <thead>
@@ -859,12 +965,12 @@ const handleAddLead = async (action = 'add') => {
                   />
                 </th>
                 <th>ID</th>
-                <th>Parent Name</th>
-                <th>Phone</th>
-                <th>Class</th>
-                <th>Stage</th>
+                <th>{getFieldLabel('parentsName')}</th> {/* ← Dynamic field label */}
+                <th>{getFieldLabel('phone')}</th> {/* ← Dynamic field label */}
+                <th>{getFieldLabel('grade')}</th> {/* ← Dynamic field label */}
+                <th>{getFieldLabel('stage')}</th> {/* ← Dynamic field label */}
                 <th>Status</th>
-                <th>Counsellor</th>
+                <th>{getFieldLabel('counsellor')}</th> {/* ← Dynamic field label */}
                 <th>Alert</th>
               </tr>
             </thead>
@@ -903,7 +1009,7 @@ const handleAddLead = async (action = 'add') => {
                         <div 
                           className="stage-badge stage-dropdown-trigger" 
                           style={{ 
-                            backgroundColor: getStageColor(lead.stage), 
+                            backgroundColor: getStageColorFromSettings(lead.stage), 
                             color: '#333',
                             cursor: 'pointer',
                             display: 'flex',
@@ -919,7 +1025,8 @@ const handleAddLead = async (action = 'add') => {
                           }}
                           onClick={(e) => handleStageDropdownToggle(e, lead.id)}
                         >
-                          <span style={{ fontWeight: '600' }}>{lead.stage}</span>
+                          {/* ← UPDATED: Show display name instead of stage_key */}
+                          <span style={{ fontWeight: '600' }}>{getStageDisplayName(lead.stage)}</span>
                           <ChevronDown 
                             size={14} 
                             style={{ 
@@ -931,6 +1038,7 @@ const handleAddLead = async (action = 'add') => {
                           />
                         </div>
                         
+                        {/* ← UPDATED: Dynamic Stage Dropdown with stage_key values */}
                         {stageDropdownOpen === lead.id && (
                           <div className="stage-dropdown-menu" style={{
                             position: 'absolute',
@@ -965,7 +1073,7 @@ const handleAddLead = async (action = 'add') => {
                                   transition: 'all 0.15s ease',
                                   whiteSpace: 'nowrap'
                                 }}
-                                onClick={(e) => handleStageChangeFromDropdown(e, lead.id, stage.value)}
+                                onClick={(e) => handleStageChangeFromDropdown(e, lead.id, stage.value)} // ← Pass stage_key
                                 onMouseEnter={(e) => {
                                   e.target.style.backgroundColor = '#f8f9fa';
                                   e.target.style.transform = 'translateX(2px)';
@@ -985,7 +1093,7 @@ const handleAddLead = async (action = 'add') => {
                                     flexShrink: 0
                                   }}
                                 ></span>
-                                <span style={{ flex: 1 }}>{stage.label}</span>
+                                <span style={{ flex: 1 }}>{stage.label}</span> {/* ← Display stage name */}
                               </div>
                             ))}
                           </div>
@@ -1015,7 +1123,7 @@ const handleAddLead = async (action = 'add') => {
               ) : !loading ? (
                 <tr>
                   <td colSpan="9" className="no-data">
-                    {searchTerm ? 'No warm leads found for your search.' : 'No warm leads available. Warm leads will appear here as they progress through the stages.'}
+                    {searchTerm ? 'No results found for your search.' : 'No leads available. Click + Add Lead to create your first lead!'}
                   </td>
                 </tr>
               ) : null}
@@ -1024,7 +1132,7 @@ const handleAddLead = async (action = 'add') => {
         </div>
       </div>
 
-      {/* ← UPDATED: Lead Sidebar Component - removed onActionStatusUpdate prop */}
+      {/* ← Lead Sidebar Component with field_key and stage_key support */}
       <LeadSidebar
         key={selectedLead?.id}
         showSidebar={showSidebar}
@@ -1032,16 +1140,17 @@ const handleAddLead = async (action = 'add') => {
         isEditingMode={isEditingMode}
         sidebarFormData={sidebarFormData}
         stages={stages}
+        settingsData={settingsData} // ← Pass settings data
         onClose={closeSidebar}
         onEditModeToggle={handleEditModeToggle}
         onFieldChange={handleSidebarFieldChange}
         onUpdateAllFields={handleUpdateAllFields}
         onStageChange={handleSidebarStageChange}
         onRefreshActivityData={fetchLastActivityData}
-        getStageColor={getStageColor}
+        getStageColor={getStageColorFromSettings}
         getCounsellorInitials={getCounsellorInitials}
-        getScoreFromStage={getScoreFromStage}
-        getCategoryFromStage={getCategoryFromStage}
+        getScoreFromStage={getStageScore}
+        getCategoryFromStage={getStageCategory}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -1053,13 +1162,14 @@ const handleAddLead = async (action = 'add') => {
         leadsData={leadsData}
       />
 
-      {/* Add Lead Form */}
+      {/* ← Add Lead Form with field_key and stage_key support */}
       {showAddForm && (
         <AddLeadForm
           isOpen={showAddForm}
           onClose={handleCloseAddForm}
           onSubmit={handleAddLead}
           existingLeads={leadsData}
+          settingsData={settingsData} // ← Pass settings data
         />
       )}
     </div>

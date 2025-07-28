@@ -1,11 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import Stage1ActionButton from './Stage1ActionButton';
+import { useSettingsData } from '../contexts/SettingsDataProvider';
 import { 
   logLeadCreated
 } from '../utils/historyLogger';
 
 const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
+  // ← UPDATED: Use settings data context with stage_key support
+  const { 
+    settingsData, 
+    getFieldLabel, // ← NEW: For dynamic field labels
+    getStageInfo,
+    getStageColor,
+    getStageScore, 
+    getStageCategory,
+    getStageKeyFromName, // ← NEW: Convert stage name to stage_key
+    getStageNameFromKey, // ← NEW: Convert stage_key to stage name
+    stageKeyToDataMapping, // ← NEW: Direct stage data mapping
+    loading: settingsLoading 
+  } = useSettingsData();
+
   const [formData, setFormData] = useState({
     id: 0, // Will be auto-generated for new leads
     parentsName: '',
@@ -13,14 +28,14 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
     location: '',
     phone: '',
     email: '',
-    grade: 'LKG',
+    grade: '',
     notes: '',
-    stage: 'New Lead',
+    stage: '', // ← Will store stage_key
     category: 'New',
     offer: 'No offer',
     counsellor: 'Assign Counsellor',
     score: 20,
-    source: 'Instagram',
+    source: '',
     occupation: '',
     createdTime: ''
   });
@@ -28,9 +43,72 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // Reset form when modal opens
+  // ← NEW: Helper functions for stage_key conversion
+  const getStageKeyForLead = (stageValue) => {
+    // If it's already a stage_key, return it
+    if (stageKeyToDataMapping[stageValue]) {
+      return stageValue;
+    }
+    // Otherwise, convert stage name to stage_key
+    return getStageKeyFromName(stageValue) || stageValue;
+  };
+
+  const getStageDisplayName = (stageValue) => {
+    // If it's a stage_key, get the display name
+    if (stageKeyToDataMapping[stageValue]) {
+      return getStageNameFromKey(stageValue);
+    }
+    // Otherwise, it's probably already a stage name
+    return stageValue;
+  };
+
+  // ← UPDATED: Use useMemo with stage_key support
+  const stages = useMemo(() => 
+    settingsData.stages.map(stage => ({
+      value: stage.stage_key || stage.name, // ← Use stage_key if available
+      label: stage.name, // ← Display name
+      color: stage.color || '#B3D7FF'
+    })), [settingsData.stages]
+  );
+
+  // ← UPDATED: Get offers from settings with field_key awareness
+  const offers = useMemo(() => {
+    const offerField = settingsData.formFields.find(field => 
+      field.field_key === 'offer' || field.name === 'Offer'
+    );
+    return offerField?.dropdown_options?.length > 0 
+      ? ['No offer', ...offerField.dropdown_options]
+      : ['No offer', '30000 Scholarship', '10000 Discount', 'Welcome Kit', 'Accessible Kit'];
+  }, [settingsData.formFields]);
+
+  // Get sources from settings
+  const sources = useMemo(() => 
+    settingsData.sources.length > 0 
+      ? settingsData.sources.map(source => source.name)
+      : ['Instagram', 'Facebook', 'Google Ads', 'Referral', 'Walk-in', 'Phone Call', 'Email', 'Website', 'Other'],
+    [settingsData.sources]
+  );
+
+  // Get grades from settings
+  const grades = useMemo(() => 
+    settingsData.grades.length > 0 
+      ? settingsData.grades.map(grade => grade.name)
+      : ['LKG', 'UKG', 'Grade I', 'Grade II', 'Grade III', 'Grade IV', 'Grade V', 'Grade VI', 'Grade VII', 'Grade VIII', 'Grade IX', 'Grade X'],
+    [settingsData.grades]
+  );
+
+  // Get counsellors from settings
+  const counsellors = useMemo(() => 
+    settingsData.counsellors.length > 0 
+      ? ['Assign Counsellor', ...settingsData.counsellors.map(c => c.name)]
+      : ['Assign Counsellor', 'Sachin', 'Rohit', 'Mukhesh'],
+    [settingsData.counsellors]
+  );
+
+  // ← UPDATED: Reset form when modal opens with stage_key support
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !settingsLoading) {
+      const defaultStageKey = stages[0]?.value || '';
       const defaultData = {
         id: 0,
         parentsName: '',
@@ -38,118 +116,36 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
         location: '',
         phone: '',
         email: '',
-        grade: 'LKG',
+        grade: settingsData.grades[0]?.name || 'LKG',
         notes: '',
-        stage: 'New Lead',
+        stage: defaultStageKey, // ← Store stage_key
         category: 'New',
         offer: 'No offer',
         counsellor: 'Assign Counsellor',
         score: 20,
-        source: 'Instagram',
+        source: settingsData.sources[0]?.name || 'Instagram',
         occupation: '',
         createdTime: ''
       };
+      
+      console.log('=== ADD LEAD FORM RESET ===');
+      console.log('Default stage key:', defaultStageKey);
+      console.log('Available stages:', stages);
+      
       setFormData(defaultData);
       setErrors({});
     }
-  }, [isOpen]);
+  }, [isOpen, settingsLoading, settingsData.grades, settingsData.sources, stages]);
 
-  // Updated Stage options with new stages
-  const stages = [
-    { value: 'New Lead', label: 'New Lead' },
-    { value: 'Connected', label: 'Connected' },
-    { value: 'Meeting Booked', label: 'Meeting Booked' },
-    { value: 'Meeting Done', label: 'Meeting Done' },
-    { value: 'Proposal Sent', label: 'Proposal Sent' },
-    { value: 'Visit Booked', label: 'Visit Booked' },
-    { value: 'Visit Done', label: 'Visit Done' },
-    { value: 'Registered', label: 'Registered' },
-    { value: 'Admission', label: 'Admission' },
-    { value: 'No Response', label: 'No Response' }
-  ];
-
-  // Updated offers with "No offer" as default
-  const offers = [
-    'No offer',
-    '30000 Scholarship',
-    '10000 Discount',
-    'Welcome Kit',
-    'Accessible Kit'
-  ];
-
-  // Source options
-  const sources = [
-    'Instagram',
-    'Facebook',
-    'Google Ads',
-    'Referral',
-    'Walk-in',
-    'Phone Call',
-    'Email',
-    'Website',
-    'Other'
-  ];
-
-  // Grade options
-  const grades = [
-    'LKG',
-    'UKG',
-    'Grade I',
-    'Grade II',
-    'Grade III',
-    'Grade IV',
-    'Grade V',
-    'Grade VI',
-    'Grade VII',
-    'Grade VIII',
-    'Grade IX',
-    'Grade X'
-  ];
-
-  // Updated counsellors with "Assign Counsellor" as default
-  const counsellors = [
-    'Assign Counsellor',
-    'Sachin',
-    'Rohit',
-    'Mukhesh'
-  ];
-
-  // Updated scoring system to match new stages
-  const getScoreFromStage = (stage) => {
-    const scoreMap = {
-      'New Lead': 20,
-      'Connected': 30,
-      'Meeting Booked': 40,
-      'Meeting Done': 50,
-      'Proposal Sent': 60,
-      'Visit Booked': 70,
-      'Visit Done': 80,
-      'Registered': 90,
-      'Admission': 100,
-      'No Response': 0
-    };
-    return scoreMap[stage] || 20;
-  };
-
-  // Updated category mapping to match new stages
-  const getCategoryFromStage = (stage) => {
-    const categoryMap = {
-      'New Lead': 'New',
-      'Connected': 'Warm',
-      'Meeting Booked': 'Warm',
-      'Meeting Done': 'Warm',
-      'Proposal Sent': 'Warm',
-      'Visit Booked': 'Hot',
-      'Visit Done': 'Hot',
-      'Registered': 'Hot',
-      'Admission': 'Enrolled',
-      'No Response': 'Cold'
-    };
-    return categoryMap[stage] || 'New';
-  };
-
-  // Convert form data to database format
+  // ← UPDATED: Convert form data to database format with stage_key support
   const convertFormToDatabase = (formData) => {
+    console.log('=== CONVERTING FORM TO DATABASE ===');
+    console.log('Form data stage:', formData.stage);
+    
+    // Ensure we're storing stage_key in database
+    const stageKey = getStageKeyForLead(formData.stage);
+    console.log('Stage key for database:', stageKey);
+    
     const dbData = {
       parents_name: formData.parentsName,
       kids_name: formData.kidsName,
@@ -157,7 +153,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
       email: formData.email || '',
       location: formData.location || '',
       grade: formData.grade || '',
-      stage: formData.stage,
+      stage: stageKey, // ← Store stage_key in database
       score: formData.score,
       category: formData.category,
       counsellor: formData.counsellor,
@@ -168,6 +164,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
       updated_at: new Date().toISOString()
     };
 
+    console.log('Final database data:', dbData);
     return dbData;
   };
 
@@ -180,10 +177,19 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
     
     let updatedFormData = { ...formData, [name]: value };
 
-    // Auto-update score and category when stage changes
+    // ← UPDATED: Auto-update score and category when stage changes using stage_key
     if (name === 'stage') {
-      updatedFormData.score = getScoreFromStage(value);
-      updatedFormData.category = getCategoryFromStage(value);
+      console.log('=== STAGE CHANGE IN FORM ===');
+      console.log('New stage value:', value);
+      
+      const stageKey = getStageKeyForLead(value);
+      console.log('Stage key:', stageKey);
+      
+      updatedFormData.score = getStageScore(stageKey);
+      updatedFormData.category = getStageCategory(stageKey);
+      
+      console.log('Updated score:', updatedFormData.score);
+      console.log('Updated category:', updatedFormData.category);
     }
 
     // Format phone number
@@ -207,25 +213,25 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
     const newErrors = {};
 
     if (!formData.parentsName.trim()) {
-      newErrors.parentsName = 'Parents Name is required';
+      newErrors.parentsName = `${getFieldLabel('parentsName')} is required`;
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
+      newErrors.email = `${getFieldLabel('email')} is required`;
     }
 
     if (!formData.kidsName.trim()) {
-      newErrors.kidsName = 'Kids Name is required';
+      newErrors.kidsName = `${getFieldLabel('kidsName')} is required`;
     }
 
     if (!formData.location.trim()) {
-      newErrors.location = 'Location is required';
+      newErrors.location = `${getFieldLabel('location')} is required`;
     }
 
     if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone Number is required';
+      newErrors.phone = `${getFieldLabel('phone')} is required`;
     } else if (formData.phone.length !== 10) {
-      newErrors.phone = 'Phone Number must be exactly 10 digits';
+      newErrors.phone = `${getFieldLabel('phone')} must be exactly 10 digits`;
     }
 
     // Email validation (optional but must be valid if provided)
@@ -235,7 +241,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
 
     // Counsellor Assign Check
     if (formData.counsellor === 'Assign Counsellor') {
-      newErrors.counsellor = 'Please select a counsellor';
+      newErrors.counsellor = `Please select a ${getFieldLabel('counsellor').toLowerCase()}`;
     }
 
     setErrors(newErrors);
@@ -267,8 +273,13 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
 
       const newLeadId = data[0].id;
 
-      // Log the new lead creation
-      await logLeadCreated(newLeadId, formData);
+      // ← UPDATED: Log the new lead creation with stage display name
+      const stageDisplayName = getStageDisplayName(formData.stage);
+      const logFormData = {
+        ...formData,
+        stage: stageDisplayName // ← Use display name for logging
+      };
+      await logLeadCreated(newLeadId, logFormData);
 
       console.log('✅ New lead created:', data);
 
@@ -286,7 +297,8 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
 
       alert('✅ New lead added successfully!');
 
-      // Reset form
+      // ← UPDATED: Reset form with current settings data and stage_key
+      const defaultStageKey = stages[0]?.value || '';
       setFormData({
         id: 0,
         parentsName: '',
@@ -294,13 +306,13 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
         location: '',
         phone: '',
         email: '',
-        grade: 'LKG',
+        grade: settingsData.grades[0]?.name || 'LKG',
         notes: '',
-        stage: 'New Lead',
+        stage: defaultStageKey, // ← Use stage_key
         category: 'New',
         counsellor: 'Assign Counsellor',
         score: 20,
-        source: 'Instagram',
+        source: settingsData.sources[0]?.name || 'Instagram',
         occupation: '',
         createdTime: ''
       });
@@ -313,7 +325,8 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
     }
   };
 
-  if (!isOpen) return null;
+  // Don't render if not open or settings are still loading
+  if (!isOpen || settingsLoading) return null;
 
   return (
     <>
@@ -331,54 +344,54 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
           <form onSubmit={handleSubmit}>
             <div className="modal-body">
               <div className="row">
-                {/* Parents Name */}
+                {/* ← UPDATED: Parents Name with dynamic field label */}
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">Parents Name *</label>
+                  <label className="form-label">{getFieldLabel('parentsName')} *</label>
                   <input
                     type="text"
                     className={`form-control ${errors.parentsName ? 'is-invalid' : ''}`}
                     name="parentsName"
                     value={formData.parentsName}
                     onChange={handleInputChange}
-                    placeholder="Enter parent's name"
+                    placeholder={`Enter ${getFieldLabel('parentsName').toLowerCase()}`}
                     disabled={loading}
                   />
                   {errors.parentsName && <div className="invalid-feedback">{errors.parentsName}</div>}
                 </div>
 
-                {/* Kids Name */}
+                {/* ← UPDATED: Kids Name with dynamic field label */}
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">Kids Name *</label>
+                  <label className="form-label">{getFieldLabel('kidsName')} *</label>
                   <input
                     type="text"
                     className={`form-control ${errors.kidsName ? 'is-invalid' : ''}`}
                     name="kidsName"
                     value={formData.kidsName}
                     onChange={handleInputChange}
-                    placeholder="Enter kid's name"
+                    placeholder={`Enter ${getFieldLabel('kidsName').toLowerCase()}`}
                     disabled={loading}
                   />
                   {errors.kidsName && <div className="invalid-feedback">{errors.kidsName}</div>}
                 </div>
 
-                {/* Location */}
+                {/* ← UPDATED: Location with dynamic field label */}
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">Location *</label>
+                  <label className="form-label">{getFieldLabel('location')} *</label>
                   <input
                     type="text"
                     className={`form-control ${errors.location ? 'is-invalid' : ''}`}
                     name="location"
                     value={formData.location}
                     onChange={handleInputChange}
-                    placeholder="Enter location"
+                    placeholder={`Enter ${getFieldLabel('location').toLowerCase()}`}
                     disabled={loading}
                   />
                   {errors.location && <div className="invalid-feedback">{errors.location}</div>}
                 </div>
 
-                {/* Phone Number */}
+                {/* ← UPDATED: Phone Number with dynamic field label */}
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">Phone Number *</label>
+                  <label className="form-label">{getFieldLabel('phone')} *</label>
                   <div className="input-group">
                     <span className="input-group-text">+91</span>
                     <input
@@ -395,24 +408,24 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
                   </div>
                 </div>
 
-                {/* Email */}
+                {/* ← UPDATED: Email with dynamic field label */}
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">Email *</label>
+                  <label className="form-label">{getFieldLabel('email')} *</label>
                   <input
                     type="email"
                     className={`form-control ${errors.email ? 'is-invalid' : ''}`}
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    placeholder="Enter email address"
+                    placeholder={`Enter ${getFieldLabel('email').toLowerCase()}`}
                     disabled={loading}
                   />
                   {errors.email && <div className="invalid-feedback">{errors.email}</div>}
                 </div>
 
-                {/* Source */}
+                {/* ← UPDATED: Source with dynamic field label */}
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">Source</label>
+                  <label className="form-label">{getFieldLabel('source')}</label>
                   <select
                     className="form-select"
                     name="source"
@@ -428,9 +441,9 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
                   </select>
                 </div>
 
-                {/* Grade */}
+                {/* ← UPDATED: Grade with dynamic field label */}
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">Grade *</label>
+                  <label className="form-label">{getFieldLabel('grade')} *</label>
                   <select
                     className={`form-select ${errors.grade ? 'is-invalid' : ''}`}
                     name="grade"
@@ -447,9 +460,9 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
                   {errors.grade && <div className="invalid-feedback">{errors.grade}</div>}
                 </div>
 
-                {/* Stage */}
+                {/* ← UPDATED: Stage with dynamic field label and stage_key support */}
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">Stage</label>
+                  <label className="form-label">{getFieldLabel('stage')}</label>
                   <select
                     className="form-select"
                     name="stage"
@@ -459,15 +472,15 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
                   >
                     {stages.map(stage => (
                       <option key={stage.value} value={stage.value}>
-                        {stage.label}
+                        {stage.label} {/* ← Display stage name */}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                {/* Counsellor */}
+                {/* ← UPDATED: Counsellor with dynamic field label */}
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">Counsellor</label>
+                  <label className="form-label">{getFieldLabel('counsellor')}</label>
                   <select
                     className={`form-select ${errors.counsellor ? 'is-invalid' : ''}`}
                     name="counsellor"
@@ -483,6 +496,52 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
                   </select>
                   {errors.counsellor && <div className="invalid-feedback">{errors.counsellor}</div>}
                 </div>
+
+                {/* ← COMMENTED: Offer field - Dynamic from Settings */}
+                {/*<div className="col-md-6 mb-3">
+                  <label className="form-label">{getFieldLabel('offer')}</label>
+                  <select
+                    className="form-select"
+                    name="offer"
+                    value={formData.offer}
+                    onChange={handleInputChange}
+                    disabled={loading}
+                  >
+                    {offers.map(offer => (
+                      <option key={offer} value={offer}>
+                        {offer}
+                      </option>
+                    ))}
+                  </select>
+                </div>*/}
+
+                {/* ← COMMENTED: Occupation with dynamic field label */}
+               {/*<div className="col-md-6 mb-3">
+                  <label className="form-label">{getFieldLabel('occupation')}</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    name="occupation"
+                    value={formData.occupation}
+                    onChange={handleInputChange}
+                    placeholder={`Enter ${getFieldLabel('occupation').toLowerCase()}`}
+                    disabled={loading}
+                  />
+                </div>*/}
+
+                {/* ← COMMENTED: Notes with dynamic field label */}
+                {/*<div className="col-md-12 mb-3">
+                  <label className="form-label">{getFieldLabel('notes')}</label>
+                  <textarea
+                    className="form-control"
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleInputChange}
+                    placeholder={`Enter ${getFieldLabel('notes').toLowerCase()}`}
+                    rows="3"
+                    disabled={loading}
+                  />
+                </div>*/}
               </div>
             </div>
             

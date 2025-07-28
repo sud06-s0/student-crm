@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { LeadStateProvider } from './components/LeadStateProvider';
+import LeadStateProvider,{ useLeadState } from './components/LeadStateProvider';
 import LeadsTable from './components/LeadsTable';
 import WarmLeads from './components/WarmLeads';
 import HotLeads from './components/HotLeads';
@@ -10,6 +10,7 @@ import Dashboard from './components/Dashboard';
 import CounsellorPerformance from './components/CounsellorPerformance';
 import Login from './components/Login';
 import SettingsPage from './components/SettingsPage';
+import SettingsDataProvider from './contexts/SettingsDataProvider';
 
 import { authService } from './services/authService';
 
@@ -95,69 +96,70 @@ function App() {
       {!user ? (
         <Login onLogin={handleLogin} />
       ) : (
-        <LeadStateProvider>
-          {/* Pass user data to components that need it */}
-          <Routes>
-            <Route 
-              path="/dashboard" 
-              element={<Dashboard onLogout={handleLogout} user={user} />} 
-            />
-            <Route path="/" element={<Navigate to="/all-leads" replace />} />
-            <Route 
-              path="/all-leads" 
-              element={<LeadsTable onLogout={handleLogout} user={user} />} 
-            />
-            <Route 
-              path="/warm" 
-              element={<WarmLeads onLogout={handleLogout} user={user} />} 
-            />
-            <Route 
-              path="/hot" 
-              element={<HotLeads onLogout={handleLogout} user={user} />} 
-            />
-            <Route 
-              path="/cold" 
-              element={<ColdLeads onLogout={handleLogout} user={user} />} 
-            />
-            <Route 
-              path="/enrolled" 
-              element={<EnrolledLeads onLogout={handleLogout} user={user} />} 
-            />
+        <SettingsDataProvider>
+          <LeadStateProvider>
+            {/* Pass user data to components that need it */}
+            <Routes>
+              <Route 
+                path="/dashboard" 
+                element={<Dashboard onLogout={handleLogout} user={user} />} 
+              />
+              <Route path="/" element={<Navigate to="/all-leads" replace />} />
+              <Route 
+                path="/all-leads" 
+                element={<LeadsTable onLogout={handleLogout} user={user} />} 
+              />
+              <Route 
+                path="/warm" 
+                element={<WarmLeads onLogout={handleLogout} user={user} />} 
+              />
+              <Route 
+                path="/hot" 
+                element={<HotLeads onLogout={handleLogout} user={user} />} 
+              />
+              <Route 
+                path="/cold" 
+                element={<ColdLeads onLogout={handleLogout} user={user} />} 
+              />
+              <Route 
+                path="/enrolled" 
+                element={<EnrolledLeads onLogout={handleLogout} user={user} />} 
+              />
 
-           
-            {/* Only show counsellor performance to admins */}
-            {user.role === 'admin' && (
-              <Route 
-                path="/counsellor-performance" 
-                element={<CounsellorPerformance onLogout={handleLogout} user={user} />} 
-              />
-            )}
-            {/* Redirect unauthorized users */}
-            {user.role !== 'admin' && (
-              <Route 
-                path="/counsellor-performance" 
-                element={<Navigate to="/all-leads" replace />} 
-              />
-            )}
-            
-            {/* Only show settings to admins */}
-            {user.role === 'admin' && (
-              <Route 
-                path="/settings" 
-                element={<SettingsPage onLogout={handleLogout} user={user} />} 
-              />
-            )}
-            {/* Redirect unauthorized users */}
-            {user.role !== 'admin' && (
-              <Route 
-                path="/settings" 
-                element={<Navigate to="/all-leads" replace />} 
-              />
-            )}
-                     
-
-          </Routes>
-        </LeadStateProvider>
+             
+              {/* Only show counsellor performance to admins */}
+              {user.role === 'admin' && (
+                <Route 
+                  path="/counsellor-performance" 
+                  element={<CounsellorPerformance onLogout={handleLogout} user={user} />} 
+                />
+              )}
+              {/* Redirect unauthorized users */}
+              {user.role !== 'admin' && (
+                <Route 
+                  path="/counsellor-performance" 
+                  element={<Navigate to="/all-leads" replace />} 
+                />
+              )}
+              
+              {/* Only show settings to admins */}
+              {user.role === 'admin' && (
+                <Route 
+                  path="/settings" 
+                  element={<SettingsPage onLogout={handleLogout} user={user} />} 
+                />
+              )}
+              {/* Redirect unauthorized users */}
+              {user.role !== 'admin' && (
+                <Route 
+                  path="/settings" 
+                  element={<Navigate to="/all-leads" replace />} 
+                />
+              )}
+                       
+            </Routes>
+          </LeadStateProvider>
+        </SettingsDataProvider> 
       )}
     </Router>
   );

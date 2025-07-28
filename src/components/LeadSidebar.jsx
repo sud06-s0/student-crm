@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSettingsData } from '../contexts/SettingsDataProvider';
 import { supabase } from '../lib/supabase';
 import { 
   logAction,
@@ -15,7 +16,7 @@ import {
   Edit,
   ChevronDown
 } from 'lucide-react';
-import { useLeadState } from './LeadStateProvider';
+import LeadStateProvider,{ useLeadState } from './LeadStateProvider';
 // Import all action button components
 import Stage2ActionButton from './Stage2ActionButton';
 import Stage3ActionButton from './Stage3ActionButton';
@@ -54,6 +55,7 @@ const LeadSidebar = ({
   isEditingMode,
   sidebarFormData,
   stages,
+  settingsData,
   onClose,
   onEditModeToggle,
   onFieldChange,
@@ -66,8 +68,22 @@ const LeadSidebar = ({
   getCategoryFromStage
 }) => {  
   console.log('selectedLead data:', selectedLead);
+  
   // Use the context hook for action status updates
   const { updateActionStatus } = useLeadState();
+  
+  // ← NEW: Use settings context for stage functions
+  const { 
+    getFieldLabel, 
+    getStageInfo, 
+    getStageColor: contextGetStageColor, 
+    getStageCategory: contextGetStageCategory,
+    getStageKeyFromName,
+    getStageNameFromKey,
+    stageMappings,
+    stageKeyToDataMapping
+  } = useSettingsData();
+
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
   const [stageStatuses, setStageStatuses] = useState({
@@ -88,6 +104,40 @@ const LeadSidebar = ({
   // Store original values for comparison
   const [originalFormData, setOriginalFormData] = useState({});
 
+  // ← NEW: Convert stage names to stage_keys for leads
+  const getLeadStageKey = (leadStageValue) => {
+    // If the lead already has a stage_key, return it
+    if (stageKeyToDataMapping[leadStageValue]) {
+      return leadStageValue;
+    }
+    
+    // Otherwise, try to convert stage name to stage_key
+    const stageKey = getStageKeyFromName(leadStageValue);
+    return stageKey || leadStageValue; // fallback to original value
+  };
+
+  // ← NEW: Get stage display name for UI
+  const getLeadStageDisplayName = (leadStageValue) => {
+    // If it's a stage_key, get the display name
+    if (stageKeyToDataMapping[leadStageValue]) {
+      return getStageNameFromKey(leadStageValue);
+    }
+    
+    // Otherwise, it's probably already a stage name
+    return leadStageValue;
+  };
+
+  // ← UPDATED: Use context stage functions with stage_key support
+  const getStageColorForLead = (stageValue) => {
+    const stageKey = getLeadStageKey(stageValue);
+    return contextGetStageColor(stageKey) || getStageColor?.(stageValue) || '#B3D7FF';
+  };
+
+  const getStageCategoryForLead = (stageValue) => {
+    const stageKey = getLeadStageKey(stageValue);
+    return contextGetStageCategory(stageKey) || getCategoryFromStage?.(stageValue) || 'New';
+  };
+
   // Update statuses when selectedLead changes
   useEffect(() => {
     if (selectedLead) {
@@ -107,7 +157,7 @@ const LeadSidebar = ({
         parentsName: selectedLead.parentsName || '',
         kidsName: selectedLead.kidsName || '',
         grade: selectedLead.grade || '',
-        source: selectedLead.source || 'Instagram',
+        source: selectedLead.source || (settingsData?.sources?.[0]?.name || 'Instagram'),
         stage: selectedLead.stage,
         offer: selectedLead.offer || 'Welcome Kit',
         email: selectedLead.email || '',
@@ -125,55 +175,54 @@ const LeadSidebar = ({
         enrolled: selectedLead.enrolled || ''
       });
     }
-  }, [selectedLead]);
+  }, [selectedLead, settingsData]);
 
   // Handle status updates from action buttons
-  // Handle status updates from action buttons
-const handleStatusUpdate = async (stageField, newStatus) => {
-  setStageStatuses(prev => ({
-    ...prev,
-    [stageField]: newStatus
-  }));
-
-  try {
-    const { data, error } = await supabase
-      .from('Leads')
-      .update({ [stageField]: newStatus })
-      .eq('id', selectedLead.id);
-
-    if (error) throw error;
-    
-    // ✅ NEW CODE - Use context instead of callback:
-    updateActionStatus(selectedLead.id, stageField, newStatus);
-    
-    // Log the WhatsApp message action in background
-    const stageNames = {
-      'stage2_status': 'Stage 2 - Connected',
-      'stage3_status': 'Stage 3 - Meeting Booked',
-      'stage4_status': 'Stage 4 - Meeting Done',
-      'stage5_status': 'Stage 5 - Proposal Sent',
-      'stage6_status': 'Stage 6 - Visit Booked',
-      'stage7_status': 'Stage 7 - Visit Done',
-      'stage8_status': 'Stage 8 - Registered',
-      'stage9_status': 'Stage 9 - Enrolled'
-    };
-    
-    // Don't wait for logging - do it in background
-    logWhatsAppMessage(selectedLead.id, stageField, stageNames[stageField]);
-    
-    // Only refresh history if user is viewing history tab
-    if (activeTab === 'history') {
-      fetchHistory();
-    }
-    
-  } catch (error) {
+  const handleStatusUpdate = async (stageField, newStatus) => {
     setStageStatuses(prev => ({
       ...prev,
-      [stageField]: ''
+      [stageField]: newStatus
     }));
-    alert(`Failed to update status: ${error.message}`);
-  }
-};
+
+    try {
+      const { data, error } = await supabase
+        .from('Leads')
+        .update({ [stageField]: newStatus })
+        .eq('id', selectedLead.id);
+
+      if (error) throw error;
+      
+      // Use context instead of callback:
+      updateActionStatus(selectedLead.id, stageField, newStatus);
+      
+      // Log the WhatsApp message action in background
+      const stageNames = {
+        'stage2_status': 'Stage 2 - Connected',
+        'stage3_status': 'Stage 3 - Meeting Booked',
+        'stage4_status': 'Stage 4 - Meeting Done',
+        'stage5_status': 'Stage 5 - Proposal Sent',
+        'stage6_status': 'Stage 6 - Visit Booked',
+        'stage7_status': 'Stage 7 - Visit Done',
+        'stage8_status': 'Stage 8 - Registered',
+        'stage9_status': 'Stage 9 - Enrolled'
+      };
+      
+      // Don't wait for logging - do it in background
+      logWhatsAppMessage(selectedLead.id, stageField, stageNames[stageField]);
+      
+      // Only refresh history if user is viewing history tab
+      if (activeTab === 'history') {
+        fetchHistory();
+      }
+      
+    } catch (error) {
+      setStageStatuses(prev => ({
+        ...prev,
+        [stageField]: ''
+      }));
+      alert(`Failed to update status: ${error.message}`);
+    }
+  };
 
   // New History
   const fetchHistory = async () => {
@@ -210,22 +259,40 @@ const handleStatusUpdate = async (stageField, newStatus) => {
     }
   };
 
-  // UPDATED: Handle stage change without duplicate logging (parent handles logging)
-  const handleStageChange = async (newStage) => {
+  // ← UPDATED: Handle stage change with stage_key support
+  const handleStageChange = async (newStageValue) => {
     try {
-      // Update the sidebar form data immediately for UI
-      onFieldChange('stage', newStage);
+      console.log('=== STAGE CHANGE ===');
+      console.log('New stage value:', newStageValue);
+      
+      // Check if this is a stage name or stage_key
+      let stageKeyToStore, stageNameToDisplay;
+      
+      if (stageKeyToDataMapping[newStageValue]) {
+        // It's a stage_key
+        stageKeyToStore = newStageValue;
+        stageNameToDisplay = getStageNameFromKey(newStageValue);
+      } else {
+        // It's a stage name, convert to stage_key
+        stageKeyToStore = getStageKeyFromName(newStageValue);
+        stageNameToDisplay = newStageValue;
+      }
+      
+      console.log('Stage key to store:', stageKeyToStore);
+      console.log('Stage name to display:', stageNameToDisplay);
+      
+      // Update the sidebar form data with stage_key for internal consistency
+      // but use stage name for display compatibility
+      onFieldChange('stage', stageKeyToStore || newStageValue);
       
       // Close dropdown
       setStageDropdownOpen(false);
       
       // Call the stage-specific update function if provided
-      // (This will handle the logging to avoid duplication)
       if (onStageChange) {
-        await onStageChange(selectedLead.id, newStage);
+        await onStageChange(selectedLead.id, stageKeyToStore || newStageValue);
         
         // Refresh history
-        // Only refresh history if user is viewing history tab
         if (activeTab === 'history') {
           fetchHistory();
         }
@@ -291,7 +358,7 @@ const handleStatusUpdate = async (stageField, newStatus) => {
         }
         
         // Log a general update summary for all changes
-        const changeDescription = generateChangeDescription(changes);
+        const changeDescription = generateChangeDescription(changes,getFieldLabel);
         await logAction(selectedLead.id, 'Lead Information Updated', `Updated via sidebar: ${changeDescription}`);
         
         // ADDED: Refresh activity data after logging
@@ -341,6 +408,10 @@ const handleStatusUpdate = async (stageField, newStatus) => {
   }, [selectedLead?.id, selectedLead?.stage, selectedLead?.phone, selectedLead?.email]);
 
   if (!showSidebar) return null;
+
+  // ← NEW: Get current stage info for display
+  const currentStageKey = getLeadStageKey(sidebarFormData.stage || selectedLead?.stage);
+  const currentStageDisplayName = getLeadStageDisplayName(sidebarFormData.stage || selectedLead?.stage);
 
   return (
     <>
@@ -412,7 +483,7 @@ const handleStatusUpdate = async (stageField, newStatus) => {
 
             {/* Right Column */}
             <div>
-              {/* Stage */}
+              {/* ← UPDATED: Stage with stage_key support */}
               <div className="lead-sidebar-stage-container">
                 <label className="lead-sidebar-stage-label">
                   Stage
@@ -424,9 +495,9 @@ const handleStatusUpdate = async (stageField, newStatus) => {
                       setStageDropdownOpen(!stageDropdownOpen);
                     }}
                     className="lead-sidebar-stage-button"
-                    style={{ backgroundColor: getStageColor(sidebarFormData.stage || selectedLead?.stage) }}
+                    style={{ backgroundColor: getStageColorForLead(currentStageKey) }}
                   >
-                    <span>{sidebarFormData.stage || selectedLead?.stage}</span>
+                    <span>{currentStageDisplayName}</span>
                     <ChevronDown 
                       size={12} 
                       style={{ 
@@ -441,40 +512,46 @@ const handleStatusUpdate = async (stageField, newStatus) => {
                       onClick={(e) => e.stopPropagation()}
                       className="lead-sidebar-stage-dropdown-menu"
                     >
-                      {stages.map((stage, index) => (
-                        <div
-                          key={stage.value}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStageChange(stage.value);
-                          }}
-                          className="lead-sidebar-stage-item"
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#f8f9fa';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'white';
-                          }}
-                        >
-                          <span 
-                            className="lead-sidebar-stage-dot"
-                            style={{ backgroundColor: stage.color }}
-                          ></span>
-                          <span style={{ flex: 1, whiteSpace: 'nowrap' }}>{stage.label}</span>
-                        </div>
-                      ))}
+                      {stages.map((stage, index) => {
+                        // ← NEW: Handle both stage name and stage_key
+                        const stageKey = getStageKeyFromName(stage.value) || stage.value;
+                        const stageName = stage.label;
+                        
+                        return (
+                          <div
+                            key={stage.value}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStageChange(stageKey); // Pass stage_key instead of stage name
+                            }}
+                            className="lead-sidebar-stage-item"
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#f8f9fa';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'white';
+                            }}
+                          >
+                            <span 
+                              className="lead-sidebar-stage-dot"
+                              style={{ backgroundColor: stage.color }}
+                            ></span>
+                            <span style={{ flex: 1, whiteSpace: 'nowrap' }}>{stageName}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Status */}
+              {/* ← UPDATED: Status with stage_key support */}
               <div className="lead-sidebar-info-row">
                 <label className="lead-sidebar-stage-label">
                   Status
                 </label>
                 <div className="lead-sidebar-field-value">
-                  {getCategoryFromStage(sidebarFormData.stage || selectedLead?.stage)}
+                  {getStageCategoryForLead(currentStageKey)}
                 </div>
               </div>
 
@@ -484,7 +561,7 @@ const handleStatusUpdate = async (stageField, newStatus) => {
                   Source
                 </label>
                 <div className="lead-sidebar-field-value">
-                  {selectedLead?.source || 'Instagram'}
+                  {selectedLead?.source || (settingsData?.sources?.[0]?.name || 'Instagram')}
                 </div>
               </div>
 
@@ -536,6 +613,8 @@ const handleStatusUpdate = async (stageField, newStatus) => {
               isEditingMode={isEditingMode}
               sidebarFormData={sidebarFormData}
               onFieldChange={onFieldChange}
+              settingsData={settingsData}
+              getFieldLabel={getFieldLabel}
             />
           )}
 
@@ -558,6 +637,7 @@ const handleStatusUpdate = async (stageField, newStatus) => {
                     leadId={selectedLead?.id}
                     currentStatus={stageStatuses.stage2_status}
                     onStatusUpdate={handleStatusUpdate}
+                    getFieldLabel={getFieldLabel}
                     alwaysVisible={true}
                     parentsName={selectedLead?.parentsName}
                     meetingDate={sidebarFormData.meetingDate}
@@ -581,6 +661,7 @@ const handleStatusUpdate = async (stageField, newStatus) => {
                   leadId={selectedLead?.id}
                   currentStatus={stageStatuses.stage4_status}
                   onStatusUpdate={handleStatusUpdate}
+                  getFieldLabel={getFieldLabel}
                   alwaysVisible={true}
                   parentsName={selectedLead?.parentsName}
                   phone={selectedLead?.phone}
@@ -601,6 +682,7 @@ const handleStatusUpdate = async (stageField, newStatus) => {
                     leadId={selectedLead?.id}
                     currentStatus={stageStatuses.stage5_status}
                     onStatusUpdate={handleStatusUpdate}
+                    getFieldLabel={getFieldLabel}  
                     alwaysVisible={true}
                     parentsName={selectedLead?.parentsName}
                     visitDate={sidebarFormData.visitDate}
@@ -623,6 +705,7 @@ const handleStatusUpdate = async (stageField, newStatus) => {
                     leadId={selectedLead?.id}
                     currentStatus={stageStatuses.stage7_status}
                     onStatusUpdate={handleStatusUpdate}
+                     getFieldLabel={getFieldLabel}
                     alwaysVisible={true}
                     parentsName={selectedLead?.parentsName}
                     visitDate={sidebarFormData.visitDate}
@@ -644,6 +727,7 @@ const handleStatusUpdate = async (stageField, newStatus) => {
                     leadId={selectedLead?.id}
                     currentStatus={stageStatuses.stage8_status}
                     onStatusUpdate={handleStatusUpdate}
+                    getFieldLabel={getFieldLabel}  
                     alwaysVisible={true}
                     phone={selectedLead?.phone}
                   />
@@ -663,6 +747,7 @@ const handleStatusUpdate = async (stageField, newStatus) => {
                     leadId={selectedLead?.id}
                     currentStatus={stageStatuses.stage9_status}
                     onStatusUpdate={handleStatusUpdate}
+                    getFieldLabel={getFieldLabel}
                     alwaysVisible={true}
                     kidsName={selectedLead?.kidsName}
                     phone={selectedLead?.phone}

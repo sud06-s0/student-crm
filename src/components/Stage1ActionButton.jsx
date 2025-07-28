@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 
 const Stage1ActionButton = ({ 
   leadData,
-  onComplete 
+  onComplete,
+  getFieldLabel // ← NEW: Field_key aware label function (optional for this component)
 }) => {
   console.log('🔵 Stage1ActionButton component rendered!');
   console.log('🔵 leadData received:', leadData);
@@ -10,10 +11,45 @@ const Stage1ActionButton = ({
   const [isLoading, setIsLoading] = useState(false);
   const hasCalledApi = useRef(false); // Add this to track if API was already called
 
+  // ← NEW: Optional validation function with field_key support
+  const validateParameters = () => {
+    if (!getFieldLabel) {
+      // If no getFieldLabel function provided, use default validation
+      return [];
+    }
+
+    const missingParams = [];
+    
+    if (!leadData?.phone || leadData.phone.trim() === '') {
+      missingParams.push(getFieldLabel('phone'));
+    }
+    if (!leadData?.parentsName || leadData.parentsName.trim() === '') {
+      missingParams.push(getFieldLabel('parentsName'));
+    }
+    if (!leadData?.kidsName || leadData.kidsName.trim() === '') {
+      missingParams.push(getFieldLabel('kidsName'));
+    }
+    if (!leadData?.grade || leadData.grade.trim() === '') {
+      missingParams.push(getFieldLabel('grade'));
+    }
+    
+    return missingParams;
+  };
+
   const handleApiCall = async () => {
     // Prevent duplicate calls
     if (hasCalledApi.current) {
       console.log('🟡 API call already made, skipping...');
+      return;
+    }
+
+    // ← NEW: Optional validation check with field_key support
+    const missingParams = validateParameters();
+    if (missingParams.length > 0) {
+      console.log('🔴 Missing required parameters:', missingParams);
+      if (onComplete) {
+        onComplete(false, `Missing required information: ${missingParams.join(', ')}`);
+      }
       return;
     }
     
@@ -29,7 +65,7 @@ const Stage1ActionButton = ({
         grade: leadData.grade
       });
 
-      // API call for new lead (Stage 1)
+      // ← API call for new lead (Stage 1) - unchanged, working correctly
       const response = await fetch('https://backend.aisensy.com/campaign/t1/api/v2', {
         method: 'POST',
         headers: {
@@ -71,7 +107,7 @@ const Stage1ActionButton = ({
     }
   };
 
-  // This component auto-triggers the API call when mounted
+  // ← This component auto-triggers the API call when mounted
   useEffect(() => {
     console.log('🔵 useEffect triggered!');
     if (leadData && !hasCalledApi.current) { // Add the hasCalledApi check

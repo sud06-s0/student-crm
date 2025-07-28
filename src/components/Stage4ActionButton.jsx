@@ -1,18 +1,25 @@
 import React, { useState } from 'react';
 
-const Stage4ActionButton = ({ leadId, currentStatus, onStatusUpdate, parentsName, phone }) => {
+const Stage4ActionButton = ({ 
+  leadId, 
+  currentStatus, 
+  onStatusUpdate,
+  getFieldLabel, // ← Field_key aware label function
+  parentsName, 
+  phone 
+}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showHover, setShowHover] = useState(false);
 
-  // Function to validate required parameters
+  // ← UPDATED: Function to validate required parameters with field_key support
   const validateParameters = () => {
     const missingParams = [];
     
     if (!parentsName || parentsName.trim() === '') {
-      missingParams.push('Parent\'s Name');
+      missingParams.push(getFieldLabel('parentsName')); // ← Dynamic field label
     }
     if (!phone || phone.trim() === '') {
-      missingParams.push('Phone Number');
+      missingParams.push(getFieldLabel('phone')); // ← Dynamic field label
     }
     
     return missingParams;
@@ -29,7 +36,7 @@ const Stage4ActionButton = ({ leadId, currentStatus, onStatusUpdate, parentsName
 
     setIsLoading(true);
     try {
-      // API call to send WhatsApp message
+      // ← API call to send WhatsApp message (unchanged - working correctly)
       const response = await fetch('https://backend.aisensy.com/campaign/t1/api/v2', {
         method: 'POST',
         headers: {
@@ -66,7 +73,7 @@ const Stage4ActionButton = ({ leadId, currentStatus, onStatusUpdate, parentsName
     }
   };
 
-  // Hover message - you can customize this message
+  // ← Hover message showing template preview (not actual field labels)
   const hoverMessage = `Hey Parent Name, Thanks for the call. You will receive the proposal in 1 day`;
 
   return (

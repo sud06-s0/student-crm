@@ -1,15 +1,58 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase'; // Adjust path as needed
+import { supabase } from '../lib/supabase';
+import { useSettingsData } from '../contexts/SettingsDataProvider'; // ← UPDATED: Import settings
 import OverviewDashboard from './OverviewDashboard';
-import LeftSidebar from './LeftSidebar'; // If you want to include sidebar
-import { Play } from 'lucide-react'; // If you're using lucide icons
+import LeftSidebar from './LeftSidebar';
+import { Play, Loader2 } from 'lucide-react';
 
 const Dashboard = ({ onLogout, user }) => {
+  // ← UPDATED: Use settings data context with stage_key support
+  const { 
+    settingsData, 
+    getFieldLabel, // ← NEW: For dynamic field labels
+    getStageInfo,
+    getStageColor,
+    getStageScore,
+    getStageCategory,
+    getStageKeyFromName, // ← NEW: Convert stage name to stage_key
+    getStageNameFromKey, // ← NEW: Convert stage_key to stage name
+    stageKeyToDataMapping, // ← NEW: Direct stage data mapping
+    loading: settingsLoading 
+  } = useSettingsData();
+
   const [leadsData, setLeadsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Convert database record to UI format (copied from LeadsTable.jsx)
+  // ← UPDATED: Get dynamic stages with stage_key support
+  const stages = settingsData.stages.map(stage => ({
+    value: stage.stage_key || stage.name, // ← Use stage_key if available
+    label: stage.name, // ← Display name
+    color: stage.color || '#B3D7FF',
+    score: stage.score || 10,
+    category: stage.status || 'New'
+  }));
+
+  // ← NEW: Helper functions for stage_key conversion
+  const getStageKeyForLead = (stageValue) => {
+    // If it's already a stage_key, return it
+    if (stageKeyToDataMapping[stageValue]) {
+      return stageValue;
+    }
+    // Otherwise, convert stage name to stage_key
+    return getStageKeyFromName(stageValue) || stageValue;
+  };
+
+  const getStageDisplayName = (stageValue) => {
+    // If it's a stage_key, get the display name
+    if (stageKeyToDataMapping[stageValue]) {
+      return getStageNameFromKey(stageValue);
+    }
+    // Otherwise, it's probably already a stage name
+    return stageValue;
+  };
+
+  // ← UPDATED: Convert database record to UI format with stage_key support
   const convertDatabaseToUI = (dbRecord) => {
     // Parse datetime fields
     let meetingDate = '';
@@ -29,6 +72,11 @@ const Dashboard = ({ onLogout, user }) => {
       visitTime = visitDateTime.toTimeString().slice(0, 5);
     }
 
+    // ← NEW: Handle stage value - could be stage name or stage_key
+    const stageValue = dbRecord.stage;
+    const stageKey = getStageKeyForLead(stageValue);
+    const displayName = getStageDisplayName(stageValue);
+
     return {
       id: dbRecord.id,
       parentsName: dbRecord.parents_name,
@@ -36,7 +84,8 @@ const Dashboard = ({ onLogout, user }) => {
       phone: dbRecord.phone,
       location: dbRecord.location,
       grade: dbRecord.grade,
-      stage: dbRecord.stage,
+      stage: stageKey, // ← Store stage_key internally
+      stageDisplayName: displayName, // ← Store display name for UI
       score: dbRecord.score,
       category: dbRecord.category,
       counsellor: dbRecord.counsellor,
@@ -44,7 +93,7 @@ const Dashboard = ({ onLogout, user }) => {
       notes: dbRecord.notes,
       email: dbRecord.email || '',
       occupation: dbRecord.occupation || '',
-      source: dbRecord.source || 'Instagram',
+      source: dbRecord.source || (settingsData?.sources?.[0]?.name || 'Instagram'), // ← UPDATED: Dynamic default source
       currentSchool: dbRecord.current_school || '',
       meetingDate: meetingDate,
       meetingTime: meetingTime,
@@ -90,9 +139,10 @@ const Dashboard = ({ onLogout, user }) => {
         throw error;
       }
 
-      console.log('Raw data from Supabase:', data); // Debug log
+      console.log('=== DASHBOARD DATA FETCH ===');
+      console.log('Raw data from Supabase:', data);
       const convertedData = data.map(convertDatabaseToUI);
-      console.log('Converted data:', convertedData); // Debug log
+      console.log('Converted data with stage_key:', convertedData);
       setLeadsData(convertedData);
       
     } catch (error) {
@@ -108,64 +158,98 @@ const Dashboard = ({ onLogout, user }) => {
     fetchLeads();
   }, []);
 
-  // Stage definitions (copied from LeadsTable.jsx)
-  const stages = [
-    { value: 'New Lead', label: 'New Lead', color: '#B3D7FF' },
-    { value: 'Connected', label: 'Connected', color: '#E9FF9A' },
-    { value: 'Meeting Booked', label: 'Meeting Booked', color: '#FFEC9F' },
-    { value: 'Meeting Done', label: 'Meeting Done', color: '#FF9697' },
-    { value: 'Proposal Sent', label: 'Proposal Sent', color: '#FFC796' },
-    { value: 'Visit Booked', label: 'Visit Booked', color: '#D1A4FF' },
-    { value: 'Visit Done', label: 'Visit Done', color: '#B1FFFF' },
-    { value: 'Registered', label: 'Registered', color: '#FF99EB' },
-    { value: 'Admission', label: 'Admission', color: '#98FFB4' },
-    { value: 'No Response', label: 'No Response', color: '#B5BAB1' }
-  ];
-
-  // Calculate stage counts
+  // ← UPDATED: Calculate stage counts using stage_key
   const getStageCount = (stageName) => {
-    return leadsData.filter(lead => lead.stage === stageName).length;
+    console.log('=== STAGE COUNT CALCULATION ===');
+    console.log('Looking for stage:', stageName);
+    
+    const stageKey = getStageKeyFromName(stageName);
+    console.log('Stage key for', stageName, ':', stageKey);
+    
+    const count = leadsData.filter(lead => {
+      const leadStageKey = getStageKeyForLead(lead.stage);
+      const matches = leadStageKey === stageKey || lead.stage === stageName;
+      
+      if (matches) {
+        console.log(`Lead ${lead.id} matches stage ${stageName} (key: ${stageKey})`);
+      }
+      
+      return matches;
+    }).length;
+    
+    console.log(`Final count for ${stageName}:`, count);
+    return count;
   };
 
-  if (loading) {
+  // ← UPDATED: Show loading if either leads or settings are loading
+  if (loading || settingsLoading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        fontSize: '18px',
-        color: '#666'
-      }}>
-        Loading dashboard...
+      <div className="nova-crm" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <LeftSidebar 
+          activeNavItem="dashboard"
+          activeSubmenuItem="overview"
+          stages={stages}
+          getStageCount={getStageCount} // ← Updated function
+          stagesTitle={getFieldLabel('stage') || 'Stages'} // ← NEW: Dynamic field label
+          stagesIcon={Play}
+          onLogout={onLogout}
+          user={user}
+        />
+        <div className="nova-main">
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: '50vh',
+            fontSize: '18px',
+            color: '#666'
+          }}>
+            <Loader2 size={16} className="animate-spin" style={{ marginRight: '8px' }} />
+            Loading dashboard...
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        fontSize: '18px',
-        color: '#ef4444'
-      }}>
-        Error loading dashboard: {error}
+      <div className="nova-crm" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <LeftSidebar 
+          activeNavItem="dashboard"
+          activeSubmenuItem="overview"
+          stages={stages}
+          getStageCount={getStageCount} // ← Updated function
+          stagesTitle={getFieldLabel('stage') || 'Stages'} // ← NEW: Dynamic field label
+          stagesIcon={Play}
+          onLogout={onLogout}
+          user={user}
+        />
+        <div className="nova-main">
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: '50vh',
+            fontSize: '18px',
+            color: '#ef4444'
+          }}>
+            Error loading dashboard: {error}
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="nova-crm" style={{ fontFamily: 'Inter, sans-serif' }}>
-      {/* Left Sidebar */}
+      {/* ← UPDATED: Left Sidebar with dynamic stages and field labels */}
       <LeftSidebar 
         activeNavItem="dashboard"
         activeSubmenuItem="overview"
         stages={stages}
-        getStageCount={getStageCount}
-        stagesTitle="Stages"
+        getStageCount={getStageCount} // ← Updated function
+        stagesTitle={getFieldLabel('stage') || 'Stages'} // ← NEW: Dynamic field label
         stagesIcon={Play}
         onLogout={onLogout}
         user={user}

@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { supabase } from '../lib/supabase';
+import { useSettingsData } from '../contexts/SettingsDataProvider';
 import { 
   GraduationCap, 
   Trophy,
   Users,
-  BarChart3
+  BarChart3,
+  Loader2
 } from 'lucide-react';
 import LeftSidebar from './LeftSidebar';
 
@@ -14,20 +16,76 @@ import meetingsDoneIcon from '../assets/icons/meetings-done.png';
 import visitsDoneIcon from '../assets/icons/visits-done.png';
 import registeredIcon from '../assets/icons/registered.png';
 import enrolledIcon from '../assets/icons/enrolled.png';
-import topPerformerIcon from '../assets/icons/top-performer.png'; // Add this line
+import topPerformerIcon from '../assets/icons/top-performer.png';
 
 const CounsellorPerformance = ({ onLogout, user }) => {
+  // ← Use settings data context with stage_key support
+  const { 
+    settingsData, 
+    getFieldLabel,
+    getStageInfo,
+    getStageColor: contextGetStageColor, 
+    getStageCategory: contextGetStageCategory,
+    getStageKeyFromName,
+    getStageNameFromKey,
+    stageKeyToDataMapping,
+    loading: settingsLoading 
+  } = useSettingsData();
+
   // ALL STATE HOOKS FIRST
-  const [leadsData, setLeadsData] = useState([]);
+  const [rawLeadsData, setRawLeadsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
     fromDate: '',
     toDate: '',
     isActive: false
   });
-  const [selectedMetric, setSelectedMetric] = useState('enrolled');
+  const [selectedMetric, setSelectedMetric] = useState('admission');
 
-  // Convert database record to UI format
+  // ← COPIED FROM LEADSIDEBAR: Get dynamic stages with stage_key support
+  const stages = useMemo(() => {
+    return settingsData.stages.map(stage => ({
+      value: stage.stage_key || stage.name,
+      label: stage.name,
+      color: stage.color || '#B3D7FF',
+      score: stage.score || 10,
+      category: stage.status || 'New'
+    }));
+  }, [settingsData.stages]);
+
+  // ← COPIED EXACTLY FROM LEADSIDEBAR: Stage key conversion functions
+  const getLeadStageKey = (leadStageValue) => {
+    // If the lead already has a stage_key, return it
+    if (stageKeyToDataMapping[leadStageValue]) {
+      return leadStageValue;
+    }
+    
+    // Otherwise, try to convert stage name to stage_key
+    const stageKey = getStageKeyFromName(leadStageValue);
+    return stageKey || leadStageValue; // fallback to original value
+  };
+
+  const getLeadStageDisplayName = (leadStageValue) => {
+    // If it's a stage_key, get the display name
+    if (stageKeyToDataMapping[leadStageValue]) {
+      return getStageNameFromKey(leadStageValue);
+    }
+    
+    // Otherwise, it's probably already a stage name
+    return leadStageValue;
+  };
+
+  const getStageColorForLead = (stageValue) => {
+    const stageKey = getLeadStageKey(stageValue);
+    return contextGetStageColor(stageKey) || '#B3D7FF';
+  };
+
+  const getStageCategoryForLead = (stageValue) => {
+    const stageKey = getLeadStageKey(stageValue);
+    return contextGetStageCategory(stageKey) || 'New';
+  };
+
+  // ← COPIED FROM LEADSIDEBAR: Convert database record to UI format with stage_key support
   const convertDatabaseToUI = (dbRecord) => {
     let meetingDate = '';
     let meetingTime = '';
@@ -46,6 +104,11 @@ const CounsellorPerformance = ({ onLogout, user }) => {
       visitTime = visitDateTime.toTimeString().slice(0, 5);
     }
 
+    // ← COPIED: Handle stage value with current settings context
+    const stageValue = dbRecord.stage;
+    const stageKey = getLeadStageKey(stageValue);
+    const displayName = getLeadStageDisplayName(stageValue);
+
     return {
       id: dbRecord.id,
       parentsName: dbRecord.parents_name,
@@ -53,7 +116,8 @@ const CounsellorPerformance = ({ onLogout, user }) => {
       phone: dbRecord.phone,
       location: dbRecord.location,
       grade: dbRecord.grade,
-      stage: dbRecord.stage,
+      stage: stageKey, // ← Store stage_key internally
+      stageDisplayName: displayName, // ← Store display name for UI
       score: dbRecord.score,
       category: dbRecord.category,
       counsellor: dbRecord.counsellor,
@@ -61,7 +125,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
       notes: dbRecord.notes,
       email: dbRecord.email || '',
       occupation: dbRecord.occupation || '',
-      source: dbRecord.source || 'Instagram',
+      source: dbRecord.source || (settingsData?.sources?.[0]?.name || 'Instagram'),
       currentSchool: dbRecord.current_school || '',
       meetingDate: meetingDate,
       meetingTime: meetingTime,
@@ -92,7 +156,22 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     };
   };
 
-  // Fetch leads function
+  // ← NEW: Process leads data with current settings - recomputed when settings change
+  const leadsData = useMemo(() => {
+    console.log('=== REPROCESSING LEADS DATA WITH CURRENT SETTINGS ===');
+    console.log('Raw leads count:', rawLeadsData.length);
+    console.log('Settings stages:', settingsData.stages.length);
+    
+    if (!rawLeadsData.length || !settingsData.stages.length) {
+      return [];
+    }
+
+    const processedData = rawLeadsData.map(convertDatabaseToUI);
+    console.log('Processed leads count:', processedData.length);
+    return processedData;
+  }, [rawLeadsData, settingsData, stageKeyToDataMapping]);
+
+  // Fetch leads function - only fetches raw data
   const fetchLeads = async () => {
     try {
       setLoading(true);
@@ -103,8 +182,9 @@ const CounsellorPerformance = ({ onLogout, user }) => {
 
       if (error) throw error;
 
-      const convertedData = data.map(convertDatabaseToUI);
-      setLeadsData(convertedData);
+      console.log('=== FETCHED RAW LEADS DATA ===');
+      console.log('Raw data count:', data.length);
+      setRawLeadsData(data);
     } catch (error) {
       console.error('Error fetching leads:', error);
     } finally {
@@ -112,7 +192,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     }
   };
 
-  // USEEFFECT AFTER ALL STATE HOOKS
+  // ← Only fetch raw data on mount
   useEffect(() => {
     fetchLeads();
   }, []);
@@ -120,7 +200,40 @@ const CounsellorPerformance = ({ onLogout, user }) => {
   // Get current date for max date validation
   const currentDate = new Date().toISOString().split('T')[0];
 
-  // ALL USEMEMO HOOKS TOGETHER
+  // ← NEW: Get all available stage keys and names dynamically from settings
+  const availableStages = useMemo(() => {
+    console.log('=== AVAILABLE STAGES FROM SETTINGS ===');
+    console.log('Settings stages:', settingsData.stages);
+    
+    const stageList = settingsData.stages.map(stage => ({
+      key: stage.stage_key || stage.name,
+      name: stage.name,
+      color: stage.color,
+      score: stage.score,
+      category: stage.status
+    }));
+    
+    console.log('Available stage list:', stageList);
+    return stageList;
+  }, [settingsData.stages]);
+
+  // ← NEW: Filter to only the 4 specific stages we want to track
+  const targetStageKeys = ['meetingDone', 'visitDone', 'registered', 'admission'];
+  const performanceStages = useMemo(() => {
+    const filtered = availableStages.filter(stage => targetStageKeys.includes(stage.key));
+    console.log('=== PERFORMANCE STAGES (FILTERED) ===');
+    console.log('Target stage keys:', targetStageKeys);
+    console.log('Filtered stages:', filtered);
+    return filtered;
+  }, [availableStages]);
+
+  // ← NEW: Set default selected metric to admission
+  useEffect(() => {
+    if (performanceStages.length > 0 && !selectedMetric) {
+      setSelectedMetric('admission');
+    }
+  }, [performanceStages, selectedMetric]);
+
   // Filter leads by date range
   const getFilteredLeadsByDate = useMemo(() => {
     if (!Array.isArray(leadsData) || leadsData.length === 0) {
@@ -133,66 +246,68 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     
     return leadsData.filter(lead => {
       try {
-        // Parse the createdTime which is in format "23 Jul 2025, 14:30:45"
         const leadDate = new Date(lead.createdTime?.replace(/(\d{2}) (\w{3}) (\d{4})/, '$2 $1, $3'));
         const fromDate = new Date(dateRange.fromDate);
         const toDate = new Date(dateRange.toDate);
-        toDate.setHours(23, 59, 59, 999); // Include the entire end date
+        toDate.setHours(23, 59, 59, 999);
         
         return leadDate >= fromDate && leadDate <= toDate;
       } catch (error) {
         console.error('Error parsing lead date:', lead.createdTime, error);
-        return true; // Include lead if date parsing fails
+        return true;
       }
     });
   }, [leadsData, dateRange]);
 
-  // Calculate counsellor performance data
+  // ← NEW: Calculate counsellor performance using the 4 specific stages with proper stage keys
   const counsellorData = useMemo(() => {
     const filteredLeads = getFilteredLeadsByDate;
+    
+    console.log('=== COUNSELLOR PERFORMANCE CALCULATION ===');
+    console.log('Filtered leads count:', filteredLeads.length);
+    console.log('Performance stages:', performanceStages);
     
     const counsellorStats = filteredLeads.reduce((acc, lead) => {
       const counsellor = lead.counsellor || 'Unknown';
       
       if (!acc[counsellor]) {
         acc[counsellor] = {
-          totalLeads: 0,
-          meetingsDone: 0,
-          visitsDone: 0,
-          registered: 0,
-          enrolled: 0
+          totalLeads: 0
         };
+        
+        // ← NEW: Initialize counters for only the 4 performance stages
+        performanceStages.forEach(stage => {
+          acc[counsellor][stage.key] = 0;
+        });
       }
       
       acc[counsellor].totalLeads++;
       
-      // Count based on stage progression
-      if (['Meeting Done', 'Proposal Sent', 'Visit Booked', 'Visit Done', 'Registered', 'Admission'].includes(lead.stage)) {
-        acc[counsellor].meetingsDone++;
-      }
+      // ← Use EXACT same stage_key logic as LeadSidebar
+      const leadStageKey = getLeadStageKey(lead.stage);
       
-      if (['Visit Done', 'Registered', 'Admission'].includes(lead.stage)) {
-        acc[counsellor].visitsDone++;
-      }
+      console.log(`Lead ${lead.id} - Stage Key: ${leadStageKey}, Display: ${lead.stageDisplayName}`);
       
-      if (['Registered', 'Admission'].includes(lead.stage)) {
-        acc[counsellor].registered++;
-      }
-      
-      if (lead.stage === 'Admission' || lead.category === 'Enrolled') {
-        acc[counsellor].enrolled++;
-      }
+      // ← NEW: Check only the 4 performance stages
+      performanceStages.forEach(stage => {
+        if (leadStageKey === stage.key) {
+          acc[counsellor][stage.key]++;
+          console.log(`  ✅ ${stage.name} for ${counsellor}`);
+        }
+      });
       
       return acc;
     }, {});
 
-    // Convert to array and calculate conversion rates
+    console.log('Final counsellor stats:', counsellorStats);
+
+    // ← NEW: Calculate conversion rates based on admission stage specifically
     return Object.entries(counsellorStats).map(([name, stats]) => ({
       name,
       ...stats,
-      conversionRate: stats.totalLeads > 0 ? ((stats.enrolled / stats.totalLeads) * 100).toFixed(0) : 0
+      conversionRate: stats.totalLeads > 0 ? ((stats.admission || 0) / stats.totalLeads * 100).toFixed(0) : 0
     })).sort((a, b) => b.conversionRate - a.conversionRate);
-  }, [getFilteredLeadsByDate]);
+  }, [getFilteredLeadsByDate, performanceStages, getLeadStageKey]);
 
   // Get top performer
   const topPerformer = useMemo(() => {
@@ -204,24 +319,54 @@ const CounsellorPerformance = ({ onLogout, user }) => {
   const barChartData = useMemo(() => {
     return counsellorData.map(counsellor => ({
       name: counsellor.name.split(' ')[0],
-      value: counsellor[selectedMetric],
+      value: counsellor[selectedMetric] || 0,
       fullName: counsellor.name,
       metric: selectedMetric
     }));
   }, [counsellorData, selectedMetric]);
 
-  // LOADING CHECK AFTER ALL HOOKS
-  if (loading) {
+  // ← UPDATED: Count function for sidebar using stage_key (EXACTLY like LeadSidebar)
+  const getStageCount = (stageName) => {
+    const stageKey = getStageKeyFromName(stageName);
+    return leadsData.filter(lead => {
+      const leadStageKey = getLeadStageKey(lead.stage);
+      return leadStageKey === stageKey || lead.stage === stageName;
+    }).length;
+  };
+
+  // ← NEW: Get stage name for display from stage key
+  const getStageDisplayName = (stageKey) => {
+    const stage = performanceStages.find(s => s.key === stageKey);
+    return stage ? stage.name : stageKey;
+  };
+
+  // ← Loading check for both data and settings
+  if (loading || settingsLoading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        fontSize: '18px',
-        color: '#666'
-      }}>
-        Loading counsellor performance...
+      <div className="nova-crm" style={{ fontFamily: 'Inter, sans-serif' }}>
+        <LeftSidebar 
+          activeNavItem="counsellor"
+          activeSubmenuItem=""
+          stages={stages}
+          getStageCount={getStageCount}
+          stagesTitle="Performance"
+          stagesIcon={BarChart3}
+          onLogout={onLogout}
+          user={user}
+        />
+        <div className="nova-main">
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: '50vh',
+            fontSize: '18px',
+            color: '#666'
+          }}>
+            <Loader2 size={16} className="animate-spin" style={{ marginRight: '8px' }} />
+            Loading counsellor performance...
+          </div>
+        </div>
       </div>
     );
   }
@@ -256,10 +401,11 @@ const CounsellorPerformance = ({ onLogout, user }) => {
   const BarTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
+      const stageName = getStageDisplayName(data.metric);
       return (
         <div className="dashboard-pie-tooltip">
           <p className="dashboard-pie-tooltip-title">{data.fullName}</p>
-          <p className="dashboard-pie-tooltip-value">{data.value} {data.metric.replace(/([A-Z])/g, ' $1').toLowerCase()}</p>
+          <p className="dashboard-pie-tooltip-value">{data.value} {stageName}</p>
         </div>
       );
     }
@@ -270,19 +416,16 @@ const CounsellorPerformance = ({ onLogout, user }) => {
   if (!leadsData || leadsData.length === 0) {
     return (
       <div className="nova-crm" style={{ fontFamily: 'Inter, sans-serif' }}>
-        {/* Left Sidebar */}
         <LeftSidebar 
           activeNavItem="counsellor"
           activeSubmenuItem=""
-          stages={[]}
-          getStageCount={() => 0}
+          stages={stages}
+          getStageCount={getStageCount}
           stagesTitle="Performance"
           stagesIcon={BarChart3}
           onLogout={onLogout}
           user={user}
         />
-
-        {/* Main Content */}
         <div className="nova-main">
           <div className="dashboard-no-data">
             <div className="dashboard-no-data-title">No leads data available</div>
@@ -301,8 +444,8 @@ const CounsellorPerformance = ({ onLogout, user }) => {
       <LeftSidebar 
         activeNavItem="counsellor"
         activeSubmenuItem=""
-        stages={[]}
-        getStageCount={() => 0}
+        stages={stages}
+        getStageCount={getStageCount}
         stagesTitle="Performance"
         stagesIcon={BarChart3}
         onLogout={onLogout}
@@ -314,7 +457,9 @@ const CounsellorPerformance = ({ onLogout, user }) => {
         <div className="dashboard-overview">
           {/* Header */}
           <div className="dashboard-header">
-            <h2 className="dashboard-title">Counsellor Performance</h2>
+            <h2 className="dashboard-title">
+              {getFieldLabel('counsellor')} Performance
+            </h2>
           </div>
 
           {/* Date Filter Section */}
@@ -368,53 +513,23 @@ const CounsellorPerformance = ({ onLogout, user }) => {
                     </div>
                     
                     <div className="counsellor-metrics">
-                      <div className="counsellor-metric">
-                        <div className="counsellor-metric-icon">
-                          <img 
-                            src={meetingsDoneIcon} 
-                            alt="Meetings Done" 
-                            style={{ width: '16px', height: '16px' }}
-                          />
+                      {/* ← NEW: Show only the 4 performance stages */}
+                      {performanceStages.map((stage, stageIndex) => (
+                        <div key={stage.key} className="counsellor-metric">
+                          <div className="counsellor-metric-icon">
+                            <img 
+                              src={stage.key === 'visitBooked' ? visitsDoneIcon : 
+                                   stage.key === 'visitDone' ? visitsDoneIcon : 
+                                   stage.key === 'registered' ? registeredIcon : 
+                                   enrolledIcon} 
+                              alt={stage.name} 
+                              style={{ width: '16px', height: '16px' }}
+                            />
+                          </div>
+                          <span className="counsellor-metric-label">{stage.name}</span>
+                          <span className="counsellor-metric-value">{counsellor[stage.key] || 0}</span>
                         </div>
-                        <span className="counsellor-metric-label">Meetings Done</span>
-                        <span className="counsellor-metric-value">{counsellor.meetingsDone}</span>
-                      </div>
-                      
-                      <div className="counsellor-metric">
-                        <div className="counsellor-metric-icon">
-                          <img 
-                            src={visitsDoneIcon} 
-                            alt="Visits Done" 
-                            style={{ width: '16px', height: '16px' }}
-                          />
-                        </div>
-                        <span className="counsellor-metric-label">Visits Done</span>
-                        <span className="counsellor-metric-value">{counsellor.visitsDone}</span>
-                      </div>
-                      
-                      <div className="counsellor-metric">
-                        <div className="counsellor-metric-icon">
-                          <img 
-                            src={registeredIcon} 
-                            alt="Registered" 
-                            style={{ width: '16px', height: '16px' }}
-                          />
-                        </div>
-                        <span className="counsellor-metric-label">Registered</span>
-                        <span className="counsellor-metric-value">{counsellor.registered}</span>
-                      </div>
-                      
-                      <div className="counsellor-metric">
-                        <div className="counsellor-metric-icon">
-                          <img 
-                            src={enrolledIcon} 
-                            alt="Enrolled" 
-                            style={{ width: '16px', height: '16px' }}
-                          />
-                        </div>
-                        <span className="counsellor-metric-label">Enrolled</span>
-                        <span className="counsellor-metric-value">{counsellor.enrolled}</span>
-                      </div>
+                      ))}
                     </div>
                     
                     <div className="counsellor-conversion">
@@ -435,19 +550,22 @@ const CounsellorPerformance = ({ onLogout, user }) => {
           <div className="counsellor-charts-section">
             {/* Success Rate Chart */}
             <div className="counsellor-chart-container">
-              <h3 className="counsellor-chart-title">Success Rate by Counsellor</h3>
+              <h3 className="counsellor-chart-title">
+                Success Rate by {getFieldLabel('counsellor')}
+              </h3>
 
-              {/*Dropdown for stages*/}
               <div className="counsellor-chart-controls">
                 <select 
                   value={selectedMetric}
                   onChange={(e) => setSelectedMetric(e.target.value)}
                   className="counsellor-metric-dropdown"
                 >
-                  <option value="meetingsDone">Meetings Done</option>
-                  <option value="visitsDone">Visits Done</option>
-                  <option value="registered">Registered</option>
-                  <option value="enrolled">Enrolled</option>
+                  {/* ← NEW: Dynamic options based on the 4 performance stages */}
+                  {performanceStages.map(stage => (
+                    <option key={stage.key} value={stage.key}>
+                      {stage.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               
@@ -479,7 +597,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
                   </div>
                   
                   <div className="counsellor-chart-footer">
-                    Currently viewing: Enrolled this month.
+                    Currently viewing: {getStageDisplayName(selectedMetric)} this month.
                   </div>
                 </>
               ) : (
@@ -513,16 +631,19 @@ const CounsellorPerformance = ({ onLogout, user }) => {
                   </div>
                   
                   <div className="counsellor-top-performer-stats">
+                    {/* ← NEW: Show admission count and conversion rate */}
                     <div className="counsellor-top-stat">
                       <div className="counsellor-top-stat-icon">
                         <img 
-                          src={topPerformerIcon} 
-                          alt="Enrolled" 
+                          src={enrolledIcon} 
+                          alt="Admission" 
                           style={{ width: '16px', height: '16px' }}
                         />
                       </div>
-                      <span className="counsellor-top-stat-label">Enrolled</span>
-                      <span className="counsellor-top-stat-value">{topPerformer.enrolled}</span>
+                      <span className="counsellor-top-stat-label">
+                        {getStageDisplayName('admission')}
+                      </span>
+                      <span className="counsellor-top-stat-value">{topPerformer.admission || 0}</span>
                     </div>
                     
                     <div className="counsellor-top-stat">
@@ -552,6 +673,34 @@ const CounsellorPerformance = ({ onLogout, user }) => {
       </div>
 
       <style jsx>{`
+        .dashboard-overview {
+          padding: 20px;
+        }
+
+        .dashboard-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 24px;
+        }
+
+        .dashboard-title {
+          font-size: 24px;
+          font-weight: 600;
+          color: #1f2937;
+          margin: 0;
+        }
+
+        .dashboard-date-filter {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-bottom: 24px;
+          padding: 16px;
+          background: #f9fafb;
+          border-radius: 8px;
+        }
+
         .counsellor-insights-section {
           margin: 24px 0;
         }
@@ -614,7 +763,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
           width: 16px;
           height: 16px;
           object-fit: contain;
-          filter: none; /* Remove any default filters */
+          filter: none;
         }
 
         .counsellor-metric-label {

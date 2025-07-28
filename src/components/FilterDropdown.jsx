@@ -11,37 +11,22 @@ const FilterDropdown = ({
   setCounsellorFilters, 
   setStageFilters, 
   setStatusFilters, // New status filter setter
-  onClearAll 
+  onClearAll,
+  settingsData, // ← Receive settings data
+  getFieldLabel, // ← NEW: Receive getFieldLabel function
+  getStageKeyFromName, // ← NEW: Stage conversion function
+  getStageDisplayName // ← NEW: Stage conversion function
 }) => {
   const [expandedSection, setExpandedSection] = useState(null);
 
-  const counsellors = [
-    'Assign Counsellor',
-    'Sachin',
-    'Rohit',
-    'Mukhesh'
-  ];
+  // ← UPDATED: Get dynamic counsellors from settings
+  const counsellors = settingsData?.counsellors?.map(counsellor => counsellor.name) || ['Assign Counsellor'];
 
-  const stages = [
-    'New Lead',
-    'Connected',
-    'Meeting Booked',
-    'Meeting Done', 
-    'Proposal Sent',
-    'Visit Booked',
-    'Visit Done',
-    'Registered',
-    'Admission',
-    'No Response'
-  ];
+  // ← UPDATED: Get dynamic stages from settings (display names for UI)
+  const stages = settingsData?.stages?.map(stage => stage.name) || ['New Lead'];
 
-  const statuses = [
-    'New',
-    'Warm', 
-    'Hot',
-    'Enrolled',
-    'Cold'
-  ];
+  // ← UPDATED: Get dynamic statuses from settings (unique stage statuses)
+  const statuses = [...new Set(settingsData?.stages?.map(stage => stage.status).filter(Boolean))] || ['New'];
 
   const handleCounsellorChange = (counsellor) => {
     if (counsellorFilters.includes(counsellor)) {
@@ -51,11 +36,12 @@ const FilterDropdown = ({
     }
   };
 
-  const handleStageChange = (stage) => {
-    if (stageFilters.includes(stage)) {
-      setStageFilters(stageFilters.filter(s => s !== stage));
+  // ← UPDATED: Handle stage filtering with stage_key conversion
+  const handleStageChange = (stageName) => {
+    if (stageFilters.includes(stageName)) {
+      setStageFilters(stageFilters.filter(s => s !== stageName));
     } else {
-      setStageFilters([...stageFilters, stage]);
+      setStageFilters([...stageFilters, stageName]);
     }
   };
 
@@ -141,7 +127,7 @@ const FilterDropdown = ({
         {/* Filter Content */}
         <div style={{ padding: '16px' }}>
           
-          {/* Counsellor Filter Section */}
+          {/* ← UPDATED: Counsellor Filter Section with dynamic label */}
           <div style={{ marginBottom: '12px' }}>
             <div 
               onClick={() => toggleSection('counsellor')}
@@ -155,7 +141,9 @@ const FilterDropdown = ({
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center' }}>
-                <span style={{ fontSize: '14px', fontWeight: '600' }}>Counsellor</span>
+                <span style={{ fontSize: '14px', fontWeight: '600' }}>
+                  {getFieldLabel ? getFieldLabel('counsellor') : 'Counsellor'}
+                </span>
                 {getFilterCount('counsellor') > 0 && (
                   <span style={{
                     marginLeft: '8px',
@@ -202,7 +190,7 @@ const FilterDropdown = ({
             )}
           </div>
 
-          {/* Stage Filter Section */}
+          {/* ← UPDATED: Stage Filter Section with dynamic label */}
           <div style={{ marginBottom: '12px' }}>
             <div 
               onClick={() => toggleSection('stage')}
@@ -216,7 +204,9 @@ const FilterDropdown = ({
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center' }}>
-                <span style={{ fontSize: '14px', fontWeight: '600' }}>Stage</span>
+                <span style={{ fontSize: '14px', fontWeight: '600' }}>
+                  {getFieldLabel ? getFieldLabel('stage') : 'Stage'}
+                </span>
                 {getFilterCount('stage') > 0 && (
                   <span style={{
                     marginLeft: '8px',
@@ -239,9 +229,9 @@ const FilterDropdown = ({
             
             {expandedSection === 'stage' && (
               <div style={{ paddingTop: '12px' }}>
-                {stages.map(stage => (
+                {stages.map(stageName => (
                   <label 
-                    key={stage}
+                    key={stageName}
                     style={{ 
                       display: 'flex', 
                       alignItems: 'center', 
@@ -252,18 +242,18 @@ const FilterDropdown = ({
                   >
                     <input
                       type="checkbox"
-                      checked={stageFilters.includes(stage)}
-                      onChange={() => handleStageChange(stage)}
+                      checked={stageFilters.includes(stageName)}
+                      onChange={() => handleStageChange(stageName)}
                       style={{ marginRight: '8px' }}
                     />
-                    {stage}
+                    {stageName}
                   </label>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Status Filter Section */}
+          {/* Status Filter Section (no changes needed - already good) */}
           <div style={{ marginBottom: '20px' }}>
             <div 
               onClick={() => toggleSection('status')}
@@ -365,21 +355,42 @@ const FilterDropdown = ({
   );
 };
 
-// Updated filter logic utility function
-export const applyFilters = (leads, counsellorFilters, stageFilters, statusFilters = []) => {
+// ← UPDATED: Filter logic utility function with stage_key support
+export const applyFilters = (leads, counsellorFilters, stageFilters, statusFilters = [], getStageDisplayName, getStageKeyFromName) => {
   return leads.filter(lead => {
     // If no filters selected, show all leads
     if (counsellorFilters.length === 0 && stageFilters.length === 0 && statusFilters.length === 0) {
       return true;
     }
 
-    // Check counsellor filter
+    // ← UPDATED: Check counsellor filter (field_key aware)
     const counsellorMatch = counsellorFilters.length === 0 || 
                            counsellorFilters.includes(lead.counsellor);
 
-    // Check stage filter  
-    const stageMatch = stageFilters.length === 0 || 
-                      stageFilters.includes(lead.stage);
+    // ← UPDATED: Check stage filter with stage_key conversion
+    let stageMatch = false;
+    if (stageFilters.length === 0) {
+      stageMatch = true;
+    } else {
+      // Lead stage could be stage_key or stage name, filters are stage names
+      let leadStageName;
+      
+      if (getStageDisplayName) {
+        // Try to get display name (in case lead.stage is stage_key)
+        leadStageName = getStageDisplayName(lead.stage) || lead.stage;
+      } else {
+        // Fallback to direct comparison
+        leadStageName = lead.stage;
+      }
+      
+      stageMatch = stageFilters.includes(leadStageName);
+      
+      console.log('=== STAGE FILTER DEBUG ===');
+      console.log('Lead stage value:', lead.stage);
+      console.log('Lead stage display name:', leadStageName);
+      console.log('Stage filters:', stageFilters);
+      console.log('Stage match:', stageMatch);
+    }
 
     // Check status filter
     const statusMatch = statusFilters.length === 0 ||
@@ -390,7 +401,7 @@ export const applyFilters = (leads, counsellorFilters, stageFilters, statusFilte
   });
 };
 
-// Updated FilterButton component
+// ← UPDATED: FilterButton component with field_key and stage_key support
 export const FilterButton = ({ 
   showFilter, 
   setShowFilter, 
@@ -399,7 +410,11 @@ export const FilterButton = ({
   statusFilters = [],
   setCounsellorFilters, 
   setStageFilters,
-  setStatusFilters
+  setStatusFilters,
+  settingsData, // ← Receive settings data
+  getFieldLabel, // ← NEW: Receive getFieldLabel function
+  getStageKeyFromName, // ← NEW: Stage conversion function
+  getStageDisplayName // ← NEW: Stage conversion function
 }) => (
   <div style={{ position: 'relative' }}>
     <button 
@@ -432,6 +447,10 @@ export const FilterButton = ({
       setCounsellorFilters={setCounsellorFilters}
       setStageFilters={setStageFilters}
       setStatusFilters={setStatusFilters}
+      settingsData={settingsData}
+      getFieldLabel={getFieldLabel} // ← NEW: Pass getFieldLabel
+      getStageKeyFromName={getStageKeyFromName} // ← NEW: Pass stage conversion
+      getStageDisplayName={getStageDisplayName} // ← NEW: Pass stage conversion
       onClearAll={() => {
         setCounsellorFilters([]);
         setStageFilters([]);
