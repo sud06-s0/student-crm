@@ -5,9 +5,11 @@ import AddLeadForm from './AddLeadForm';
 import LeftSidebar from './LeftSidebar';
 import LeadSidebar from './LeadSidebar';
 import DeleteConfirmationDialog from './DeleteConfirmationDialog';
+import MeToggle from './MeToggle';
 import { FilterButton, applyFilters } from './FilterDropdown';
 import LeadStateProvider,{ useLeadState } from './LeadStateProvider';
 import SettingsDataProvider, { useSettingsData } from '../contexts/SettingsDataProvider';
+import ImportLeadsModal from './ImportLeadsModal';
 import { 
   Search,
   Filter,
@@ -29,14 +31,15 @@ import {
   Link,
   DollarSign,
   CheckCircle,
-  Trash2
+  Trash2,
+  Plus
 } from 'lucide-react';
 
 const WarmLeads = ({ onLogout, user }) => {
-  // ← UPDATED: Use settings data context with stage_key support
+  // ← USE SETTINGS DATA CONTEXT
   const { 
     settingsData, 
-    getFieldLabel, // ← NEW: For dynamic field labels
+    getFieldLabel, // ← NEW: Use for all field labels
     getStageInfo,
     getStageColor, 
     getStageScore, 
@@ -59,6 +62,7 @@ const WarmLeads = ({ onLogout, user }) => {
 
   const [showSidebar, setShowSidebar] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   
   // Search functionality states
   const [showSearch, setShowSearch] = useState(false);
@@ -77,6 +81,9 @@ const WarmLeads = ({ onLogout, user }) => {
   const [selectAll, setSelectAll] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // ME FILTER STATE
+  const [showMyLeads, setShowMyLeads] = useState(false);
 
   // ← UPDATED: Sidebar editing states with field_key support
   const [isEditingMode, setIsEditingMode] = useState(false);
@@ -112,6 +119,15 @@ const WarmLeads = ({ onLogout, user }) => {
   const [stageFilters, setStageFilters] = useState([]);
   const [statusFilters, setStatusFilters] = useState([]);
 
+  // ← UPDATED: Get dynamic stages with stage_key support
+  const stages = settingsData.stages.map(stage => ({
+    value: stage.stage_key || stage.name, // ← Use stage_key if available
+    label: stage.name, // ← Display name
+    color: stage.color || '#B3D7FF',
+    score: stage.score || 10,
+    category: stage.category || 'New'
+  }));
+
   // ← NEW: Helper functions for stage_key conversion
   const getStageKeyForLead = (stageValue) => {
     // If it's already a stage_key, return it
@@ -130,15 +146,6 @@ const WarmLeads = ({ onLogout, user }) => {
     // Otherwise, it's probably already a stage name
     return stageValue;
   };
-
-  // ← UPDATED: Get dynamic stages with stage_key support
-  const stages = settingsData.stages.map(stage => ({
-    value: stage.stage_key || stage.name, // ← Use stage_key if available
-    label: stage.name, // ← Display name
-    color: stage.color || '#B3D7FF',
-    score: stage.score || 10,
-    category: stage.status || 'New'
-  }));
 
   // DELETE FUNCTIONALITY - NEW FUNCTIONS
   const handleIndividualCheckboxChange = (leadId, checked) => {
@@ -198,33 +205,19 @@ const WarmLeads = ({ onLogout, user }) => {
     setShowDeleteDialog(false);
   };
 
-  // Clear selections when leads data changes (after filters/search)
+  // Clear selections when leads data changes (after filters/search/me toggle)
   useEffect(() => {
     setSelectedLeads([]);
     setSelectAll(false);
-  }, [searchTerm, counsellorFilters, stageFilters, statusFilters]);
+  }, [searchTerm, counsellorFilters, stageFilters, statusFilters, showMyLeads]);
 
   // ← UPDATED: Calculate stage counts using stage_key
   const getStageCount = (stageName) => {
-    console.log('=== WARM LEADS STAGE COUNT ===');
-    console.log('Looking for stage:', stageName);
-    
     const stageKey = getStageKeyFromName(stageName);
-    console.log('Stage key for', stageName, ':', stageKey);
-    
-    const count = leadsData.filter(lead => {
+    return leadsData.filter(lead => {
       const leadStageKey = getStageKeyForLead(lead.stage);
-      const matches = leadStageKey === stageKey || lead.stage === stageName;
-      
-      if (matches) {
-        console.log(`Warm lead ${lead.id} matches stage ${stageName} (key: ${stageKey})`);
-      }
-      
-      return matches;
+      return leadStageKey === stageKey || lead.stage === stageName;
     }).length;
-    
-    console.log(`Final warm leads count for ${stageName}:`, count);
-    return count;
   };
 
   // ← UPDATED: Get stage color using stage_key
@@ -283,7 +276,7 @@ const WarmLeads = ({ onLogout, user }) => {
     return days >= 3;
   };
 
-  // ← UPDATED: Convert database record to UI format with stage_key support
+  // ← UPDATED: Convert database record to UI format with field_key support
   const convertDatabaseToUI = (dbRecord) => {
     // Parse datetime fields
     let meetingDate = '';
@@ -321,10 +314,10 @@ const WarmLeads = ({ onLogout, user }) => {
       category: dbRecord.category,
       counsellor: dbRecord.counsellor,
       offer: dbRecord.offer,
-      notes: dbRecord.notes,
+      notes: dbRecord.notes || '', // ← Added notes field
       email: dbRecord.email || '',
       occupation: dbRecord.occupation || '',
-      source: dbRecord.source || (settingsData?.sources?.[0]?.name || 'Instagram'),
+      source: dbRecord.source || settingsData.sources?.[0]?.name || 'Instagram',
       currentSchool: dbRecord.current_school || '',
       meetingDate: meetingDate,
       meetingTime: meetingTime,
@@ -361,8 +354,6 @@ const WarmLeads = ({ onLogout, user }) => {
         setLoading(true);
         setError(null);
         
-        console.log('=== FETCHING WARM LEADS ===');
-        
         // Make both API calls in parallel using the fast view
         const [leadsResponse, activityResponse] = await Promise.all([
           supabase.from('Leads').select('*').order('id', { ascending: false }),
@@ -372,11 +363,8 @@ const WarmLeads = ({ onLogout, user }) => {
         if (leadsResponse.error) throw leadsResponse.error;
         if (activityResponse.error) throw activityResponse.error;
 
-        console.log('Raw warm leads from database:', leadsResponse.data);
-
         // Process leads data
         const convertedData = leadsResponse.data.map(convertDatabaseToUI);
-        console.log('Converted warm leads with stage_key:', convertedData);
         setLeadsData(convertedData);
         
         // Process activity data (super fast now)
@@ -396,9 +384,9 @@ const WarmLeads = ({ onLogout, user }) => {
 
   // Fetch leads on component mount
       useEffect(() => {
-      console.time('Warm leads page load time');
+      console.time('Page load time');
       fetchLeads().then(() => {
-        console.timeEnd('Warm leads page load time');
+        console.timeEnd('Page load time');
       });
     }, []);
 
@@ -432,13 +420,13 @@ const WarmLeads = ({ onLogout, user }) => {
 
   // ← UPDATED: openSidebar with field_key support
   const openSidebar = (lead) => {
-    console.log('Opening sidebar for warm lead:', lead);
+    console.log('Opening sidebar for lead:', lead);
     setSelectedLead(lead);
     setSidebarFormData({
       parentsName: lead.parentsName || '',
       kidsName: lead.kidsName || '',
       grade: lead.grade || '',
-      source: lead.source || settingsData.sources[0]?.name || 'Instagram',
+      source: lead.source || settingsData.sources?.[0]?.name || 'Instagram',
       stage: lead.stage, // ← This is now stage_key
       counsellor: lead.counsellor || '',
       offer: lead.offer || 'Welcome Kit',
@@ -455,6 +443,7 @@ const WarmLeads = ({ onLogout, user }) => {
       visitLocation: lead.visitLocation || '',
       registrationFees: lead.registrationFees || '',
       enrolled: lead.enrolled || ''
+      
     });
     setShowSidebar(true);
     setIsEditingMode(false);
@@ -494,17 +483,12 @@ const WarmLeads = ({ onLogout, user }) => {
       const oldStageName = getStageDisplayName(oldStageKey);
       const newStageName = getStageDisplayName(newStageKey);
       
-      console.log('=== WARM LEADS STAGE CHANGE ===');
-      console.log('Lead ID:', leadId);
-      console.log('Old stage:', oldStageName, '(key:', oldStageKey, ')');
-      console.log('New stage:', newStageName, '(key:', newStageKey, ')');
-      
       // Log the stage change FIRST (before database update)
       if (oldStageKey !== newStageKey) {
         await logStageChange(leadId, oldStageName, newStageName, 'sidebar');
       }
 
-      // ← UPDATED: Store stage_key in database
+      // ← UPDATED: Store stage_key in database instead of stage name
       let updateData = { 
         stage: newStageKey, // ← Store stage_key
         score: updatedScore, 
@@ -521,8 +505,6 @@ const WarmLeads = ({ onLogout, user }) => {
       if (oldStageKey === noResponseKey && newStageKey !== noResponseKey) {
         updateData.previous_stage = null;
       }
-
-      console.log('Database update data:', updateData);
 
       // Update in database
       const { error } = await supabase
@@ -572,7 +554,7 @@ const WarmLeads = ({ onLogout, user }) => {
     }
   };
 
-  // ← UPDATED: Handle update all fields function with stage_key support
+  // ← UPDATED: Handle update all fields function with field_key and stage_key support
   const handleUpdateAllFields = async () => {
     try {
       console.log('handleUpdateAllFields called with sidebarFormData:', sidebarFormData);
@@ -588,7 +570,7 @@ const WarmLeads = ({ onLogout, user }) => {
       // ← UPDATED: Handle stage_key in updates
       const stageKey = getStageKeyForLead(sidebarFormData.stage);
       
-      // Prepare the update data
+      // ← UPDATED: Prepare the update data with field_key awareness
       const updateData = {
         parents_name: sidebarFormData.parentsName,
         kids_name: sidebarFormData.kidsName,
@@ -765,6 +747,19 @@ const handleAddLead = async (action = 'add') => {
     setShowAddForm(false);
   };
 
+  const handleShowImportModal = () => {
+    setShowImportModal(true);
+  };
+
+  const handleCloseImportModal = () => {
+    setShowImportModal(false);
+  };
+
+  const handleImportComplete = async () => {
+    await fetchLeads();
+    setShowImportModal(false);
+  };
+
   // Close stage dropdown when clicking elsewhere
   useEffect(() => {
     const handleClickOutside = () => {
@@ -816,9 +811,14 @@ const handleAddLead = async (action = 'add') => {
 
   // Determine which data to display
   const getDisplayLeads = () => {
-    let filtered = leadsData.filter(lead => lead.category === 'Warm');
+  let filtered = leadsData.filter(lead => lead.category === 'Warm');
+
+    // Apply "Me" filter first if enabled
+    if (showMyLeads) {
+      filtered = filtered.filter(lead => lead.counsellor === user.full_name);
+    }
     
-    // Apply search first
+    // Apply search next
     if (searchTerm.trim() !== '') {
       filtered = filtered.filter(lead => 
         lead.parentsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -826,11 +826,11 @@ const handleAddLead = async (action = 'add') => {
         lead.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
         getStageDisplayName(lead.stage).toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.counsellor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (lead.email && lead.email.toLowerCase().includes(term.toLowerCase())) ||
-        (lead.occupation && lead.occupation.toLowerCase().includes(term.toLowerCase())) ||
-        (lead.location && lead.location.toLowerCase().includes(term.toLowerCase())) ||
-        (lead.currentSchool && lead.currentSchool.toLowerCase().includes(term.toLowerCase())) ||
-        (lead.source && lead.source.toLowerCase().includes(term.toLowerCase()))
+        (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (lead.occupation && lead.occupation.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (lead.location && lead.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (lead.currentSchool && lead.currentSchool.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (lead.source && lead.source.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
     
@@ -861,7 +861,7 @@ const handleAddLead = async (action = 'add') => {
         activeSubmenuItem="warm"
         stages={stages}
         getStageCount={getStageCount}
-        stagesTitle={getFieldLabel('stage') || 'Stages'} // ← NEW: Dynamic field label
+        stagesTitle="Stages"
         stagesIcon={Play}
         onLogout={onLogout}
         user={user}
@@ -873,8 +873,20 @@ const handleAddLead = async (action = 'add') => {
         
         <div className="nova-header">
           <div className="header-left">
-            <h1>Warm Leads</h1>
-            <span className="total-count">Total Warm Leads {displayLeads.length}</span>
+            <div className="header-title-row">
+              <h1>{showMyLeads ? 'My Warm Leads' : 'Warm Leads'}</h1>
+              <MeToggle 
+                showMyLeads={showMyLeads}
+                setShowMyLeads={setShowMyLeads}
+                user={user}
+                leadsData={leadsData.filter(lead => lead.category === 'Warm')}
+              />
+            </div>
+            <span className="total-count">
+              Total Warm Leads {showMyLeads 
+                ? leadsData.filter(lead => lead.counsellor === user.full_name && lead.category === 'Warm').length 
+                : leadsData.filter(lead => lead.category === 'Warm').length}
+            </span>
             
             {/* DELETE BUTTON - Shows when leads are selected */}
             {selectedLeads.length > 0 && (
@@ -933,12 +945,39 @@ const handleAddLead = async (action = 'add') => {
               statusFilters={statusFilters}  
               setCounsellorFilters={setCounsellorFilters}
               setStageFilters={setStageFilters}
-              setStatusFilters={setStatusFilters}  
-              settingsData={settingsData}
+              setStatusFilters={setStatusFilters}
+              settingsData={settingsData} 
               getFieldLabel={getFieldLabel} // ← NEW
               getStageKeyFromName={getStageKeyFromName} // ← NEW
               getStageDisplayName={getStageDisplayName} // ← NEW
+  
             />
+            <button 
+              className="import-leads-btn" 
+              onClick={handleShowImportModal}
+              title="Import Leads"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                backgroundColor: '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#059669';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = '#10b981';
+              }}
+            >
+              <Plus size={20} />
+            </button>
             <button className="add-lead-btn" onClick={handleShowAddForm}>
               + Add Lead
             </button>
@@ -1124,7 +1163,11 @@ const handleAddLead = async (action = 'add') => {
               ) : !loading ? (
                 <tr>
                   <td colSpan="9" className="no-data">
-                    {searchTerm ? 'No results found for your search.' : 'No leads available. Click + Add Lead to create your first lead!'}
+                    {showMyLeads 
+                      ? 'No warm leads assigned to you.' 
+                      : searchTerm 
+                        ? 'No results found for your search.' 
+                        : 'No warm leads available. Click + Add Lead to create your first lead!'}
                   </td>
                 </tr>
               ) : null}
@@ -1141,7 +1184,7 @@ const handleAddLead = async (action = 'add') => {
         isEditingMode={isEditingMode}
         sidebarFormData={sidebarFormData}
         stages={stages}
-        settingsData={settingsData} // ← Pass settings data
+        settingsData={settingsData}
         onClose={closeSidebar}
         onEditModeToggle={handleEditModeToggle}
         onFieldChange={handleSidebarFieldChange}
@@ -1163,14 +1206,23 @@ const handleAddLead = async (action = 'add') => {
         leadsData={leadsData}
       />
 
-      {/* ← Add Lead Form with field_key and stage_key support */}
+      {/* Add Lead Form with field_key and stage_key support */}
       {showAddForm && (
         <AddLeadForm
           isOpen={showAddForm}
           onClose={handleCloseAddForm}
           onSubmit={handleAddLead}
           existingLeads={leadsData}
-          settingsData={settingsData} // ← Pass settings data
+          settingsData={settingsData}
+        />
+      )}
+
+      {/* Import Leads Modal */}
+      {showImportModal && (
+        <ImportLeadsModal
+          isOpen={showImportModal}
+          onClose={handleCloseImportModal}
+          onComplete={handleImportComplete}
         />
       )}
     </div>

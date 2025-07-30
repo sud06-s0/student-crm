@@ -3051,3 +3051,220 @@
   flex: 1;
   margin-bottom: 0;
 }
+
+.header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Follow-up Input Form Styles */
+.lead-sidebar-follow-up-input {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  border: 1px solid #e9ecef;
+}
+
+.lead-sidebar-follow-up-input-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 12px;
+  margin-top: 0;
+}
+
+.lead-sidebar-follow-up-input-form {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.lead-sidebar-follow-up-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lead-sidebar-follow-up-input-group:first-child {
+  min-width: 140px; /* Date field - same width as Action Type */
+}
+
+.lead-sidebar-follow-up-input-group.wide {
+  
+}
+
+.lead-sidebar-follow-up-input-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6c757d;
+  margin-bottom: 4px;
+}
+
+.lead-sidebar-follow-up-input-field {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  height: 32px;
+  box-sizing: border-box;
+}
+
+.lead-sidebar-follow-up-input-field:focus {
+  outline: none;
+  border-color: #80bdff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.lead-sidebar-follow-up-update-btn {
+ padding: 6px 12px;
+  height: 32px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  align-self: flex-end; /* Align button to the right */
+  width: fit-content;
+}
+
+.lead-sidebar-follow-up-update-btn:hover {
+  background: #0056b3;
+}
+
+/* Follow-up Timeline Styles */
+.lead-sidebar-follow-up-timeline {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.lead-sidebar-follow-up-item {
+  position: relative;
+  padding-left: 24px;
+  margin-bottom: 20px;
+}
+
+.lead-sidebar-follow-up-line {
+  position: absolute;
+  left: 3px;
+  top: 16px;
+  bottom: -20px;
+  width: 1px;
+  background: #dee2e6;
+}
+
+.lead-sidebar-follow-up-dot {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6c757d;
+  border: 2px solid #6c757d;
+}
+
+/* Future follow-up dots */
+.lead-sidebar-follow-up-dot.future {
+  background-color: #3b82f6;
+  border: 2px solid #1d4ed8;
+}
+
+/* Today follow-up dots */
+.lead-sidebar-follow-up-dot.today {
+  background-color: #10b981;
+  border: 2px solid #059669;
+  animation: followUpPulse 2s infinite;
+}
+
+/* Past follow-up dots */
+.lead-sidebar-follow-up-dot.past {
+  background-color: #6b7280;
+  border: 2px solid #4b5563;
+}
+
+.lead-sidebar-follow-up-content {
+  margin-left: 8px;
+}
+
+.lead-sidebar-follow-up-action {
+  font-size: 14px;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 4px;
+}
+
+/* Future follow-up actions */
+.lead-sidebar-follow-up-action.future {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+/* Today follow-up actions */
+.lead-sidebar-follow-up-action.today {
+  color: #059669;
+  font-weight: 600;
+}
+
+/* Past follow-up actions */
+.lead-sidebar-follow-up-action.past {
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.lead-sidebar-follow-up-description {
+  font-size: 13px;
+  color: #6c757d;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.lead-sidebar-follow-up-time {
+  font-size: 11px;
+  color: #adb5bd;
+  font-weight: 500;
+}
+
+.lead-sidebar-follow-up-empty {
+  text-align: center;
+  color: #adb5bd;
+  font-style: italic;
+  padding: 40px 20px;
+  font-size: 14px;
+}
+
+/* Pulse animation for today's follow-ups */
+@keyframes followUpPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+/* Scrollbar styling for follow-up timeline */
+.lead-sidebar-follow-up-timeline::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lead-sidebar-follow-up-timeline::-webkit-scrollbar-track {
+  background: #f8f9fa;
+  border-radius: 3px;
+}
+
+.lead-sidebar-follow-up-timeline::-webkit-scrollbar-thumb {
+  background: #dee2e6;
+  border-radius: 3px;
+}
+
+.lead-sidebar-follow-up-timeline::-webkit-scrollbar-thumb:hover {
+  background: #adb5bd;
+}

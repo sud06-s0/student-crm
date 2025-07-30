@@ -5,9 +5,11 @@ import AddLeadForm from './AddLeadForm';
 import LeftSidebar from './LeftSidebar';
 import LeadSidebar from './LeadSidebar';
 import DeleteConfirmationDialog from './DeleteConfirmationDialog';
+import MeToggle from './MeToggle';
 import { FilterButton, applyFilters } from './FilterDropdown';
 import LeadStateProvider,{ useLeadState } from './LeadStateProvider';
 import SettingsDataProvider, { useSettingsData } from '../contexts/SettingsDataProvider';
+import ImportLeadsModal from './ImportLeadsModal';
 import { 
   Search,
   Filter,
@@ -29,11 +31,12 @@ import {
   Link,
   DollarSign,
   CheckCircle,
-  Trash2
+  Trash2,
+  Plus
 } from 'lucide-react';
 
 const EnrolledLeads = ({ onLogout, user }) => {
-  // ← USE SETTINGS DATA CONTEXT WITH STAGE_KEY SUPPORT
+  // ← USE SETTINGS DATA CONTEXT
   const { 
     settingsData, 
     getFieldLabel, // ← NEW: Use for all field labels
@@ -59,6 +62,7 @@ const EnrolledLeads = ({ onLogout, user }) => {
 
   const [showSidebar, setShowSidebar] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   
   // Search functionality states
   const [showSearch, setShowSearch] = useState(false);
@@ -78,7 +82,10 @@ const EnrolledLeads = ({ onLogout, user }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // ← UPDATED: Sidebar editing states with field_key support including notes
+  // ME FILTER STATE
+  const [showMyLeads, setShowMyLeads] = useState(false);
+
+  // ← UPDATED: Sidebar editing states with field_key support
   const [isEditingMode, setIsEditingMode] = useState(false);
   const [sidebarFormData, setSidebarFormData] = useState({
     parentsName: '',
@@ -198,11 +205,11 @@ const EnrolledLeads = ({ onLogout, user }) => {
     setShowDeleteDialog(false);
   };
 
-  // Clear selections when leads data changes (after filters/search)
+  // Clear selections when leads data changes (after filters/search/me toggle)
   useEffect(() => {
     setSelectedLeads([]);
     setSelectAll(false);
-  }, [searchTerm, counsellorFilters, stageFilters, statusFilters]);
+  }, [searchTerm, counsellorFilters, stageFilters, statusFilters, showMyLeads]);
 
   // ← UPDATED: Calculate stage counts using stage_key
   const getStageCount = (stageName) => {
@@ -740,6 +747,19 @@ const handleAddLead = async (action = 'add') => {
     setShowAddForm(false);
   };
 
+  const handleShowImportModal = () => {
+    setShowImportModal(true);
+  };
+
+  const handleCloseImportModal = () => {
+    setShowImportModal(false);
+  };
+
+  const handleImportComplete = async () => {
+    await fetchLeads();
+    setShowImportModal(false);
+  };
+
   // Close stage dropdown when clicking elsewhere
   useEffect(() => {
     const handleClickOutside = () => {
@@ -791,23 +811,26 @@ const handleAddLead = async (action = 'add') => {
 
   // Determine which data to display
   const getDisplayLeads = () => {
-    let filtered = leadsData.filter(lead => lead.category === 'Enrolled');
+  let filtered = leadsData.filter(lead => lead.category === 'Enrolled');
+
+    // Apply "Me" filter first if enabled
+    if (showMyLeads) {
+      filtered = filtered.filter(lead => lead.counsellor === user.full_name);
+    }
     
-    // Apply search first
+    // Apply search next
     if (searchTerm.trim() !== '') {
-      filtered = leadsData.filter(lead => 
-        lead.category === 'Enrolled' && (
-          lead.parentsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          lead.kidsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          lead.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          getStageDisplayName(lead.stage).toLowerCase().includes(searchTerm.toLowerCase()) ||
-          lead.counsellor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (lead.occupation && lead.occupation.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (lead.location && lead.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (lead.currentSchool && lead.currentSchool.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (lead.source && lead.source.toLowerCase().includes(searchTerm.toLowerCase()))
-        )
+      filtered = filtered.filter(lead => 
+        lead.parentsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.kidsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        getStageDisplayName(lead.stage).toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.counsellor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (lead.occupation && lead.occupation.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (lead.location && lead.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (lead.currentSchool && lead.currentSchool.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (lead.source && lead.source.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
     
@@ -850,8 +873,21 @@ const handleAddLead = async (action = 'add') => {
         
         <div className="nova-header">
           <div className="header-left">
-            <h1>Enrolled Leads</h1>
-            <span className="total-count">Total Enrolled Leads {displayLeads.length}</span>
+            <div className="header-title-row">
+              <h1>{showMyLeads ? 'My Enrolled Leads' : 'Enrolled Leads'}</h1>
+              <MeToggle 
+                showMyLeads={showMyLeads}
+                setShowMyLeads={setShowMyLeads}
+                user={user}
+                leadsData={leadsData.filter(lead => lead.category === 'Enrolled')}
+
+              />
+            </div>
+            <span className="total-count">
+              Total Enrolled Leads {showMyLeads 
+                ? leadsData.filter(lead => lead.counsellor === user.full_name && lead.category === 'Enrolled').length 
+                : leadsData.filter(lead => lead.category === 'Enrolled').length}
+            </span>
             
             {/* DELETE BUTTON - Shows when leads are selected */}
             {selectedLeads.length > 0 && (
@@ -910,12 +946,39 @@ const handleAddLead = async (action = 'add') => {
               statusFilters={statusFilters}  
               setCounsellorFilters={setCounsellorFilters}
               setStageFilters={setStageFilters}
-              setStatusFilters={setStatusFilters} 
-              settingsData={settingsData}
+              setStatusFilters={setStatusFilters}
+              settingsData={settingsData} 
               getFieldLabel={getFieldLabel} // ← NEW
               getStageKeyFromName={getStageKeyFromName} // ← NEW
               getStageDisplayName={getStageDisplayName} // ← NEW
+  
             />
+            <button 
+              className="import-leads-btn" 
+              onClick={handleShowImportModal}
+              title="Import Leads"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                backgroundColor: '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#059669';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = '#10b981';
+              }}
+            >
+              <Plus size={20} />
+            </button>
             <button className="add-lead-btn" onClick={handleShowAddForm}>
               + Add Lead
             </button>
@@ -1101,7 +1164,11 @@ const handleAddLead = async (action = 'add') => {
               ) : !loading ? (
                 <tr>
                   <td colSpan="9" className="no-data">
-                    {searchTerm ? 'No results found for your search.' : 'No enrolled leads available.'}
+                    {showMyLeads 
+                      ? 'No Enrolled leads assigned to you.' 
+                      : searchTerm 
+                        ? 'No results found for your search.' 
+                        : 'No Enrolled leads available. Click + Add Lead to create your first lead!'}
                   </td>
                 </tr>
               ) : null}
@@ -1148,6 +1215,15 @@ const handleAddLead = async (action = 'add') => {
           onSubmit={handleAddLead}
           existingLeads={leadsData}
           settingsData={settingsData}
+        />
+      )}
+
+      {/* Import Leads Modal */}
+      {showImportModal && (
+        <ImportLeadsModal
+          isOpen={showImportModal}
+          onClose={handleCloseImportModal}
+          onComplete={handleImportComplete}
         />
       )}
     </div>

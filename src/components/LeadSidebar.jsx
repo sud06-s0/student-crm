@@ -14,19 +14,11 @@ import {
   History,
   FileText,
   Edit,
-  ChevronDown
+  ChevronDown,
+  Calendar
 } from 'lucide-react';
 import LeadStateProvider,{ useLeadState } from './LeadStateProvider';
-// Import all action button components
-import Stage2ActionButton from './Stage2ActionButton';
-import Stage3ActionButton from './Stage3ActionButton';
-import Stage4ActionButton from './Stage4ActionButton';
-import Stage5ActionButton from './Stage5ActionButton';
-import Stage6ActionButton from './Stage6ActionButton';
-import Stage7ActionButton from './Stage7ActionButton';
-import Stage8ActionButton from './Stage8ActionButton';
-import Stage9ActionButton from './Stage9ActionButton';
-// Import the new InfoTab component
+// Import the InfoTab component
 import InfoTab from './InfoTab';
 
 // Add debounce utility
@@ -47,6 +39,25 @@ const isToday = (dateString) => {
   const today = new Date();
   const date = new Date(dateString);
   return date.toDateString() === today.toDateString();
+};
+
+// Helper to check if date is in future
+const isFuture = (dateString) => {
+  const today = new Date();
+  const date = new Date(dateString);
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+  return date > today;
+};
+
+// Helper to format date for display
+const formatDateForDisplay = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
 };
 
 const LeadSidebar = ({
@@ -86,20 +97,15 @@ const LeadSidebar = ({
 
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
-  const [stageStatuses, setStageStatuses] = useState({
-    stage2_status: '',
-    stage3_status: '',
-    stage4_status: '',
-    stage5_status: '',
-    stage6_status: '',
-    stage7_status: '',
-    stage8_status: '',
-    stage9_status: ''
-  });
 
   const [historyData, setHistoryData] = useState([]);
   const [manualAction, setManualAction] = useState('');
   const [manualDetails, setManualDetails] = useState('');
+
+  // ← NEW: Follow-up states
+  const [followUpData, setFollowUpData] = useState([]);
+  const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpDetails, setFollowUpDetails] = useState('');
   
   // Store original values for comparison
   const [originalFormData, setOriginalFormData] = useState({});
@@ -138,20 +144,58 @@ const LeadSidebar = ({
     return contextGetStageCategory(stageKey) || getCategoryFromStage?.(stageValue) || 'New';
   };
 
-  // Update statuses when selectedLead changes
+  // ← NEW: Fetch follow-ups for the selected lead
+  const fetchFollowUps = async () => {
+    if (!selectedLead?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('follow_ups')
+        .select('*')
+        .eq('lead_id', selectedLead.id)
+        .order('follow_up_date', { ascending: false }); // Sort by date
+
+      if (error) throw error;
+      setFollowUpData(data || []);
+    } catch (error) {
+      console.error('Error fetching follow-ups:', error);
+    }
+  };
+
+  // ← NEW: Handle follow-up submission
+  const handleFollowUpSubmit = async () => {
+    if (!followUpDate.trim() || !followUpDetails.trim()) {
+      alert('Please fill in both Date and Details');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('follow_ups')
+        .insert({
+          lead_id: selectedLead.id,
+          follow_up_date: followUpDate,
+          details: followUpDetails
+        });
+
+      if (error) throw error;
+
+      // Clear form
+      setFollowUpDate('');
+      setFollowUpDetails('');
+      
+      // Refresh follow-ups
+      fetchFollowUps();
+      
+    } catch (error) {
+      console.error('Error adding follow-up:', error);
+      alert('Failed to add follow-up');
+    }
+  };
+
+  // Update original form data when selectedLead changes
   useEffect(() => {
     if (selectedLead) {
-      setStageStatuses({
-        stage2_status: selectedLead.stage2_status || '',
-        stage3_status: selectedLead.stage3_status || '',
-        stage4_status: selectedLead.stage4_status || '',
-        stage5_status: selectedLead.stage5_status || '',
-        stage6_status: selectedLead.stage6_status || '',
-        stage7_status: selectedLead.stage7_status || '',
-        stage8_status: selectedLead.stage8_status || '',
-        stage9_status: selectedLead.stage9_status || ''
-      });
-      
       // Store original form data for comparison - UPDATED TO INCLUDE ALL NEW FIELDS
       setOriginalFormData({
         parentsName: selectedLead.parentsName || '',
@@ -177,53 +221,6 @@ const LeadSidebar = ({
       });
     }
   }, [selectedLead, settingsData]);
-
-  // Handle status updates from action buttons
-  const handleStatusUpdate = async (stageField, newStatus) => {
-    setStageStatuses(prev => ({
-      ...prev,
-      [stageField]: newStatus
-    }));
-
-    try {
-      const { data, error } = await supabase
-        .from('Leads')
-        .update({ [stageField]: newStatus })
-        .eq('id', selectedLead.id);
-
-      if (error) throw error;
-      
-      // Use context instead of callback:
-      updateActionStatus(selectedLead.id, stageField, newStatus);
-      
-      // Log the WhatsApp message action in background
-      const stageNames = {
-        'stage2_status': 'Stage 2 - Connected',
-        'stage3_status': 'Stage 3 - Meeting Booked',
-        'stage4_status': 'Stage 4 - Meeting Done',
-        'stage5_status': 'Stage 5 - Proposal Sent',
-        'stage6_status': 'Stage 6 - Visit Booked',
-        'stage7_status': 'Stage 7 - Visit Done',
-        'stage8_status': 'Stage 8 - Registered',
-        'stage9_status': 'Stage 9 - Enrolled'
-      };
-      
-      // Don't wait for logging - do it in background
-      logWhatsAppMessage(selectedLead.id, stageField, stageNames[stageField]);
-      
-      // Only refresh history if user is viewing history tab
-      if (activeTab === 'history') {
-        fetchHistory();
-      }
-      
-    } catch (error) {
-      setStageStatuses(prev => ({
-        ...prev,
-        [stageField]: ''
-      }));
-      alert(`Failed to update status: ${error.message}`);
-    }
-  };
 
   // New History
   const fetchHistory = async () => {
@@ -391,10 +388,14 @@ const LeadSidebar = ({
     };
   }, [stageDropdownOpen]);
 
-  // Only fetch history when History tab is active
+  // ← UPDATED: Fetch data based on active tab
   useEffect(() => {
-    if (selectedLead?.id && activeTab === 'history') {
-      fetchHistory();
+    if (selectedLead?.id) {
+      if (activeTab === 'history') {
+        fetchHistory();
+      } else if (activeTab === 'followup') {
+        fetchFollowUps();
+      }
     }
   }, [selectedLead?.id, activeTab]);
 
@@ -413,6 +414,9 @@ const LeadSidebar = ({
   // ← NEW: Get current stage info for display
   const currentStageKey = getLeadStageKey(sidebarFormData.stage || selectedLead?.stage);
   const currentStageDisplayName = getLeadStageDisplayName(sidebarFormData.stage || selectedLead?.stage);
+
+  // ← NEW: Get today's date for min date validation
+  const today = new Date().toISOString().split('T')[0];
 
   return (
     <>
@@ -583,7 +587,7 @@ const LeadSidebar = ({
             </div>
           </div>
 
-          {/* Tabs */}
+          {/* ← UPDATED: Tabs - Renamed Action to Follow Up */}
           <div className="lead-sidebar-tabs">
             <div className="lead-sidebar-tabs-container">
               <button 
@@ -593,10 +597,10 @@ const LeadSidebar = ({
                 <Clipboard size={16} /> Info
               </button>
               <button 
-                onClick={() => setActiveTab('action')}
-                className={`lead-sidebar-tab-button ${activeTab === 'action' ? 'active' : ''}`}
+                onClick={() => setActiveTab('followup')}
+                className={`lead-sidebar-tab-button ${activeTab === 'followup' ? 'active' : ''}`}
               >
-                <History size={16} /> Action
+                <Calendar size={16} /> Follow Up
               </button>
               <button 
                 onClick={() => setActiveTab('history')}
@@ -619,146 +623,93 @@ const LeadSidebar = ({
             />
           )}
 
-          {/* Action Tab Content */}
-          {activeTab === 'action' && (
+          {/* ← NEW: Follow Up Tab Content */}
+          {activeTab === 'followup' && (
             <div className="lead-sidebar-tab-content">
-              {/* Header Row */}
-              <div className="lead-sidebar-action-header">
-                <div>Stage Name</div>
-                <div>Action</div>
-                <div>Status</div>
-              </div>
-
-              {/* Stage Rows */}
-              {/* Stage 2: Connected */}
-              <div className="lead-sidebar-action-row">
-                <div className="lead-sidebar-action-stage">Stage 2 Connected</div>
-                <div>
-                  <Stage2ActionButton
-                    leadId={selectedLead?.id}
-                    currentStatus={stageStatuses.stage2_status}
-                    onStatusUpdate={handleStatusUpdate}
-                    getFieldLabel={getFieldLabel}
-                    alwaysVisible={true}
-                    parentsName={selectedLead?.parentsName}
-                    meetingDate={sidebarFormData.meetingDate}
-                    meetingTime={sidebarFormData.meetingTime}
-                    meetingLink={sidebarFormData.meetingLink}
-                    phone={selectedLead?.phone}
-                />
-                </div>
-                <div>
-                  {stageStatuses.stage2_status === 'SENT' && (
-                    <span className="lead-sidebar-action-status">SENT</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Stage 4: Meeting Done */}
-              <div className="lead-sidebar-action-row">
-                <div className="lead-sidebar-action-stage">Stage 4 Meeting Done</div>
-                <div>
-                  <Stage4ActionButton
-                  leadId={selectedLead?.id}
-                  currentStatus={stageStatuses.stage4_status}
-                  onStatusUpdate={handleStatusUpdate}
-                  getFieldLabel={getFieldLabel}
-                  alwaysVisible={true}
-                  parentsName={selectedLead?.parentsName}
-                  phone={selectedLead?.phone}
-                />
-                </div>
-                <div>
-                  {stageStatuses.stage4_status === 'SENT' && (
-                    <span className="lead-sidebar-action-status">SENT</span>
-                  )}
+              {/* Follow Up Input Form */}
+              <div className="lead-sidebar-follow-up-input">
+                <h6 className="lead-sidebar-follow-up-input-title">
+                  Schedule follow-up action for this lead:
+                </h6>
+                <div className="lead-sidebar-follow-up-input-form">
+                  <div className="lead-sidebar-follow-up-input-group">
+                    <label className="lead-sidebar-follow-up-input-label">
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      value={followUpDate}
+                      min={today}
+                      onChange={(e) => setFollowUpDate(e.target.value)}
+                      className="lead-sidebar-follow-up-input-field"
+                    />
+                  </div>
+                  <div className="lead-sidebar-history-input-group wide">
+                    <label className="lead-sidebar-follow-up-input-label">
+                      Details
+                    </label>
+                    <input
+                      type="text"
+                      value={followUpDetails}
+                      onChange={(e) => setFollowUpDetails(e.target.value)}
+                      placeholder="e.g., Call to follow up on meeting"
+                      className="lead-sidebar-follow-up-input-field"
+                    />
+                  </div>
+                  <button
+                    onClick={handleFollowUpSubmit}
+                    className="lead-sidebar-follow-up-update-btn"
+                  >
+                    Add Follow up
+                  </button>
                 </div>
               </div>
 
-              {/* Stage 5: Proposal Sent */}
-              <div className="lead-sidebar-action-row">
-                <div className="lead-sidebar-action-stage">Stage 5 Proposal Sent</div>
-                <div>
-                  <Stage5ActionButton
-                    leadId={selectedLead?.id}
-                    currentStatus={stageStatuses.stage5_status}
-                    onStatusUpdate={handleStatusUpdate}
-                    getFieldLabel={getFieldLabel}  
-                    alwaysVisible={true}
-                    parentsName={selectedLead?.parentsName}
-                    visitDate={sidebarFormData.visitDate}
-                    visitTime={sidebarFormData.visitTime}
-                    phone={selectedLead?.phone}
-                  />
-                </div>
-                <div>
-                  {stageStatuses.stage5_status === 'SENT' && (
-                    <span className="lead-sidebar-action-status">SENT</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Stage 7: Visit Done */}
-              <div className="lead-sidebar-action-row">
-                <div className="lead-sidebar-action-stage">Stage 7 Visit Done</div>
-                <div>
-                  <Stage7ActionButton
-                    leadId={selectedLead?.id}
-                    currentStatus={stageStatuses.stage7_status}
-                    onStatusUpdate={handleStatusUpdate}
-                     getFieldLabel={getFieldLabel}
-                    alwaysVisible={true}
-                    parentsName={selectedLead?.parentsName}
-                    visitDate={sidebarFormData.visitDate}
-                    phone={selectedLead?.phone}
-                  />
-                </div>
-                <div>
-                  {stageStatuses.stage7_status === 'SENT' && (
-                    <span className="lead-sidebar-action-status">SENT</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Stage 8: Registered */}
-              <div className="lead-sidebar-action-row">
-                <div className="lead-sidebar-action-stage">Stage 8 Registered</div>
-                <div>
-                  <Stage8ActionButton
-                    leadId={selectedLead?.id}
-                    currentStatus={stageStatuses.stage8_status}
-                    onStatusUpdate={handleStatusUpdate}
-                    getFieldLabel={getFieldLabel}  
-                    alwaysVisible={true}
-                    phone={selectedLead?.phone}
-                  />
-                </div>
-                <div>
-                  {stageStatuses.stage8_status === 'SENT' && (
-                    <span className="lead-sidebar-action-status">SENT</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Stage 9: Enrolled */}
-              <div className="lead-sidebar-action-row">
-                <div className="lead-sidebar-action-stage">Stage 9 Enrolled</div>
-                <div>
-                  <Stage9ActionButton
-                    leadId={selectedLead?.id}
-                    currentStatus={stageStatuses.stage9_status}
-                    onStatusUpdate={handleStatusUpdate}
-                    getFieldLabel={getFieldLabel}
-                    alwaysVisible={true}
-                    kidsName={selectedLead?.kidsName}
-                    phone={selectedLead?.phone}
-                  />
-                </div>
-                <div>
-                  {stageStatuses.stage9_status === 'SENT' && (
-                    <span className="lead-sidebar-action-status">SENT</span>
-                  )}
-                </div>
+              {/* Follow Up Timeline */}
+              <div className="lead-sidebar-follow-up-timeline">
+                {followUpData.length > 0 ? (
+                  followUpData.map((followUp, index) => {
+                    const isFollowUpToday = isToday(followUp.follow_up_date);
+                    const isFollowUpFuture = isFuture(followUp.follow_up_date);
+                    
+                    return (
+                      <div key={followUp.id} className="lead-sidebar-follow-up-item">
+                        {index < followUpData.length - 1 && (
+                          <div className="lead-sidebar-follow-up-line"></div>
+                        )}
+                        
+                        <div className={`lead-sidebar-follow-up-dot ${
+                          isFollowUpToday ? 'today' : isFollowUpFuture ? 'future' : 'past'
+                        }`}></div>
+                        
+                        <div className="lead-sidebar-follow-up-content">
+                          <div className={`lead-sidebar-follow-up-action ${
+                            isFollowUpToday ? 'today' : isFollowUpFuture ? 'future' : 'past'
+                          }`}>
+                            Follow Up - {formatDateForDisplay(followUp.follow_up_date)}
+                          </div>
+                          <div className="lead-sidebar-follow-up-description">
+                            {followUp.details}
+                          </div>
+                          <div className="lead-sidebar-follow-up-time">
+                            Added {new Date(followUp.created_at).toLocaleDateString('en-GB', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="lead-sidebar-follow-up-empty">
+                    No follow-ups scheduled
+                  </div>
+                )}
               </div>
             </div>
           )}

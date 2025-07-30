@@ -8,9 +8,11 @@ import AddLeadForm from './AddLeadForm';
 import LeftSidebar from './LeftSidebar';
 import LeadSidebar from './LeadSidebar';
 import DeleteConfirmationDialog from './DeleteConfirmationDialog';
+import MeToggle from './MeToggle';
 import { FilterButton, applyFilters } from './FilterDropdown';
 import LeadStateProvider,{ useLeadState } from './LeadStateProvider';
 import SettingsDataProvider, { useSettingsData } from '../contexts/SettingsDataProvider';
+import ImportLeadsModal from './ImportLeadsModal';
 import { 
   Search,
   Filter,
@@ -24,7 +26,8 @@ import {
   AlertCircle,
   Loader2,
   RefreshCw,
-  Trash2
+  Trash2,
+  Plus
 } from 'lucide-react';
 
 const ColdLeads = ({ onLogout, user }) => {
@@ -55,6 +58,7 @@ const ColdLeads = ({ onLogout, user }) => {
 
   const [showSidebar, setShowSidebar] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   
   // Search functionality states
   const [showSearch, setShowSearch] = useState(false);
@@ -73,6 +77,9 @@ const ColdLeads = ({ onLogout, user }) => {
   const [selectAll, setSelectAll] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // ME FILTER STATE - NEW
+  const [showMyLeads, setShowMyLeads] = useState(false);
 
   // ← UPDATED: Sidebar editing states with field_key support
   const [isEditingMode, setIsEditingMode] = useState(false);
@@ -142,13 +149,6 @@ const ColdLeads = ({ onLogout, user }) => {
     return ['No Response'].includes(stageName);
   });
 
-  const offers = [
-    '30000 Scholarship',
-    '10000 Discount',
-    'Welcome Kit',
-    'Accessible Kit'
-  ];
-
   // DELETE FUNCTIONALITY
   const handleIndividualCheckboxChange = (leadId, checked) => {
     if (checked) {
@@ -207,11 +207,11 @@ const ColdLeads = ({ onLogout, user }) => {
     setShowDeleteDialog(false);
   };
 
-  // Clear selections when leads data changes (after filters/search)
+  // Clear selections when leads data changes (after filters/search/me toggle)
   useEffect(() => {
     setSelectedLeads([]);
     setSelectAll(false);
-  }, [searchTerm, counsellorFilters, stageFilters, statusFilters]);
+  }, [searchTerm, counsellorFilters, stageFilters, statusFilters, showMyLeads]);
 
   // ← UPDATED: Calculate stage counts for cold stages using stage_key
   const getStageCount = (stageName) => {
@@ -309,7 +309,7 @@ const ColdLeads = ({ onLogout, user }) => {
       category: dbRecord.category,
       counsellor: dbRecord.counsellor,
       offer: dbRecord.offer,
-      notes: dbRecord.notes,
+      notes: dbRecord.notes || '',
       email: dbRecord.email || '',
       occupation: dbRecord.occupation || '',
       source: dbRecord.source || (settingsData?.sources?.[0]?.name || 'Instagram'),
@@ -481,7 +481,7 @@ const ColdLeads = ({ onLogout, user }) => {
       parentsName: lead.parentsName || '',
       kidsName: lead.kidsName || '',
       grade: lead.grade || '',
-      source: lead.source || settingsData.sources[0]?.name || 'Instagram',
+      source: lead.source || settingsData.sources?.[0]?.name || 'Instagram',
       stage: lead.stage, // ← This is now stage_key
       counsellor: lead.counsellor || '',
       offer: lead.offer || 'Welcome Kit',
@@ -820,6 +820,19 @@ const ColdLeads = ({ onLogout, user }) => {
     setShowAddForm(false);
   };
 
+  const handleShowImportModal = () => {
+    setShowImportModal(true);
+  };
+
+  const handleCloseImportModal = () => {
+    setShowImportModal(false);
+  };
+
+  const handleImportComplete = async () => {
+    await fetchColdLeads();
+    setShowImportModal(false);
+  };
+
   // Close stage dropdown when clicking elsewhere
   useEffect(() => {
     const handleClickOutside = () => {
@@ -874,7 +887,12 @@ const ColdLeads = ({ onLogout, user }) => {
     // ✅ FIRST: Filter for cold leads only
     let filtered = leadsData.filter(lead => lead.category === 'Cold');
     
-    // Apply search second
+    // Apply "Me" filter second if enabled
+    if (showMyLeads) {
+      filtered = filtered.filter(lead => lead.counsellor === user.full_name);
+    }
+    
+    // Apply search third
     if (searchTerm.trim() !== '') {
       filtered = filtered.filter(lead => 
         lead.parentsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -928,8 +946,20 @@ const ColdLeads = ({ onLogout, user }) => {
         {/* Header */}
         <div className="nova-header">
           <div className="header-left">
-            <h1>Cold Leads</h1>
-            <span className="total-count">Total Cold Leads {displayLeads.length}</span>
+            <div className="header-title-row">
+              <h1>{showMyLeads ? 'My Cold Leads' : 'Cold Leads'}</h1>
+              <MeToggle 
+                showMyLeads={showMyLeads}
+                setShowMyLeads={setShowMyLeads}
+                user={user}
+                leadsData={leadsData}
+              />
+            </div>
+            <span className="total-count">
+              Total Cold Leads {showMyLeads 
+                ? leadsData.filter(lead => lead.counsellor === user.full_name && lead.category === 'Cold').length 
+                : displayLeads.length}
+            </span>
             
             {/* DELETE BUTTON - Shows when leads are selected */}
             {selectedLeads.length > 0 && (
@@ -995,6 +1025,32 @@ const ColdLeads = ({ onLogout, user }) => {
               getStageDisplayName={getStageDisplayName} // ← NEW
               />
               
+            <button 
+              className="import-leads-btn" 
+              onClick={handleShowImportModal}
+              title="Import Leads"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                backgroundColor: '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#059669';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = '#10b981';
+              }}
+            >
+              <Plus size={20} />
+            </button>
             <button className="add-lead-btn" onClick={handleShowAddForm}>
               + Add Lead
             </button>
@@ -1196,7 +1252,11 @@ const ColdLeads = ({ onLogout, user }) => {
               ) : !loading ? (
                 <tr>
                   <td colSpan="9" className="no-data">
-                    {searchTerm ? 'No cold leads found for your search.' : 'No cold leads available. Cold leads will appear here when leads have no response.'}
+                    {showMyLeads 
+                      ? 'No cold leads assigned to you.' 
+                      : searchTerm 
+                        ? 'No cold leads found for your search.' 
+                        : 'No cold leads available. Cold leads will appear here when leads have no response.'}
                   </td>
                 </tr>
               ) : null}
@@ -1243,6 +1303,15 @@ const ColdLeads = ({ onLogout, user }) => {
           onSubmit={handleAddLead}
           existingLeads={leadsData}
           settingsData={settingsData} // ← Pass settings data
+        />
+      )}
+
+      {/* Import Leads Modal */}
+      {showImportModal && (
+        <ImportLeadsModal
+          isOpen={showImportModal}
+          onClose={handleCloseImportModal}
+          onComplete={handleImportComplete}
         />
       )}
     </div>

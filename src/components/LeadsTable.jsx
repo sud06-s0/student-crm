@@ -5,9 +5,11 @@ import AddLeadForm from './AddLeadForm';
 import LeftSidebar from './LeftSidebar';
 import LeadSidebar from './LeadSidebar';
 import DeleteConfirmationDialog from './DeleteConfirmationDialog';
+import MeToggle from './MeToggle';
 import { FilterButton, applyFilters } from './FilterDropdown';
 import LeadStateProvider,{ useLeadState } from './LeadStateProvider';
 import SettingsDataProvider, { useSettingsData } from '../contexts/SettingsDataProvider';
+import ImportLeadsModal from './ImportLeadsModal';
 import { 
   Search,
   Filter,
@@ -29,7 +31,8 @@ import {
   Link,
   DollarSign,
   CheckCircle,
-  Trash2
+  Trash2,
+  Plus
 } from 'lucide-react';
 
 const LeadsTable = ({ onLogout, user }) => {
@@ -59,6 +62,7 @@ const LeadsTable = ({ onLogout, user }) => {
 
   const [showSidebar, setShowSidebar] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   
   // Search functionality states
   const [showSearch, setShowSearch] = useState(false);
@@ -77,6 +81,9 @@ const LeadsTable = ({ onLogout, user }) => {
   const [selectAll, setSelectAll] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // ME FILTER STATE
+  const [showMyLeads, setShowMyLeads] = useState(false);
 
   // ← UPDATED: Sidebar editing states with field_key support
   const [isEditingMode, setIsEditingMode] = useState(false);
@@ -198,11 +205,11 @@ const LeadsTable = ({ onLogout, user }) => {
     setShowDeleteDialog(false);
   };
 
-  // Clear selections when leads data changes (after filters/search)
+  // Clear selections when leads data changes (after filters/search/me toggle)
   useEffect(() => {
     setSelectedLeads([]);
     setSelectAll(false);
-  }, [searchTerm, counsellorFilters, stageFilters, statusFilters]);
+  }, [searchTerm, counsellorFilters, stageFilters, statusFilters, showMyLeads]);
 
   // ← UPDATED: Calculate stage counts using stage_key
   const getStageCount = (stageName) => {
@@ -740,6 +747,19 @@ const handleAddLead = async (action = 'add') => {
     setShowAddForm(false);
   };
 
+  const handleShowImportModal = () => {
+    setShowImportModal(true);
+  };
+
+  const handleCloseImportModal = () => {
+    setShowImportModal(false);
+  };
+
+  const handleImportComplete = async () => {
+    await fetchLeads();
+    setShowImportModal(false);
+  };
+
   // Close stage dropdown when clicking elsewhere
   useEffect(() => {
     const handleClickOutside = () => {
@@ -793,9 +813,14 @@ const handleAddLead = async (action = 'add') => {
   const getDisplayLeads = () => {
     let filtered = leadsData;
     
-    // Apply search first
+    // Apply "Me" filter first if enabled
+    if (showMyLeads) {
+      filtered = filtered.filter(lead => lead.counsellor === user.full_name);
+    }
+    
+    // Apply search next
     if (searchTerm.trim() !== '') {
-      filtered = leadsData.filter(lead => 
+      filtered = filtered.filter(lead => 
         lead.parentsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.kidsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -810,7 +835,7 @@ const handleAddLead = async (action = 'add') => {
     }
     
     // Then apply filters
-    return applyFilters(filtered, counsellorFilters, stageFilters, statusFilters,getStageDisplayName,getStageKeyFromName  );
+    return applyFilters(filtered, counsellorFilters, stageFilters, statusFilters, getStageDisplayName, getStageKeyFromName);
   };
 
   const displayLeads = getDisplayLeads();
@@ -848,8 +873,20 @@ const handleAddLead = async (action = 'add') => {
         
         <div className="nova-header">
           <div className="header-left">
-            <h1>All Leads</h1>
-            <span className="total-count">Total Leads {leadsData.length}</span>
+            <div className="header-title-row">
+              <h1>{showMyLeads ? 'My Leads' : 'All Leads'}</h1>
+              <MeToggle 
+                showMyLeads={showMyLeads}
+                setShowMyLeads={setShowMyLeads}
+                user={user}
+                leadsData={leadsData}
+              />
+            </div>
+            <span className="total-count">
+              Total Leads {showMyLeads 
+                ? leadsData.filter(lead => lead.counsellor === user.full_name).length 
+                : leadsData.length}
+            </span>
             
             {/* DELETE BUTTON - Shows when leads are selected */}
             {selectedLeads.length > 0 && (
@@ -915,6 +952,32 @@ const handleAddLead = async (action = 'add') => {
               getStageDisplayName={getStageDisplayName} // ← NEW
   
             />
+            <button 
+              className="import-leads-btn" 
+              onClick={handleShowImportModal}
+              title="Import Leads"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                backgroundColor: '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#059669';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = '#10b981';
+              }}
+            >
+              <Plus size={20} />
+            </button>
             <button className="add-lead-btn" onClick={handleShowAddForm}>
               + Add Lead
             </button>
@@ -1100,7 +1163,11 @@ const handleAddLead = async (action = 'add') => {
               ) : !loading ? (
                 <tr>
                   <td colSpan="9" className="no-data">
-                    {searchTerm ? 'No results found for your search.' : 'No leads available. Click + Add Lead to create your first lead!'}
+                    {showMyLeads 
+                      ? 'No leads assigned to you.' 
+                      : searchTerm 
+                        ? 'No results found for your search.' 
+                        : 'No leads available. Click + Add Lead to create your first lead!'}
                   </td>
                 </tr>
               ) : null}
@@ -1147,6 +1214,15 @@ const handleAddLead = async (action = 'add') => {
           onSubmit={handleAddLead}
           existingLeads={leadsData}
           settingsData={settingsData}
+        />
+      )}
+
+      {/* Import Leads Modal */}
+      {showImportModal && (
+        <ImportLeadsModal
+          isOpen={showImportModal}
+          onClose={handleCloseImportModal}
+          onComplete={handleImportComplete}
         />
       )}
     </div>

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import Stage1ActionButton from './Stage1ActionButton';
 import { useSettingsData } from '../contexts/SettingsDataProvider';
 import { 
   logLeadCreated
@@ -43,18 +42,9 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // Filter states for Stage1ActionButton
-  const [showStage1Action, setShowStage1Action] = useState(false);
-  const [newLeadData, setNewLeadData] = useState(null);
+  
 
-  // ← NEW: Add debugging for state changes
-  useEffect(() => {
-    console.log('🔍 showStage1Action changed:', showStage1Action);
-  }, [showStage1Action]);
-
-  useEffect(() => {
-    console.log('🔍 newLeadData changed:', newLeadData);
-  }, [newLeadData]);
+ 
 
   // ← NEW: Helper functions for stage_key conversion
   const getStageKeyForLead = (stageValue) => {
@@ -225,17 +215,13 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
       newErrors.parentsName = `${getFieldLabel('parentsName')} is required`;
     }
 
-    if (!formData.email.trim()) {
-      newErrors.email = `${getFieldLabel('email')} is required`;
-    }
+   
 
     if (!formData.kidsName.trim()) {
       newErrors.kidsName = `${getFieldLabel('kidsName')} is required`;
     }
 
-    if (!formData.location.trim()) {
-      newErrors.location = `${getFieldLabel('location')} is required`;
-    }
+    
 
     if (!formData.phone.trim()) {
       newErrors.phone = `${getFieldLabel('phone')} is required`;
@@ -257,87 +243,75 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
+  // REPLACE THE ENTIRE handleSubmit FUNCTION WITH:
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validateForm()) {
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    // Convert form data to database format
+    const dbData = convertFormToDatabase(formData);
+
+    // INSERT new lead
+    const { data, error } = await supabase
+      .from('Leads')
+      .insert([dbData])
+      .select();
+
+    if (error) {
+      throw error;
     }
 
-    setLoading(true);
+    const newLeadId = data[0].id;
 
-    try {
-      // Convert form data to database format
-      const dbData = convertFormToDatabase(formData);
+    // Log the new lead creation with stage display name
+    const stageDisplayName = getStageDisplayName(formData.stage);
+    const logFormData = {
+      ...formData,
+      stage: stageDisplayName
+    };
+    await logLeadCreated(newLeadId, logFormData);
 
-      // INSERT new lead
-      const { data, error } = await supabase
-        .from('Leads')
-        .insert([dbData])
-        .select();
+    console.log('✅ New lead created:', data);
 
-      if (error) {
-        throw error;
-      }
+    alert('✅ New lead added successfully!');
 
-      const newLeadId = data[0].id;
+    // Call onSubmit to refresh parent data
+    onSubmit();
+    onClose();
 
-      // ← UPDATED: Log the new lead creation with stage display name
-      const stageDisplayName = getStageDisplayName(formData.stage);
-      const logFormData = {
-        ...formData,
-        stage: stageDisplayName // ← Use display name for logging
-      };
-      await logLeadCreated(newLeadId, logFormData);
+    // Reset form
+    const defaultStageKey = stages[0]?.value || '';
+    setFormData({
+      id: 0,
+      parentsName: '',
+      kidsName: '',
+      location: '',
+      phone: '',
+      email: '',
+      grade: settingsData.grades[0]?.name || 'LKG',
+      notes: '',
+      stage: defaultStageKey,
+      category: 'New',
+      counsellor: 'Assign Counsellor',
+      score: 20,
+      source: settingsData.sources[0]?.name || 'Instagram',
+      occupation: '',
+      createdTime: ''
+    });
 
-      console.log('✅ New lead created:', data);
-
-      // ← FIXED: Prepare Stage 1 API call data with proper validation
-      const stage1Data = {
-        phone: `+91${formData.phone}`,
-        parentsName: formData.parentsName,
-        kidsName: formData.kidsName,
-        grade: formData.grade
-      };
-
-      console.log('🔵 Preparing Stage1ActionButton with data:', stage1Data);
-
-      // ← FIXED: Show alert first, then set stage1 states
-      alert('✅ New lead added successfully!');
-
-      // ← FIXED: Set the data and trigger the Stage1ActionButton AFTER alert
-      setNewLeadData(stage1Data);
-      setShowStage1Action(true);
-
-      // ← FIXED: onSubmit() will be called in the onComplete callback instead
-
-      // ← UPDATED: Reset form with current settings data and stage_key
-      const defaultStageKey = stages[0]?.value || '';
-      setFormData({
-        id: 0,
-        parentsName: '',
-        kidsName: '',
-        location: '',
-        phone: '',
-        email: '',
-        grade: settingsData.grades[0]?.name || 'LKG',
-        notes: '',
-        stage: defaultStageKey, // ← Use stage_key
-        category: 'New',
-        counsellor: 'Assign Counsellor',
-        score: 20,
-        source: settingsData.sources[0]?.name || 'Instagram',
-        occupation: '',
-        createdTime: ''
-      });
-
-    } catch (error) {
-      console.error('❌ Database error:', error);
-      alert('❌ Error saving lead: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (error) {
+    console.error('❌ Database error:', error);
+    alert('❌ Error saving lead: ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Don't render if not open or settings are still loading
   if (!isOpen || settingsLoading) return null;
@@ -390,7 +364,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
 
                 {/* ← UPDATED: Location with dynamic field label */}
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">{getFieldLabel('location')} *</label>
+                  <label className="form-label">{getFieldLabel('location')} </label>
                   <input
                     type="text"
                     className={`form-control ${errors.location ? 'is-invalid' : ''}`}
@@ -424,7 +398,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
 
                 {/* ← UPDATED: Email with dynamic field label */}
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">{getFieldLabel('email')} *</label>
+                  <label className="form-label">{getFieldLabel('email')} </label>
                   <input
                     type="email"
                     className={`form-control ${errors.email ? 'is-invalid' : ''}`}
@@ -532,24 +506,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
         </div>
       </div>
 
-      {/* ← FIXED: Stage 1 Action Button Component with proper props and timing */}
-      {showStage1Action && newLeadData && (
-        <Stage1ActionButton
-          leadData={newLeadData}
-          getFieldLabel={getFieldLabel} // ← FIXED: Pass the getFieldLabel function
-          onComplete={(success, error) => {
-            console.log(success ? '✅ Stage 1 API call completed' : '❌ Stage 1 API call failed:', error);
-            
-            // ← FIXED: Call onSubmit to refresh parent data AFTER API call completes
-            onSubmit();
-            
-            // Clean up state
-            setShowStage1Action(false);
-            setNewLeadData(null);
-            onClose();
-          }}
-        />
-      )}
+      
     </>
   );
 };
