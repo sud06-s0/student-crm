@@ -8,7 +8,12 @@ import {
   Upload,
   ArrowUpDown,
   Settings,
-  Loader2
+  Loader2,
+  User,
+  Mail,
+  Phone,
+  Lock,
+  Image
 } from 'lucide-react';
 import LeftSidebar from './LeftSidebar';
 import { settingsService } from '../services/settingsService';
@@ -30,7 +35,7 @@ const SettingsPage = ({ onLogout, user }) => {
     name: '',
     color: '',
     status: '',
-    stage_key: '' // ← NEW: Add stage_key to editing state
+    stage_key: ''
   });
   
   // Loading states
@@ -51,11 +56,23 @@ const SettingsPage = ({ onLogout, user }) => {
     fieldType: 'text',
   });
 
-  // New item input states
-  const [newCounsellor, setNewCounsellor] = useState('');
+  // ← NEW: Counsellor Modal States
+  const [showCounsellorModal, setShowCounsellorModal] = useState(false);
+  const [counsellorFormData, setCounsellorFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    phone: '',
+    profileImage: ''
+  });
+
+  const [selectedProfileImage, setSelectedProfileImage] = useState(null);
+  const [editingCounsellor, setEditingCounsellor] = useState(null);
+  const [counsellorSubmitting, setCounsellorSubmitting] = useState(false);
+
+  // New item input states (for non-counsellor items)
   const [newSource, setNewSource] = useState('');
   const [newGrade, setNewGrade] = useState('');
-  const [showNewCounsellorInput, setShowNewCounsellorInput] = useState(false);
   const [showNewSourceInput, setShowNewSourceInput] = useState(false);
   const [showNewGradeInput, setShowNewGradeInput] = useState(false);
 
@@ -69,14 +86,14 @@ const SettingsPage = ({ onLogout, user }) => {
     { value: 'numeric', label: 'Numeric' }
   ];
 
-  // ← UPDATED: Stage editing functions with stage_key support
+  // Stage editing functions (unchanged)
   const handleEditStage = (stage) => {
     setEditingStage({
       id: stage.id,
       name: stage.name,
       color: stage.color || '#B3D7FF',
       status: stage.status || 'New',
-      stage_key: stage.stage_key || '' // ← NEW: Include stage_key
+      stage_key: stage.stage_key || ''
     });
     setShowStageEditModal(true);
   };
@@ -88,7 +105,6 @@ const SettingsPage = ({ onLogout, user }) => {
         status: editingStage.status,
         score: 20,
         category: 'New'
-        // Note: stage_key should not be updated once set
       });
       await loadSettings();
       setShowStageEditModal(false);
@@ -116,6 +132,117 @@ const SettingsPage = ({ onLogout, user }) => {
     } catch (error) {
       console.error('Error moving stage:', error);
       alert('Error moving stage: ' + error.message);
+    }
+  };
+
+  // ← NEW: Counsellor Management Functions
+
+  const openAddCounsellorModal = () => {
+    setCounsellorFormData({
+      name: '',
+      email: '',
+      password: '',
+      phone: '',
+      profileImage: ''
+    });
+    setEditingCounsellor(null);
+    setShowCounsellorModal(true);
+  };
+
+  const openEditCounsellorModal = async (counsellor) => {
+    try {
+      // Get counsellor with user details
+      const counsellorWithUser = await settingsService.getCounsellorWithUser(counsellor.id);
+      
+      if (counsellorWithUser.users) {
+        setCounsellorFormData({
+          name: counsellorWithUser.users.full_name || counsellorWithUser.name,
+          email: counsellorWithUser.users.email || '',
+          password: '', // Always empty for edit
+          phone: counsellorWithUser.users.phone || '',
+          profileImage: counsellorWithUser.users.profile_image_url || ''
+        });
+      } else {
+        // Fallback for counsellors without linked users
+        setCounsellorFormData({
+          name: counsellor.name,
+          email: '',
+          password: '',
+          phone: '',
+          profileImage: ''
+        });
+      }
+      
+      setEditingCounsellor(counsellor);
+      setShowCounsellorModal(true);
+    } catch (error) {
+      console.error('Error loading counsellor details:', error);
+      alert('Error loading counsellor details: ' + error.message);
+    }
+  };
+
+  const handleCounsellorSubmit = async () => {
+    // Basic validation
+    if (!counsellorFormData.name.trim() || !counsellorFormData.email.trim()) {
+      alert('Name and Email are required');
+      return;
+    }
+
+    if (!editingCounsellor && !counsellorFormData.password.trim()) {
+      alert('Password is required for new counsellors');
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(counsellorFormData.email)) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    try {
+      setCounsellorSubmitting(true);
+
+      if (editingCounsellor) {
+        // Update existing counsellor
+        await settingsService.updateCounsellorWithUser(editingCounsellor.id, counsellorFormData);
+        alert('Counsellor updated successfully!');
+      } else {
+        // Create new counsellor
+        await settingsService.createCounsellorWithUser(counsellorFormData);
+        alert('Counsellor created successfully!');
+      }
+
+      await loadSettings();
+      setShowCounsellorModal(false);
+      setSelectedProfileImage(null);
+      setCounsellorFormData({
+        name: '',
+        email: '',
+        password: '',
+        phone: '',
+        profileImage: ''
+      });
+      setEditingCounsellor(null);
+
+    } catch (error) {
+      console.error('Error saving counsellor:', error);
+      alert('Error saving counsellor: ' + error.message);
+    } finally {
+      setCounsellorSubmitting(false);
+    }
+  };
+
+  const removeCounsellor = async (counsellorId) => {
+    if (window.confirm('Are you sure you want to delete this counsellor? This will also delete their user account.')) {
+      try {
+        await settingsService.deleteCounsellorWithUser(counsellorId);
+        await loadSettings();
+        alert('Counsellor and user account deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting counsellor:', error);
+        alert('Error deleting counsellor: ' + error.message);
+      }
     }
   };
 
@@ -153,7 +280,7 @@ const SettingsPage = ({ onLogout, user }) => {
     }));
   };
 
-  // FORM FIELDS CRUD OPERATIONS
+  // FORM FIELDS CRUD OPERATIONS (unchanged)
   const addNewFormField = async () => {
     if (customFieldData.fieldName.trim()) {
       try {
@@ -269,7 +396,6 @@ const SettingsPage = ({ onLogout, user }) => {
   const toggleFieldMandatory = async (fieldId) => {
     try {
       const field = settingsData.form_fields.find(f => f.id === fieldId);
-      // Use field_key based check when available
       if (field && (field.field_key ? 
         settingsService.canChangeMandatoryStatusByKey(field.field_key) : 
         settingsService.canChangeMandatoryStatus(field.name))) {
@@ -290,7 +416,6 @@ const SettingsPage = ({ onLogout, user }) => {
 
   const removeCustomField = async (fieldId) => {
     const field = settingsData.form_fields.find(f => f.id === fieldId);
-    // Use field_key based check when available
     if (field && (field.field_key ? 
       settingsService.isFieldDeletableByKey(field.field_key) : 
       settingsService.isFieldDeletable(field.name))) {
@@ -337,57 +462,7 @@ const SettingsPage = ({ onLogout, user }) => {
     }
   };
 
-  // COUNSELLORS, SOURCES, GRADES CRUD OPERATIONS (unchanged)
-  const addNewCounsellor = async () => {
-    if (newCounsellor.trim()) {
-      try {
-        await settingsService.createItem('counsellors', newCounsellor);
-        await loadSettings();
-        setNewCounsellor('');
-        setShowNewCounsellorInput(false);
-        alert('Counsellor added successfully!');
-      } catch (error) {
-        console.error('Error adding counsellor:', error);
-        alert('Error adding counsellor: ' + error.message);
-      }
-    }
-  };
-
-  const toggleCounsellorEdit = (id) => {
-    setEditingItems(prev => ({
-      ...prev,
-      [`counsellor_${id}`]: !prev[`counsellor_${id}`]
-    }));
-  };
-
-  const handleCounsellorNameChange = async (id, newName) => {
-    try {
-      await settingsService.updateItem(id, newName);
-      await loadSettings();
-      setEditingItems(prev => ({
-        ...prev,
-        [`counsellor_${id}`]: false
-      }));
-      alert('Counsellor updated successfully!');
-    } catch (error) {
-      console.error('Error updating counsellor:', error);
-      alert('Error updating counsellor: ' + error.message);
-    }
-  };
-
-  const removeCounsellor = async (counsellorId) => {
-    if (window.confirm('Are you sure you want to delete this counsellor?')) {
-      try {
-        await settingsService.deleteItem(counsellorId);
-        await loadSettings();
-        alert('Counsellor deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting counsellor:', error);
-        alert('Error deleting counsellor: ' + error.message);
-      }
-    }
-  };
-
+  // SOURCES, GRADES CRUD OPERATIONS (unchanged)
   const addNewSource = async () => {
     if (newSource.trim()) {
       try {
@@ -636,7 +711,6 @@ const SettingsPage = ({ onLogout, user }) => {
                     </thead>
                     <tbody>
                       {settingsData.form_fields.map((field) => {
-                        // Use field_key for more reliable classification
                         const isSuperConstant = field.field_key ? 
                           settingsService.isSuperConstantFieldByKey(field.field_key) : 
                           settingsService.isSuperConstantField(field.name);
@@ -671,7 +745,6 @@ const SettingsPage = ({ onLogout, user }) => {
                                   Options: {field.dropdown_options.join(', ')}
                                 </div>
                               )}
-                              {/* Show field_key for debugging */}
                               {field.field_key && (
                                 <div style={{ fontSize: '10px', color: '#999', marginTop: '2px' }}>
                                   Key: {field.field_key}
@@ -799,7 +872,6 @@ const SettingsPage = ({ onLogout, user }) => {
                             >
                               {stage.name}
                             </div>
-                            {/* ← NEW: Show stage_key for debugging */}
                             {stage.stage_key && (
                               <div style={{ fontSize: '10px', color: '#999', marginTop: '2px' }}>
                                 Key: {stage.stage_key}
@@ -833,7 +905,7 @@ const SettingsPage = ({ onLogout, user }) => {
                 </div>
               </div>
 
-              {/* ← UPDATED: Stage Edit Modal with stage_key display */}
+              {/* Stage Edit Modal (unchanged) */}
               {showStageEditModal && (
                 <>
                   <div className="settings-modal-overlay" onClick={() => setShowStageEditModal(false)}></div>
@@ -872,7 +944,6 @@ const SettingsPage = ({ onLogout, user }) => {
                           onChange={(e) => setEditingStage(prev => ({ ...prev, color: e.target.value }))}
                         />
                       </div>
-                      {/* ← NEW: Show stage_key in modal (read-only) */}
                       {editingStage.stage_key && (
                         <div className="settings-field-group">
                           <label>Stage Key (Read-only)</label>
@@ -899,45 +970,21 @@ const SettingsPage = ({ onLogout, user }) => {
             </div>
           </div> 
 
-          {/* Two column section - Counsellors, Sources, Grades (unchanged sections) */}
+          {/* Two column section - Counsellors, Sources, Grades */}
           <div className='settings-two-column-row'>
-            {/* Counsellors Section */}
+            {/* ← UPDATED: Enhanced Counsellors Section */}
             <div className="settings-section">
               <h2>Counsellors</h2>
               <div className="settings-section-content">
                 <div className="settings-list-section">
                   <div className="settings-add-new-section">
-                    {!showNewCounsellorInput ? (
-                      <button 
-                        className="settings-add-new-btn"
-                        onClick={() => setShowNewCounsellorInput(true)}
-                      >
-                        <Plus size={16} />
-                        Add New
-                      </button>
-                    ) : (
-                      <div className="settings-add-input-group">
-                        <input
-                          type="text"
-                          value={newCounsellor}
-                          onChange={(e) => setNewCounsellor(e.target.value)}
-                          placeholder="Enter counsellor name"
-                          onKeyPress={(e) => e.key === 'Enter' && addNewCounsellor()}
-                        />
-                        <button className="settings-submit-btn" onClick={addNewCounsellor}>
-                          Submit
-                        </button>
-                        <button 
-                          className="settings-cancel-btn" 
-                          onClick={() => {
-                            setShowNewCounsellorInput(false);
-                            setNewCounsellor('');
-                          }}
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    )}
+                    <button 
+                      className="settings-add-new-btn"
+                      onClick={openAddCounsellorModal}
+                    >
+                      <Plus size={16} />
+                      Add New
+                    </button>
                   </div>
                   
                   <div className="settings-list-items">
@@ -945,19 +992,13 @@ const SettingsPage = ({ onLogout, user }) => {
                       <div key={counsellor.id} className="settings-list-item">
                         <div className="settings-item-content">
                           <span className="settings-item-label">Counsellor Name</span>
-                          {editingItems[`counsellor_${counsellor.id}`] ? (
-                            <input
-                              type="text"
-                              defaultValue={counsellor.name}
-                              onKeyPress={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleCounsellorNameChange(counsellor.id, e.target.value);
-                                }
-                              }}
-                              onBlur={(e) => handleCounsellorNameChange(counsellor.id, e.target.value)}
-                            />
-                          ) : (
-                            <span className="settings-item-value">{counsellor.name}</span>
+                          <span className="settings-item-value">{counsellor.name}</span>
+                          {/* ← NEW: Show if linked to user account */}
+                          {counsellor.user_id && (
+                            <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                              <User size={12} style={{ display: 'inline-block', marginRight: '4px' }} />
+                              User Account Linked
+                            </div>
                           )}
                         </div>
                         <div className="settings-item-actions">
@@ -965,7 +1006,7 @@ const SettingsPage = ({ onLogout, user }) => {
                           <div style={{ display: 'flex', gap: '8px' }}>
                             <button 
                               className="settings-edit-btn"
-                              onClick={() => toggleCounsellorEdit(counsellor.id)}
+                              onClick={() => openEditCounsellorModal(counsellor)}
                             >
                               <Edit size={16} />
                             </button>
@@ -984,7 +1025,7 @@ const SettingsPage = ({ onLogout, user }) => {
               </div>
             </div>
 
-            {/* Lead Source Section */}
+            {/* Lead Source Section (unchanged) */}
             <div className="settings-section">
               <h2>Lead Source</h2>
               <div className="settings-section-content">
@@ -1067,7 +1108,7 @@ const SettingsPage = ({ onLogout, user }) => {
               </div>
             </div>
 
-            {/* Grades Section */}
+            {/* Grades Section (unchanged) */}
             <div className="settings-section">
               <h2>Grades</h2>
               <div className="settings-section-content">
@@ -1151,7 +1192,116 @@ const SettingsPage = ({ onLogout, user }) => {
             </div>
           </div>
 
-          {/* Custom Field Modal */}
+          {/* ← NEW: Enhanced Counsellor Modal */}
+          {showCounsellorModal && (
+            <>
+              <div className="settings-modal-overlay" onClick={() => setShowCounsellorModal(false)}></div>
+              <div className="settings-modal" style={{ maxWidth: '500px' }}>
+                <div className="settings-modal-header">
+                  <h3>{editingCounsellor ? 'Edit Counsellor' : 'Add New Counsellor'}</h3>
+                  <button 
+                    className="settings-modal-close"
+                    onClick={() => setShowCounsellorModal(false)}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="settings-modal-body">
+                  <div className="settings-field-group">
+                    <label>
+                      <User size={16} style={{ display: 'inline-block', marginRight: '8px' }} />
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={counsellorFormData.name}
+                      onChange={(e) => setCounsellorFormData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Enter full name"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="settings-field-group">
+                    <label>
+                      <Mail size={16} style={{ display: 'inline-block', marginRight: '8px' }} />
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      value={counsellorFormData.email}
+                      onChange={(e) => setCounsellorFormData(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="Enter email address"
+                      required
+                    />
+                  </div>
+
+                  <div className="settings-field-group">
+                    <label>
+                      <Lock size={16} style={{ display: 'inline-block', marginRight: '8px' }} />
+                      Password {editingCounsellor ? '(leave empty to keep current)' : '*'}
+                    </label>
+                    <input
+                      type="password"
+                      value={counsellorFormData.password}
+                      onChange={(e) => setCounsellorFormData(prev => ({ ...prev, password: e.target.value }))}
+                      placeholder={editingCounsellor ? "Enter new password" : "Enter password"}
+                      required={!editingCounsellor}
+                    />
+                  </div>
+
+                  <div className="settings-field-group">
+                    <label>
+                      <Phone size={16} style={{ display: 'inline-block', marginRight: '8px' }} />
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={counsellorFormData.phone}
+                      onChange={(e) => setCounsellorFormData(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="Enter phone number (optional)"
+                    />
+                  </div>
+
+                  <div className="settings-field-group">
+                  <label>
+                    <Image size={16} style={{ display: 'inline-block', marginRight: '8px' }} />
+                    Profile Image
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setSelectedProfileImage(e.target.files[0])}
+                  />
+                  {selectedProfileImage && (
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                      Selected: {selectedProfileImage.name}
+                    </div>
+                  )}
+                </div>
+                </div>
+                <div className="settings-modal-footer">
+                  <button 
+                    className="settings-modal-submit"
+                    onClick={handleCounsellorSubmit}
+                    disabled={counsellorSubmitting}
+                  >
+                    {counsellorSubmitting ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        {editingCounsellor ? 'Updating...' : 'Creating...'}
+                      </>
+                    ) : (
+                      <>
+                        {editingCounsellor ? 'Update Counsellor' : 'Create Counsellor'}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Custom Field Modal (unchanged) */}
           {showCustomFieldModal && (
             <>
               <div className="settings-modal-overlay" onClick={() => setShowCustomFieldModal(false)}></div>
@@ -1202,7 +1352,7 @@ const SettingsPage = ({ onLogout, user }) => {
             </>
           )}
 
-          {/* Dropdown Options Modal */}
+          {/* Dropdown Options Modal (unchanged) */}
           {showDropdownOptionsModal && (
             <>
               <div className="settings-modal-overlay" onClick={() => setShowDropdownOptionsModal(false)}></div>

@@ -53,7 +53,7 @@ const SettingsDataProvider = ({ children }) => {
   // Store field mappings from database
   const [fieldMappings, setFieldMappings] = useState({});
   
-  // ← NEW: Store stage mappings from database
+  // Store stage mappings from database
   const [stageMappings, setStageMappings] = useState({});
   const [stageKeyToDataMapping, setStageKeyToDataMapping] = useState({});
   
@@ -71,7 +71,7 @@ const SettingsDataProvider = ({ children }) => {
     return internalFieldName || null;
   };
 
-  // ← NEW: Direct mapping function for stages
+  // Direct mapping function for stages
   const getStageKeyFromName = (stageName) => {
     console.log('=== DIRECT STAGE MAPPING LOOKUP ===');
     console.log(`Looking up stage: "${stageName}"`);
@@ -97,9 +97,14 @@ const SettingsDataProvider = ({ children }) => {
         ?.filter(stage => stage.is_active)
         ?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)) || [];
       
+      // ← UPDATED: Handle counsellors with user_id
       const counsellors = data.counsellors
         ?.filter(counsellor => counsellor.is_active)
-        ?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)) || [];
+        ?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+        ?.map(counsellor => ({
+          ...counsellor,
+          hasUserAccount: !!counsellor.user_id // ← NEW: Flag for UI indication
+        })) || [];
       
       const sources = data.sources
         ?.filter(source => source.is_active)
@@ -113,6 +118,7 @@ const SettingsDataProvider = ({ children }) => {
       
       console.log('Form fields from database:', formFields);
       console.log('Stages from database:', stages);
+      console.log('Counsellors from database:', counsellors); // ← NEW: Log counsellors with user account info
       
       // Create direct mappings for form fields
       const newFieldMappings = {};
@@ -139,7 +145,7 @@ const SettingsDataProvider = ({ children }) => {
         }
       });
 
-      // ← NEW: Create direct mappings for stages
+      // Create direct mappings for stages
       const newStageMappings = {};
       const newStageKeyToDataMapping = {};
       
@@ -170,7 +176,7 @@ const SettingsDataProvider = ({ children }) => {
       // Set all state
       setSettingsData({
         stages,
-        counsellors,
+        counsellors, // ← UPDATED: Now includes hasUserAccount flag
         sources,
         grades,
         formFields
@@ -204,7 +210,7 @@ const SettingsDataProvider = ({ children }) => {
     return fieldMappings[displayName] || displayName;
   };
 
-  // ← UPDATED: Function to get stage info - now uses stage_key
+  // Function to get stage info - uses stage_key
   const getStageInfo = (stageIdentifier) => {
     // First try to find by stage_key
     const stageByKey = stageKeyToDataMapping[stageIdentifier];
@@ -216,28 +222,39 @@ const SettingsDataProvider = ({ children }) => {
     return settingsData.stages.find(stage => stage.name === stageIdentifier);
   };
 
-  // ← UPDATED: Function to get stage color - now uses stage_key
+  // Function to get stage color - uses stage_key
   const getStageColor = (stageIdentifier) => {
     const stage = getStageInfo(stageIdentifier);
     return stage?.color || '#B3D7FF';
   };
 
-  // ← UPDATED: Function to get stage score - now uses stage_key
+  // Function to get stage score - uses stage_key
   const getStageScore = (stageIdentifier) => {
     const stage = getStageInfo(stageIdentifier);
     return stage?.score || 10;
   };
 
-  // ← UPDATED: Function to get stage category - now uses stage_key
+  // Function to get stage category - uses stage_key
   const getStageCategory = (stageIdentifier) => {
     const stage = getStageInfo(stageIdentifier);
     return stage?.status || 'New';
   };
 
-  // ← NEW: Function to get stage name from stage_key
+  // Function to get stage name from stage_key
   const getStageNameFromKey = (stageKey) => {
     const stage = stageKeyToDataMapping[stageKey];
     return stage?.name || stageKey;
+  };
+
+  // ← NEW: Helper functions for counsellors
+  const getCounsellorById = (counsellorId) => {
+    return settingsData.counsellors.find(counsellor => counsellor.id === counsellorId);
+  };
+
+  const getCounsellorsByUserAccount = (hasUserAccount = true) => {
+    return settingsData.counsellors.filter(counsellor => 
+      hasUserAccount ? counsellor.hasUserAccount : !counsellor.hasUserAccount
+    );
   };
 
   // Function to refresh settings data
@@ -255,8 +272,8 @@ const SettingsDataProvider = ({ children }) => {
     settingsData,
     fieldLabels,
     fieldMappings,
-    stageMappings, // ← NEW: Expose stage mappings
-    stageKeyToDataMapping, // ← NEW: Expose stage key to data mapping
+    stageMappings,
+    stageKeyToDataMapping,
     loading,
     
     // Helper functions for fields
@@ -269,8 +286,12 @@ const SettingsDataProvider = ({ children }) => {
     getStageColor,
     getStageScore,
     getStageCategory,
-    getStageKeyFromName, // ← NEW: Get stage_key from stage name
-    getStageNameFromKey, // ← NEW: Get stage name from stage_key
+    getStageKeyFromName,
+    getStageNameFromKey,
+    
+    // ← NEW: Helper functions for counsellors
+    getCounsellorById,
+    getCounsellorsByUserAccount,
     
     // General functions
     refreshSettingsData,
