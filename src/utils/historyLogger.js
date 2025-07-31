@@ -211,7 +211,7 @@ export const logContactInfoUpdated = async (leadId, field, oldValue, newValue) =
     location: 'Location',
     source: 'Source',
     currentSchool: 'Current School',
-    notes: 'Notes' // ← Added notes field support
+    notes: 'Notes'
   };
   
   const label = fieldLabels[field] || field;
@@ -263,6 +263,19 @@ export const logCounsellorChange = async (leadId, oldCounsellor, newCounsellor) 
 };
 
 /**
+ * ← NEW: Log custom field changes
+ * @param {number} leadId - The ID of the lead
+ * @param {string} fieldName - Custom field display name
+ * @param {string} oldValue - Previous value
+ * @param {string} newValue - New value
+ * @returns {Promise<void>}
+ */
+export const logCustomFieldChange = async (leadId, fieldName, oldValue, newValue) => {
+  const description = `${fieldName} updated from "${oldValue || 'Not set'}" to "${newValue || 'Not set'}"`;
+  await logAction(leadId, 'Custom Field Updated', description);
+};
+
+/**
  * Log WhatsApp message sending (for action buttons)
  * @param {number} leadId - The ID of the lead
  * @param {string} stageField - Stage field (e.g., 'stage2_status')
@@ -286,11 +299,12 @@ export const logManualEntry = async (leadId, actionType, details) => {
 };
 
 /**
- * Generate a comprehensive change description for multiple field updates
+ * ← UPDATED: Generate a comprehensive change description for multiple field updates (with custom fields support)
  * @param {object} changes - Object containing field changes (should use display names for stages)
+ * @param {function} getFieldLabel - Function to get field labels (optional)
  * @returns {string} Formatted change description
  */
-export const generateChangeDescription = (changes) => {
+export const generateChangeDescription = (changes, getFieldLabel = null) => {
   const fieldLabels = {
     email: 'Email',
     occupation: 'Occupation',
@@ -310,11 +324,20 @@ export const generateChangeDescription = (changes) => {
     source: 'Source',
     phone: 'Phone',
     grade: 'Grade',
-    notes: 'Notes' // ← Added notes field support
+    notes: 'Notes'
   };
 
   const changeDescriptions = Object.entries(changes).map(([field, { oldValue, newValue }]) => {
-    const label = fieldLabels[field] || field;
+    let label;
+    
+    // ← NEW: Handle custom fields (those starting with "custom_")
+    if (field.startsWith('custom_')) {
+      // Remove "custom_" prefix to get the field display name
+      label = field.replace('custom_', '');
+    } else {
+      // Use getFieldLabel function if provided, otherwise use default labels
+      label = getFieldLabel ? getFieldLabel(field) : fieldLabels[field] || field;
+    }
     
     // Handle special formatting for dates and times
     if (field === 'meetingDate' || field === 'visitDate') {
@@ -383,7 +406,7 @@ export const logFormSubmission = async (leadId, formType, leadData) => {
 };
 
 /**
- * Helper function to detect and log specific types of changes
+ * ← UPDATED: Helper function to detect and log specific types of changes (with custom fields support)
  * @param {number} leadId - The ID of the lead
  * @param {object} oldData - Original data (should contain display names for stages)
  * @param {object} newData - New data (should contain display names for stages)
@@ -453,10 +476,20 @@ export const logSpecificChanges = async (leadId, oldData, newData) => {
   }
   
   // Log contact info changes (including notes)
-  const contactFields = ['email', 'phone', 'occupation', 'location', 'source', 'currentSchool'];
+  const contactFields = ['email', 'phone', 'occupation', 'location', 'source', 'currentSchool', 'notes'];
   for (const field of contactFields) {
     if (oldData[field] !== newData[field]) {
       await logContactInfoUpdated(leadId, field, oldData[field], newData[field]);
+    }
+  }
+  
+  // ← NEW: Log custom field changes
+  // Look for fields that start with "custom_" and log them as custom field changes
+  const customFieldChanges = Object.keys(newData).filter(key => key.startsWith('custom_'));
+  for (const customField of customFieldChanges) {
+    if (oldData[customField] !== newData[customField]) {
+      const fieldName = customField.replace('custom_', '');
+      await logCustomFieldChange(leadId, fieldName, oldData[customField], newData[customField]);
     }
   }
 };
@@ -494,11 +527,12 @@ export default {
   logAdmissionStatusChange,
   logOfferChange,
   logCounsellorChange,
+  logCustomFieldChange, // ← NEW: Export custom field logging
   logWhatsAppMessage,
   logManualEntry,
   logFormSubmission,
   logSpecificChanges,
   formatDateTimeForLog,
   generateChangeDescription,
-  getStageDisplayNameForLogging // ← New utility function
+  getStageDisplayNameForLogging
 };

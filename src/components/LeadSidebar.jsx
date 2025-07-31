@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSettingsData } from '../contexts/SettingsDataProvider';
 import { supabase } from '../lib/supabase';
+import { settingsService } from '../services/settingsService'; // ← NEW: Import for custom fields
 import { 
   logAction,
   logMeetingScheduled,
@@ -83,7 +84,7 @@ const LeadSidebar = ({
   // Use the context hook for action status updates
   const { updateActionStatus } = useLeadState();
   
-  // ← NEW: Use settings context for stage functions
+  // Use settings context for stage functions
   const { 
     getFieldLabel, 
     getStageInfo, 
@@ -102,7 +103,7 @@ const LeadSidebar = ({
   const [manualAction, setManualAction] = useState('');
   const [manualDetails, setManualDetails] = useState('');
 
-  // ← NEW: Follow-up states
+  // Follow-up states
   const [followUpData, setFollowUpData] = useState([]);
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpDetails, setFollowUpDetails] = useState('');
@@ -110,7 +111,11 @@ const LeadSidebar = ({
   // Store original values for comparison
   const [originalFormData, setOriginalFormData] = useState({});
 
-  // ← NEW: Convert stage names to stage_keys for leads
+  // ← NEW: Custom fields states
+  const [customFieldsData, setCustomFieldsData] = useState({});
+  const [originalCustomFieldsData, setOriginalCustomFieldsData] = useState({});
+
+  // Convert stage names to stage_keys for leads
   const getLeadStageKey = (leadStageValue) => {
     // If the lead already has a stage_key, return it
     if (stageKeyToDataMapping[leadStageValue]) {
@@ -122,7 +127,7 @@ const LeadSidebar = ({
     return stageKey || leadStageValue; // fallback to original value
   };
 
-  // ← NEW: Get stage display name for UI
+  // Get stage display name for UI
   const getLeadStageDisplayName = (leadStageValue) => {
     // If it's a stage_key, get the display name
     if (stageKeyToDataMapping[leadStageValue]) {
@@ -133,7 +138,7 @@ const LeadSidebar = ({
     return leadStageValue;
   };
 
-  // ← UPDATED: Use context stage functions with stage_key support
+  // Use context stage functions with stage_key support
   const getStageColorForLead = (stageValue) => {
     const stageKey = getLeadStageKey(stageValue);
     return contextGetStageColor(stageKey) || getStageColor?.(stageValue) || '#B3D7FF';
@@ -144,7 +149,34 @@ const LeadSidebar = ({
     return contextGetStageCategory(stageKey) || getCategoryFromStage?.(stageValue) || 'New';
   };
 
-  // ← NEW: Fetch follow-ups for the selected lead
+  // ← NEW: Fetch custom fields for the selected lead
+  const fetchCustomFields = async () => {
+    if (!selectedLead?.id) return;
+    
+    try {
+      console.log('Fetching custom fields for lead:', selectedLead.id);
+      const customFields = await settingsService.getCustomFieldsForLead(selectedLead.id);
+      console.log('Fetched custom fields:', customFields);
+      
+      setCustomFieldsData(customFields);
+      setOriginalCustomFieldsData({ ...customFields });
+    } catch (error) {
+      console.error('Error fetching custom fields:', error);
+      setCustomFieldsData({});
+      setOriginalCustomFieldsData({});
+    }
+  };
+
+  // ← NEW: Handle custom field changes
+  const handleCustomFieldChange = (fieldKey, value) => {
+    console.log('Custom field change:', fieldKey, value);
+    setCustomFieldsData(prev => ({
+      ...prev,
+      [fieldKey]: value
+    }));
+  };
+
+  // Fetch follow-ups for the selected lead
   const fetchFollowUps = async () => {
     if (!selectedLead?.id) return;
     
@@ -162,7 +194,7 @@ const LeadSidebar = ({
     }
   };
 
-  // ← NEW: Handle follow-up submission
+  // Handle follow-up submission
   const handleFollowUpSubmit = async () => {
     if (!followUpDate.trim() || !followUpDetails.trim()) {
       alert('Please fill in both Date and Details');
@@ -193,10 +225,10 @@ const LeadSidebar = ({
     }
   };
 
-  // Update original form data when selectedLead changes
+  // ← UPDATED: Update original form data when selectedLead changes - NOW INCLUDES CUSTOM FIELDS
   useEffect(() => {
     if (selectedLead) {
-      // Store original form data for comparison - UPDATED TO INCLUDE ALL NEW FIELDS
+      // Store original form data for comparison
       setOriginalFormData({
         parentsName: selectedLead.parentsName || '',
         kidsName: selectedLead.kidsName || '',
@@ -219,6 +251,9 @@ const LeadSidebar = ({
         registrationFees: selectedLead.registrationFees || '',
         enrolled: selectedLead.enrolled || ''
       });
+      
+      // ← NEW: Fetch custom fields when lead changes
+      fetchCustomFields();
     }
   }, [selectedLead, settingsData]);
 
@@ -257,7 +292,7 @@ const LeadSidebar = ({
     }
   };
 
-  // ← UPDATED: Handle stage change with stage_key support
+  // Handle stage change with stage_key support
   const handleStageChange = async (newStageValue) => {
     try {
       console.log('=== STAGE CHANGE ===');
@@ -301,13 +336,13 @@ const LeadSidebar = ({
     }
   };
 
-  // UPDATED: Update function with logging and enhanced field support
+  // ← UPDATED: Update function with logging and enhanced field support + CUSTOM FIELDS
   const handleUpdateAllFields = async () => {
     try {
       // Track all changes before calling parent update
       const changes = {};
       
-      // Compare each field and track changes
+      // Compare each standard field and track changes
       Object.keys(sidebarFormData).forEach(field => {
         const oldValue = originalFormData[field];
         const newValue = sidebarFormData[field];
@@ -320,7 +355,47 @@ const LeadSidebar = ({
         }
       });
 
-      // Call the parent's update function
+      // ← NEW: Compare custom fields and track changes
+      Object.keys(customFieldsData).forEach(fieldKey => {
+        const oldValue = originalCustomFieldsData[fieldKey];
+        const newValue = customFieldsData[fieldKey];
+        
+        if (oldValue !== newValue) {
+          // Find the field definition to get the display name
+          const fieldDef = settingsData?.form_fields?.find(f => 
+            (f.field_key && f.field_key === fieldKey) || 
+            f.name.toLowerCase().replace(/[^a-z0-9]/g, '') === fieldKey
+          );
+          const fieldDisplayName = fieldDef ? fieldDef.name : fieldKey;
+          
+          changes[`custom_${fieldDisplayName}`] = {
+            oldValue,
+            newValue
+          };
+        }
+      });
+
+      // ← NEW: Save custom fields to database
+      if (Object.keys(customFieldsData).some(key => customFieldsData[key] !== originalCustomFieldsData[key])) {
+        try {
+          console.log('Saving custom fields:', customFieldsData);
+          await settingsService.saveCustomFieldsForLead(selectedLead.id, customFieldsData);
+          console.log('Custom fields saved successfully');
+          
+          // Update original custom fields data for future comparisons
+          setOriginalCustomFieldsData({ ...customFieldsData });
+        } catch (error) {
+          console.error('Error saving custom fields:', error);
+          if (error.message.includes('Maximum 5 custom fields allowed')) {
+            alert('Maximum 5 custom fields allowed per lead');
+            return;
+          }
+          alert('Error saving custom fields: ' + error.message);
+          return;
+        }
+      }
+
+      // Call the parent's update function for standard fields
       await onUpdateAllFields();
       
       // Log changes if any exist
@@ -355,11 +430,11 @@ const LeadSidebar = ({
           }
         }
         
-        // Log a general update summary for all changes
-        const changeDescription = generateChangeDescription(changes,getFieldLabel);
+        // Log a general update summary for all changes (including custom fields)
+        const changeDescription = generateChangeDescription(changes, getFieldLabel);
         await logAction(selectedLead.id, 'Lead Information Updated', `Updated via sidebar: ${changeDescription}`);
         
-        // ADDED: Refresh activity data after logging
+        // Refresh activity data after logging
         if (onRefreshActivityData) {
           await onRefreshActivityData();
         }
@@ -395,6 +470,9 @@ const LeadSidebar = ({
         fetchHistory();
       } else if (activeTab === 'followup') {
         fetchFollowUps();
+      } else if (activeTab === 'info') {
+        // ← NEW: Fetch custom fields when switching to info tab
+        fetchCustomFields();
       }
     }
   }, [selectedLead?.id, activeTab]);
@@ -411,11 +489,11 @@ const LeadSidebar = ({
 
   if (!showSidebar) return null;
 
-  // ← NEW: Get current stage info for display
+  // Get current stage info for display
   const currentStageKey = getLeadStageKey(sidebarFormData.stage || selectedLead?.stage);
   const currentStageDisplayName = getLeadStageDisplayName(sidebarFormData.stage || selectedLead?.stage);
 
-  // ← NEW: Get today's date for min date validation
+  // Get today's date for min date validation
   const today = new Date().toISOString().split('T')[0];
 
   return (
@@ -488,7 +566,7 @@ const LeadSidebar = ({
 
             {/* Right Column */}
             <div>
-              {/* ← UPDATED: Stage with stage_key support */}
+              {/* Stage with stage_key support */}
               <div className="lead-sidebar-stage-container">
                 <label className="lead-sidebar-stage-label">
                   Stage
@@ -518,7 +596,7 @@ const LeadSidebar = ({
                       className="lead-sidebar-stage-dropdown-menu"
                     >
                       {stages.map((stage, index) => {
-                        // ← NEW: Handle both stage name and stage_key
+                        // Handle both stage name and stage_key
                         const stageKey = getStageKeyFromName(stage.value) || stage.value;
                         const stageName = stage.label;
                         
@@ -550,7 +628,7 @@ const LeadSidebar = ({
                 </div>
               </div>
 
-              {/* ← UPDATED: Status with stage_key support */}
+              {/* Status with stage_key support */}
               <div className="lead-sidebar-info-row">
                 <label className="lead-sidebar-stage-label">
                   Status
@@ -587,7 +665,7 @@ const LeadSidebar = ({
             </div>
           </div>
 
-          {/* ← UPDATED: Tabs - Renamed Action to Follow Up */}
+          {/* Tabs */}
           <div className="lead-sidebar-tabs">
             <div className="lead-sidebar-tabs-container">
               <button 
@@ -620,10 +698,12 @@ const LeadSidebar = ({
               onFieldChange={onFieldChange}
               settingsData={settingsData}
               getFieldLabel={getFieldLabel}
+              customFieldsData={customFieldsData} // ← NEW: Pass custom fields data
+              onCustomFieldChange={handleCustomFieldChange} // ← NEW: Pass custom field handler
             />
           )}
 
-          {/* ← NEW: Follow Up Tab Content */}
+          {/* Follow Up Tab Content */}
           {activeTab === 'followup' && (
             <div className="lead-sidebar-tab-content">
               {/* Follow Up Input Form */}

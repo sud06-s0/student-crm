@@ -361,6 +361,205 @@ export const settingsService = {
     return counsellor;
   },
 
+  // ← NEW: Custom Fields Operations
+  async getCustomFieldsForLead(leadId) {
+    try {
+      const { data, error } = await supabase
+        .from('lead_custom_fields')
+        .select('*')
+        .eq('lead_id', leadId);
+        
+      if (error) throw error;
+      
+      // Convert to key-value object for easier use
+      const customFieldsMap = {};
+      data?.forEach(field => {
+        customFieldsMap[field.field_key] = field.field_value;
+      });
+      
+      return customFieldsMap;
+    } catch (error) {
+      console.error('Error fetching custom fields for lead:', error);
+      throw error;
+    }
+  },
+
+  // ← NEW: Save/Update custom fields for a lead
+  async saveCustomFieldsForLead(leadId, customFieldsData) {
+    try {
+      console.log('Saving custom fields for lead:', leadId, customFieldsData);
+      
+      // Get existing custom fields for this lead
+      const { data: existingFields, error: fetchError } = await supabase
+        .from('lead_custom_fields')
+        .select('field_key')
+        .eq('lead_id', leadId);
+
+      if (fetchError) throw fetchError;
+
+      const existingFieldKeys = existingFields?.map(f => f.field_key) || [];
+      const newFieldKeys = Object.keys(customFieldsData);
+
+      // Prepare upsert operations
+      const upsertPromises = [];
+      
+      for (const [fieldKey, fieldValue] of Object.entries(customFieldsData)) {
+        if (fieldValue !== null && fieldValue !== undefined && fieldValue !== '') {
+          upsertPromises.push(
+            supabase
+              .from('lead_custom_fields')
+              .upsert({
+                lead_id: leadId,
+                field_key: fieldKey,
+                field_value: fieldValue,
+                updated_at: new Date().toISOString()
+              }, {
+                onConflict: 'lead_id,field_key'
+              })
+          );
+        }
+      }
+
+      // Delete fields that are no longer present or are empty
+      const fieldsToDelete = existingFieldKeys.filter(key => 
+        !newFieldKeys.includes(key) || 
+        !customFieldsData[key] || 
+        customFieldsData[key] === ''
+      );
+
+      if (fieldsToDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('lead_custom_fields')
+          .delete()
+          .eq('lead_id', leadId)
+          .in('field_key', fieldsToDelete);
+
+        if (deleteError) throw deleteError;
+      }
+
+      // Execute all upsert operations
+      if (upsertPromises.length > 0) {
+        const results = await Promise.all(upsertPromises);
+        
+        // Check for errors in any of the operations
+        for (const result of results) {
+          if (result.error) throw result.error;
+        }
+      }
+
+      console.log('Custom fields saved successfully');
+      return { success: true };
+
+    } catch (error) {
+      console.error('Error saving custom fields:', error);
+      
+      // Check if it's the max fields limit error
+      if (error.message && error.message.includes('Maximum 5 custom fields allowed')) {
+        throw new Error('Maximum 5 custom fields allowed per lead');
+      }
+      
+      throw error;
+    }
+  },
+
+  // ← NEW: Get active custom field definitions from settings
+  async getActiveCustomFieldDefinitions() {
+    try {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('type', 'form_fields')
+        .eq('is_active', true);
+        
+      if (error) throw error;
+
+      // Filter only custom fields
+      const customFields = data?.filter(field => {
+        return this.isCustomFieldByKey(field.field_key) || 
+               this.isCustomField(field.name);
+      }) || [];
+
+      return customFields;
+    } catch (error) {
+      console.error('Error fetching custom field definitions:', error);
+      throw error;
+    }
+  },
+
+  // ← NEW: Delete all custom fields for a lead (when lead is deleted)
+  async deleteAllCustomFieldsForLead(leadId) {
+    try {
+      const { error } = await supabase
+        .from('lead_custom_fields')
+        .delete()
+        .eq('lead_id', leadId);
+        
+      if (error) throw error;
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting custom fields for lead:', error);
+      throw error;
+    }
+  },
+
+  // ← NEW: Get custom fields count for a specific lead
+  async getCustomFieldsCountForLead(leadId) {
+    try {
+      const { data, error } = await supabase
+        .from('lead_custom_fields')
+        .select('id')
+        .eq('lead_id', leadId);
+        
+      if (error) throw error;
+      
+      return data?.length || 0;
+    } catch (error) {
+      console.error('Error counting custom fields for lead:', error);
+      throw error;
+    }
+  },
+
+  // ← NEW: Fix existing custom fields without field_key
+  async fixCustomFieldKeys() {
+    try {
+      const { data: customFields, error } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('type', 'form_fields')
+        .eq('is_custom', true);
+        
+      if (error) throw error;
+      
+      const fixPromises = customFields
+        .filter(field => !field.field_key) // Only fix fields without field_key
+        .map(field => {
+          const fieldKey = 'custom_field_' + field.id;
+          
+          return supabase
+            .from('settings')
+            .update({ 
+              field_key: fieldKey,
+              value: { 
+                ...(field.value || {}),
+                field_key: fieldKey 
+              }
+            })
+            .eq('id', field.id);
+        });
+        
+      if (fixPromises.length > 0) {
+        await Promise.all(fixPromises);
+        console.log(`Fixed ${fixPromises.length} custom fields with missing field_key`);
+      }
+      
+      return { success: true, fixedCount: fixPromises.length };
+    } catch (error) {
+      console.error('Error fixing custom field keys:', error);
+      throw error;
+    }
+  },
+
   // Stage helper functions
   getStageByKey(stages, stageKey) {
     return stages.find(stage => stage.stage_key === stageKey);
@@ -513,6 +712,11 @@ export const settingsService = {
       is_active: true
     };
 
+    // ← FIX: Add field_key for custom form fields
+    if (type === 'form_fields' && additionalData.is_custom) {
+      insertData.field_key = additionalData.field_key || null;
+    }
+
     const { data, error } = await supabase
       .from('settings')
       .insert([insertData])
@@ -522,19 +726,39 @@ export const settingsService = {
     return data[0];
   },
 
+  // ← UPDATED: Modify updateItem to preserve field_key for custom fields
   async updateItem(id, name, additionalData = {}) {
-    const updateData = { name };
-    
-    if (Object.keys(additionalData).length > 0) {
-      updateData.value = additionalData;
-    }
-    
-    const { error } = await supabase
-      .from('settings')
-      .update(updateData)
-      .eq('id', id);
+    try {
+      // Get current item to preserve field_key
+      const { data: currentItem, error: fetchError } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+      if (fetchError) throw fetchError;
       
-    if (error) throw error;
+      const updateData = { name };
+      
+      // Preserve existing field_key for form fields
+      if (currentItem.type === 'form_fields' && currentItem.field_key) {
+        additionalData.field_key = currentItem.field_key;
+      }
+      
+      if (Object.keys(additionalData).length > 0) {
+        updateData.value = additionalData;
+      }
+      
+      const { error } = await supabase
+        .from('settings')
+        .update(updateData)
+        .eq('id', id);
+        
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating item:', error);
+      throw error;
+    }
   },
 
   async deleteItem(id) {

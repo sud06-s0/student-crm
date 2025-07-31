@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { settingsService } from '../services/settingsService'; // ← NEW: Import for custom fields
 import { logStageChange } from '../utils/historyLogger';
 import AddLeadForm from './AddLeadForm';
 import LeftSidebar from './LeftSidebar';
@@ -147,6 +148,119 @@ const LeadsTable = ({ onLogout, user }) => {
     return stageValue;
   };
 
+  // ← NEW: Convert database record to UI format with custom fields support
+  const convertDatabaseToUIWithCustomFields = async (dbRecord) => {
+    // Parse datetime fields
+    let meetingDate = '';
+    let meetingTime = '';
+    let visitDate = '';
+    let visitTime = '';
+
+    if (dbRecord.meet_datetime) {
+      const meetDateTime = new Date(dbRecord.meet_datetime);
+      meetingDate = meetDateTime.toISOString().split('T')[0];
+      meetingTime = meetDateTime.toTimeString().slice(0, 5);
+    }
+
+    if (dbRecord.visit_datetime) {
+      const visitDateTime = new Date(dbRecord.visit_datetime);
+      visitDate = visitDateTime.toISOString().split('T')[0];
+      visitTime = visitDateTime.toTimeString().slice(0, 5);
+    }
+
+    // Handle stage value - could be stage name or stage_key
+    const stageValue = dbRecord.stage;
+    const stageKey = getStageKeyForLead(stageValue);
+    const displayName = getStageDisplayName(stageValue);
+
+    // Base lead data
+    const baseLeadData = {
+      id: dbRecord.id,
+      parentsName: dbRecord.parents_name,
+      kidsName: dbRecord.kids_name,
+      phone: dbRecord.phone,
+      location: dbRecord.location,
+      grade: dbRecord.grade,
+      stage: stageKey, // Store stage_key internally
+      stageDisplayName: displayName, // Store display name for UI
+      score: dbRecord.score,
+      category: dbRecord.category,
+      counsellor: dbRecord.counsellor,
+      offer: dbRecord.offer,
+      notes: dbRecord.notes || '',
+      email: dbRecord.email || '',
+      occupation: dbRecord.occupation || '',
+      source: dbRecord.source || settingsData.sources?.[0]?.name || 'Instagram',
+      currentSchool: dbRecord.current_school || '',
+      meetingDate: meetingDate,
+      meetingTime: meetingTime,
+      meetingLink: dbRecord.meet_link || '',
+      visitDate: visitDate,
+      visitTime: visitTime,
+      visitLocation: dbRecord.visit_location || '',
+      registrationFees: dbRecord.reg_fees || '',
+      enrolled: dbRecord.enrolled || '',
+      stage2_status: dbRecord.stage2_status || '',
+      stage3_status: dbRecord.stage3_status || '',
+      stage4_status: dbRecord.stage4_status || '',
+      stage5_status: dbRecord.stage5_status || '',
+      stage6_status: dbRecord.stage6_status || '',
+      stage7_status: dbRecord.stage7_status || '',
+      stage8_status: dbRecord.stage8_status || '',
+      stage9_status: dbRecord.stage9_status || '',
+      previousStage: dbRecord.previous_stage || '',
+      createdTime: new Date(dbRecord.created_at).toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      }).replace(',', '')
+    };
+
+    // ← NEW: Fetch and attach custom fields
+    try {
+      const customFields = await settingsService.getCustomFieldsForLead(dbRecord.id);
+      baseLeadData.customFields = customFields;
+    } catch (error) {
+      console.error('Error fetching custom fields for lead', dbRecord.id, error);
+      baseLeadData.customFields = {};
+    }
+
+    return baseLeadData;
+  };
+
+  // ← NEW: Setup sidebar form data with custom fields support
+  const setupSidebarFormDataWithCustomFields = (lead) => {
+    const baseFormData = {
+      parentsName: lead.parentsName || '',
+      kidsName: lead.kidsName || '',
+      grade: lead.grade || '',
+      source: lead.source || settingsData.sources?.[0]?.name || 'Instagram',
+      stage: lead.stage, // This is now stage_key
+      counsellor: lead.counsellor || '',
+      offer: lead.offer || 'Welcome Kit',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      occupation: lead.occupation || '',
+      location: lead.location || '',
+      currentSchool: lead.currentSchool || '',
+      meetingDate: lead.meetingDate || '',
+      meetingTime: lead.meetingTime || '',
+      meetingLink: lead.meetingLink || '',
+      visitDate: lead.visitDate || '',
+      visitTime: lead.visitTime || '',
+      visitLocation: lead.visitLocation || '',
+      registrationFees: lead.registrationFees || '',
+      enrolled: lead.enrolled || '',
+      notes: lead.notes || ''
+    };
+
+    return baseFormData;
+  };
+
   // DELETE FUNCTIONALITY - NEW FUNCTIONS
   const handleIndividualCheckboxChange = (leadId, checked) => {
     if (checked) {
@@ -176,6 +290,17 @@ const LeadsTable = ({ onLogout, user }) => {
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
     try {
+      // ← NEW: Delete custom fields for selected leads first
+      for (const leadId of selectedLeads) {
+        try {
+          await settingsService.deleteAllCustomFieldsForLead(leadId);
+        } catch (error) {
+          console.error('Error deleting custom fields for lead', leadId, error);
+          // Continue with lead deletion even if custom fields deletion fails
+        }
+      }
+
+      // Delete the leads themselves
       const { error } = await supabase
         .from('Leads')
         .delete()
@@ -234,27 +359,26 @@ const LeadsTable = ({ onLogout, user }) => {
     return firstTwoWords.map(word => word.charAt(0).toUpperCase()).join('');
   };
 
-  
   // Fetch last activity data for all leads - USING DATABASE VIEW (FASTEST)
-    const fetchLastActivityData = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('last_activity_by_lead')  // ← Use the database view
-          .select('*');
+  const fetchLastActivityData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('last_activity_by_lead')  // ← Use the database view
+        .select('*');
 
-        if (error) throw error;
+      if (error) throw error;
 
-        // Simple processing - data is already grouped by database
-        const activityMap = {};
-        data.forEach(item => {
-          activityMap[item.record_id] = item.last_activity;
-        });
+      // Simple processing - data is already grouped by database
+      const activityMap = {};
+      data.forEach(item => {
+        activityMap[item.record_id] = item.last_activity;
+      });
 
-        setLastActivityData(activityMap);
-      } catch (error) {
-        console.error('Error fetching last activity data:', error);
-      }
-    };
+      setLastActivityData(activityMap);
+    } catch (error) {
+      console.error('Error fetching last activity data:', error);
+    }
+  };
 
   // Calculate days since last activity
   const getDaysSinceLastActivity = (leadId) => {
@@ -276,119 +400,52 @@ const LeadsTable = ({ onLogout, user }) => {
     return days >= 3;
   };
 
-  // ← UPDATED: Convert database record to UI format with field_key support
-  const convertDatabaseToUI = (dbRecord) => {
-    // Parse datetime fields
-    let meetingDate = '';
-    let meetingTime = '';
-    let visitDate = '';
-    let visitTime = '';
+  // ← UPDATED: Fetch leads from Supabase with custom fields support
+  const fetchLeads = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Make both API calls in parallel using the fast view
+      const [leadsResponse, activityResponse] = await Promise.all([
+        supabase.from('Leads').select('*').order('id', { ascending: false }),
+        supabase.from('last_activity_by_lead').select('*')  // Use the view
+      ]);
 
-    if (dbRecord.meet_datetime) {
-      const meetDateTime = new Date(dbRecord.meet_datetime);
-      meetingDate = meetDateTime.toISOString().split('T')[0];
-      meetingTime = meetDateTime.toTimeString().slice(0, 5);
+      if (leadsResponse.error) throw leadsResponse.error;
+      if (activityResponse.error) throw activityResponse.error;
+
+      // ← NEW: Process leads data with custom fields (this will be slower initially)
+      console.log('Converting leads data with custom fields...');
+      const convertedData = await Promise.all(
+        leadsResponse.data.map(convertDatabaseToUIWithCustomFields)
+      );
+      console.log('Leads data converted with custom fields');
+      
+      setLeadsData(convertedData);
+      
+      // Process activity data (super fast now)
+      const activityMap = {};
+      activityResponse.data.forEach(item => {
+        activityMap[item.record_id] = item.last_activity;
+      });
+      setLastActivityData(activityMap);
+      
+    } catch (error) {
+      console.error('Error fetching leads:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
     }
-
-    if (dbRecord.visit_datetime) {
-      const visitDateTime = new Date(dbRecord.visit_datetime);
-      visitDate = visitDateTime.toISOString().split('T')[0];
-      visitTime = visitDateTime.toTimeString().slice(0, 5);
-    }
-
-    // ← NEW: Handle stage value - could be stage name or stage_key
-    const stageValue = dbRecord.stage;
-    const stageKey = getStageKeyForLead(stageValue);
-    const displayName = getStageDisplayName(stageValue);
-
-    return {
-      id: dbRecord.id,
-      parentsName: dbRecord.parents_name,
-      kidsName: dbRecord.kids_name,
-      phone: dbRecord.phone,
-      location: dbRecord.location,
-      grade: dbRecord.grade,
-      stage: stageKey, // ← Store stage_key internally
-      stageDisplayName: displayName, // ← Store display name for UI
-      score: dbRecord.score,
-      category: dbRecord.category,
-      counsellor: dbRecord.counsellor,
-      offer: dbRecord.offer,
-      notes: dbRecord.notes || '', // ← Added notes field
-      email: dbRecord.email || '',
-      occupation: dbRecord.occupation || '',
-      source: dbRecord.source || settingsData.sources?.[0]?.name || 'Instagram',
-      currentSchool: dbRecord.current_school || '',
-      meetingDate: meetingDate,
-      meetingTime: meetingTime,
-      meetingLink: dbRecord.meet_link || '',
-      visitDate: visitDate,
-      visitTime: visitTime,
-      visitLocation: dbRecord.visit_location || '',
-      registrationFees: dbRecord.reg_fees || '',
-      enrolled: dbRecord.enrolled || '',
-      stage2_status: dbRecord.stage2_status || '',
-      stage3_status: dbRecord.stage3_status || '',
-      stage4_status: dbRecord.stage4_status || '',
-      stage5_status: dbRecord.stage5_status || '',
-      stage6_status: dbRecord.stage6_status || '',
-      stage7_status: dbRecord.stage7_status || '',
-      stage8_status: dbRecord.stage8_status || '',
-      stage9_status: dbRecord.stage9_status || '',
-      previousStage: dbRecord.previous_stage || '',
-      createdTime: new Date(dbRecord.created_at).toLocaleString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
-      }).replace(',', '')
-    };
   };
 
-  // Fetch leads from Supabase - USING DATABASE VIEW (FASTEST)
-    const fetchLeads = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Make both API calls in parallel using the fast view
-        const [leadsResponse, activityResponse] = await Promise.all([
-          supabase.from('Leads').select('*').order('id', { ascending: false }),
-          supabase.from('last_activity_by_lead').select('*')  // ← Use the view
-        ]);
-
-        if (leadsResponse.error) throw leadsResponse.error;
-        if (activityResponse.error) throw activityResponse.error;
-
-        // Process leads data
-        const convertedData = leadsResponse.data.map(convertDatabaseToUI);
-        setLeadsData(convertedData);
-        
-        // Process activity data (super fast now)
-        const activityMap = {};
-        activityResponse.data.forEach(item => {
-          activityMap[item.record_id] = item.last_activity;
-        });
-        setLastActivityData(activityMap);
-        
-      } catch (error) {
-        console.error('Error fetching leads:', error);
-        setError(error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
   // Fetch leads on component mount
-      useEffect(() => {
-      console.time('Page load time');
-      fetchLeads().then(() => {
-        console.timeEnd('Page load time');
-      });
-    }, []);
+  useEffect(() => {
+    console.time('Page load time');
+    fetchLeads().then(() => {
+      console.timeEnd('Page load time');
+    });
+  }, []);
 
   // Helper functions for styling
   const getStageClass = (stage) => {
@@ -422,29 +479,11 @@ const LeadsTable = ({ onLogout, user }) => {
   const openSidebar = (lead) => {
     console.log('Opening sidebar for lead:', lead);
     setSelectedLead(lead);
-    setSidebarFormData({
-      parentsName: lead.parentsName || '',
-      kidsName: lead.kidsName || '',
-      grade: lead.grade || '',
-      source: lead.source || settingsData.sources?.[0]?.name || 'Instagram',
-      stage: lead.stage, // ← This is now stage_key
-      counsellor: lead.counsellor || '',
-      offer: lead.offer || 'Welcome Kit',
-      email: lead.email || '',
-      phone: lead.phone || '',
-      occupation: lead.occupation || '',
-      location: lead.location || '',
-      currentSchool: lead.currentSchool || '',
-      meetingDate: lead.meetingDate || '',
-      meetingTime: lead.meetingTime || '',
-      meetingLink: lead.meetingLink || '',
-      visitDate: lead.visitDate || '',
-      visitTime: lead.visitTime || '',
-      visitLocation: lead.visitLocation || '',
-      registrationFees: lead.registrationFees || '',
-      enrolled: lead.enrolled || ''
-      
-    });
+    
+    // Use the new function to setup form data
+    const formData = setupSidebarFormDataWithCustomFields(lead);
+    setSidebarFormData(formData);
+    
     setShowSidebar(true);
     setIsEditingMode(false);
   };
@@ -631,7 +670,7 @@ const LeadsTable = ({ onLogout, user }) => {
       // Refresh activity data after any updates
       await fetchLastActivityData();
 
-      // Refresh the leads data
+      // ← UPDATED: Refresh the leads data (this will include custom fields)
       await fetchLeads();
 
       // Exit edit mode
@@ -728,16 +767,14 @@ const LeadsTable = ({ onLogout, user }) => {
     }
   };
 
-  
   // UPDATED: Handle form submission with history logging
-   // FIXED VERSION:
-const handleAddLead = async (action = 'add') => {
-  await fetchLeads(); // Refresh leads data (already includes activity data)
-  
-  // The key={selectedLead?.id} prop on LeadSidebar will automatically
-  // handle refreshing the sidebar when the lead data changes.
-  // No need for manual selectedLead updates here.
-};
+  const handleAddLead = async (action = 'add') => {
+    await fetchLeads(); // Refresh leads data (already includes activity data and custom fields)
+    
+    // The key={selectedLead?.id} prop on LeadSidebar will automatically
+    // handle refreshing the sidebar when the lead data changes.
+    // No need for manual selectedLead updates here.
+  };
 
   const handleShowAddForm = () => {
     setShowAddForm(true);
@@ -950,7 +987,6 @@ const handleAddLead = async (action = 'add') => {
               getFieldLabel={getFieldLabel} // ← NEW
               getStageKeyFromName={getStageKeyFromName} // ← NEW
               getStageDisplayName={getStageDisplayName} // ← NEW
-  
             />
             <button 
               className="import-leads-btn" 

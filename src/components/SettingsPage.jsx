@@ -56,7 +56,7 @@ const SettingsPage = ({ onLogout, user }) => {
     fieldType: 'text',
   });
 
-  // ← NEW: Counsellor Modal States
+  // Counsellor Modal States
   const [showCounsellorModal, setShowCounsellorModal] = useState(false);
   const [counsellorFormData, setCounsellorFormData] = useState({
     name: '',
@@ -86,7 +86,7 @@ const SettingsPage = ({ onLogout, user }) => {
     { value: 'numeric', label: 'Numeric' }
   ];
 
-  // Stage editing functions (unchanged)
+  // Stage editing functions
   const handleEditStage = (stage) => {
     setEditingStage({
       id: stage.id,
@@ -135,8 +135,7 @@ const SettingsPage = ({ onLogout, user }) => {
     }
   };
 
-  // ← NEW: Counsellor Management Functions
-
+  // Counsellor Management Functions
   const openAddCounsellorModal = () => {
     setCounsellorFormData({
       name: '',
@@ -280,7 +279,7 @@ const SettingsPage = ({ onLogout, user }) => {
     }));
   };
 
-  // FORM FIELDS CRUD OPERATIONS (unchanged)
+  // ✅ FIXED: Custom field creation with stable field_key
   const addNewFormField = async () => {
     if (customFieldData.fieldName.trim()) {
       try {
@@ -293,11 +292,15 @@ const SettingsPage = ({ onLogout, user }) => {
               
         const fieldTypeLabel = fieldTypeOptions.find(opt => opt.value === customFieldData.fieldType)?.label || 'Text';
         
+        // Generate a stable field_key for custom fields
+        const fieldKey = 'custom_' + customFieldData.fieldName.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now();
+        
         await settingsService.createItem('form_fields', customFieldData.fieldName, {
           field_type: fieldTypeLabel,
           mandatory: customFieldData.mandatory,
           is_default: false,
-          is_custom: true
+          is_custom: true,
+          field_key: fieldKey
         });
               
         await loadSettings();
@@ -358,6 +361,7 @@ const SettingsPage = ({ onLogout, user }) => {
     }
   };
 
+  // ✅ FIXED: Save dropdown options with preserved properties
   const saveDropdownOptions = async () => {
     try {
       const field = settingsData.form_fields.find(f => f.id === editingFieldId);
@@ -368,10 +372,13 @@ const SettingsPage = ({ onLogout, user }) => {
         return;
       }
 
+      // ✅ PRESERVE ALL ORIGINAL PROPERTIES
       await settingsService.updateItem(editingFieldId, field.name, {
         field_type: field.field_type,
         mandatory: field.mandatory,
         is_default: field.is_default || false,
+        is_custom: field.is_custom, // ✅ CRITICAL: Preserve is_custom flag
+        field_key: field.field_key, // ✅ Preserve field_key
         dropdown_options: validOptions
       });
       
@@ -393,18 +400,24 @@ const SettingsPage = ({ onLogout, user }) => {
     setShowDropdownOptionsModal(true);
   };
 
+  // ✅ FIXED: Toggle field mandatory with preserved properties
   const toggleFieldMandatory = async (fieldId) => {
     try {
       const field = settingsData.form_fields.find(f => f.id === fieldId);
       if (field && (field.field_key ? 
         settingsService.canChangeMandatoryStatusByKey(field.field_key) : 
         settingsService.canChangeMandatoryStatus(field.name))) {
+        
+        // ✅ PRESERVE ALL ORIGINAL PROPERTIES
         await settingsService.updateItem(fieldId, field.name, {
           field_type: field.field_type,
           mandatory: !field.mandatory,
           is_default: field.is_default || false,
+          is_custom: field.is_custom, // ✅ CRITICAL: Preserve is_custom flag
+          field_key: field.field_key, // ✅ Preserve field_key
           dropdown_options: field.dropdown_options
         });
+        
         await loadSettings();
         alert('Field updated successfully!');
       }
@@ -440,16 +453,21 @@ const SettingsPage = ({ onLogout, user }) => {
     }));
   };
 
-  // Handle field name change
+  // ✅ FIXED: Handle field name change with preserved properties
   const handleFieldNameChange = async (id, newName) => {
     try {
       const field = settingsData.form_fields.find(f => f.id === id);
+      
+      // ✅ PRESERVE ALL ORIGINAL PROPERTIES, especially is_custom
       await settingsService.updateItem(id, newName, {
         field_type: field.field_type,
         mandatory: field.mandatory,
         is_default: field.is_default || false,
+        is_custom: field.is_custom, // ✅ CRITICAL: Preserve is_custom flag
+        field_key: field.field_key, // ✅ Preserve field_key
         dropdown_options: field.dropdown_options
       });
+      
       await loadSettings();
       setEditingItems(prev => ({
         ...prev,
@@ -462,7 +480,7 @@ const SettingsPage = ({ onLogout, user }) => {
     }
   };
 
-  // SOURCES, GRADES CRUD OPERATIONS (unchanged)
+  // SOURCES, GRADES CRUD OPERATIONS
   const addNewSource = async () => {
     if (newSource.trim()) {
       try {
@@ -814,15 +832,18 @@ const SettingsPage = ({ onLogout, user }) => {
                     </tbody>
                   </table>
                   
+                  {/* ✅ UPDATED: Add Custom Fields section - removed repair button */}
                   <div className="settings-add-custom-section">
                     <h3>Add Custom Fields</h3>
-                    <button 
-                      className="settings-add-btn"
-                      onClick={() => setShowCustomFieldModal(true)}
-                    >
-                      <Plus size={16} />
-                      Add Field
-                    </button>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      <button 
+                        className="settings-add-btn"
+                        onClick={() => setShowCustomFieldModal(true)}
+                      >
+                        <Plus size={16} />
+                        Add Field
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -905,7 +926,7 @@ const SettingsPage = ({ onLogout, user }) => {
                 </div>
               </div>
 
-              {/* Stage Edit Modal (unchanged) */}
+              {/* Stage Edit Modal */}
               {showStageEditModal && (
                 <>
                   <div className="settings-modal-overlay" onClick={() => setShowStageEditModal(false)}></div>
@@ -972,7 +993,7 @@ const SettingsPage = ({ onLogout, user }) => {
 
           {/* Two column section - Counsellors, Sources, Grades */}
           <div className='settings-two-column-row'>
-            {/* ← UPDATED: Enhanced Counsellors Section */}
+            {/* Counsellors Section */}
             <div className="settings-section">
               <h2>Counsellors</h2>
               <div className="settings-section-content">
@@ -993,7 +1014,6 @@ const SettingsPage = ({ onLogout, user }) => {
                         <div className="settings-item-content">
                           <span className="settings-item-label">Counsellor Name</span>
                           <span className="settings-item-value">{counsellor.name}</span>
-                          {/* ← NEW: Show if linked to user account */}
                           {counsellor.user_id && (
                             <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
                               <User size={12} style={{ display: 'inline-block', marginRight: '4px' }} />
@@ -1025,7 +1045,7 @@ const SettingsPage = ({ onLogout, user }) => {
               </div>
             </div>
 
-            {/* Lead Source Section (unchanged) */}
+            {/* Lead Source Section */}
             <div className="settings-section">
               <h2>Lead Source</h2>
               <div className="settings-section-content">
@@ -1108,7 +1128,7 @@ const SettingsPage = ({ onLogout, user }) => {
               </div>
             </div>
 
-            {/* Grades Section (unchanged) */}
+            {/* Grades Section */}
             <div className="settings-section">
               <h2>Grades</h2>
               <div className="settings-section-content">
@@ -1192,7 +1212,7 @@ const SettingsPage = ({ onLogout, user }) => {
             </div>
           </div>
 
-          {/* ← NEW: Enhanced Counsellor Modal */}
+          {/* Counsellor Modal */}
           {showCounsellorModal && (
             <>
               <div className="settings-modal-overlay" onClick={() => setShowCounsellorModal(false)}></div>
@@ -1301,7 +1321,7 @@ const SettingsPage = ({ onLogout, user }) => {
             </>
           )}
 
-          {/* Custom Field Modal (unchanged) */}
+          {/* Custom Field Modal */}
           {showCustomFieldModal && (
             <>
               <div className="settings-modal-overlay" onClick={() => setShowCustomFieldModal(false)}></div>
@@ -1352,7 +1372,7 @@ const SettingsPage = ({ onLogout, user }) => {
             </>
           )}
 
-          {/* Dropdown Options Modal (unchanged) */}
+          {/* Dropdown Options Modal */}
           {showDropdownOptionsModal && (
             <>
               <div className="settings-modal-overlay" onClick={() => setShowDropdownOptionsModal(false)}></div>
