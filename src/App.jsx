@@ -11,7 +11,7 @@ import CounsellorPerformance from './components/CounsellorPerformance';
 import Login from './components/Login';
 import SettingsPage from './components/SettingsPage';
 import SettingsDataProvider from './contexts/SettingsDataProvider';
-
+import FollowUpTable from './components/FollowUpTable';
 import { authService } from './services/authService';
 
 function App() {
@@ -104,6 +104,12 @@ function App() {
                 path="/dashboard" 
                 element={<Dashboard onLogout={handleLogout} user={user} />} 
               />
+
+              <Route 
+                path="/followup" 
+                element={<FollowUpTable onLogout={handleLogout} user={user} />} 
+              />
+              
               <Route path="/" element={<Navigate to="/all-leads" replace />} />
               <Route 
                 path="/all-leads" 

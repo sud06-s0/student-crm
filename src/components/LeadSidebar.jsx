@@ -255,6 +255,7 @@ const LeadSidebar = ({
         offer: selectedLead.offer || 'Welcome Kit',
         email: selectedLead.email || '',
         phone: selectedLead.phone || '',
+        secondPhone: selectedLead?.secondPhone || '',
         occupation: selectedLead.occupation || '',
         location: selectedLead.location || '',
         currentSchool: selectedLead.currentSchool || '',

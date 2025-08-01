@@ -32,7 +32,8 @@ const InfoTab = ({
       'Occupation', 'Current School', 'Offer', 'Notes', 'Meeting Date', 
       'Meeting Time', 'Meeting Link', 'Visit Date', 'Visit Time', 
       'Visit Location', 'Registration Fees', 'Enrolled', 'Parent Name',
-      'Kid Name', 'Class', 'Grade', 'Source', 'Stage', 'Counsellor'
+      'Kid Name', 'Class', 'Grade', 'Source', 'Stage', 'Counsellor',
+      'Secondary Phone', 'Second Phone' // ← NEW: Add secondary phone variations
     ];
     
     // Also check variations and case differences
@@ -199,6 +200,22 @@ const InfoTab = ({
     }
   };
 
+  // ← NEW: Helper function to format phone number for display
+  const formatPhoneForDisplay = (phoneNumber) => {
+    if (!phoneNumber) return '';
+    // Remove +91 prefix if present for display
+    return phoneNumber.replace(/^\+91/, '');
+  };
+
+  // ← NEW: Helper function to handle phone number input changes
+  const handlePhoneChange = (fieldName, value) => {
+    // Remove any non-digit characters
+    const digits = value.replace(/\D/g, '');
+    // Limit to 10 digits
+    const limitedDigits = digits.slice(0, 10);
+    onFieldChange(fieldName, limitedDigits);
+  };
+
   // Debug custom fields section rendering
   console.log('=== Custom Fields Section Check ===');
   console.log('customFields.length > 0:', customFields.length > 0);
@@ -235,7 +252,7 @@ const InfoTab = ({
               )}
             </div>
 
-            {/* Phone */}
+            {/* Primary Phone */}
             <div className="lead-sidebar-form-row">
               <label className="lead-sidebar-form-label">Phone</label>
               {!isEditingMode ? (
@@ -243,13 +260,57 @@ const InfoTab = ({
                   {selectedLead?.phone || ''}
                 </div>
               ) : (
-                <input 
-                  type="text" 
-                  value={sidebarFormData.phone || selectedLead?.phone || ''} 
-                  onChange={(e) => onFieldChange('phone', e.target.value)}
-                  placeholder="Enter phone number"
-                  className="lead-sidebar-form-input"
-                />
+                <div className="input-group">
+                  <span className="input-group-text" style={{ 
+                    backgroundColor: '#f8f9fa', 
+                    border: '1px solid #dee2e6',
+                    borderRight: 'none',
+                    padding: '8px 12px',
+                    fontSize: '14px'
+                  }}>
+                    +91
+                  </span>
+                  <input 
+                    type="text" 
+                    value={formatPhoneForDisplay(sidebarFormData.phone || selectedLead?.phone || '')} 
+                    onChange={(e) => handlePhoneChange('phone', e.target.value)}
+                    placeholder="Enter 10-digit number"
+                    maxLength="10"
+                    className="lead-sidebar-form-input"
+                    style={{ borderLeft: 'none' }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* ← NEW: Secondary Phone Number */}
+            <div className="lead-sidebar-form-row">
+              <label className="lead-sidebar-form-label">Secondary Phone</label>
+              {!isEditingMode ? (
+                <div className="lead-sidebar-field-value">
+                  {selectedLead?.secondPhone || sidebarFormData.secondPhone || ''}
+                </div>
+              ) : (
+                <div className="input-group">
+                  <span className="input-group-text" style={{ 
+                    backgroundColor: '#f8f9fa', 
+                    border: '1px solid #dee2e6',
+                    borderRight: 'none',
+                    padding: '8px 12px',
+                    fontSize: '14px'
+                  }}>
+                    +91
+                  </span>
+                  <input 
+                    type="text" 
+                    value={formatPhoneForDisplay(sidebarFormData.secondPhone || selectedLead?.secondPhone || '')} 
+                    onChange={(e) => handlePhoneChange('secondPhone', e.target.value)}
+                    placeholder="Enter 10-digit number (optional)"
+                    maxLength="10"
+                    className="lead-sidebar-form-input"
+                    style={{ borderLeft: 'none' }}
+                  />
+                </div>
               )}
             </div>
 

@@ -26,6 +26,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
     kidsName: '',
     location: '',
     phone: '',
+    secondPhone: '', // ← NEW: Secondary phone field
     email: '',
     grade: '',
     notes: '',
@@ -118,13 +119,14 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
         kidsName: '',
         location: '',
         phone: '',
+        secondPhone: '', // ← NEW: Reset secondary phone
         email: '',
         grade: settingsData.grades[0]?.name || 'LKG',
         notes: '',
         stage: defaultStageKey, // ← Store stage_key
         category: 'New',
         offer: 'No offer',
-        counsellor: 'Assign Counsellor',
+        counsellor: 'Assign Counsellour',
         score: 20,
         source: settingsData.sources[0]?.name || 'Instagram',
         occupation: '',
@@ -153,6 +155,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
       parents_name: formData.parentsName,
       kids_name: formData.kidsName,
       phone: `+91${formData.phone}`,
+      second_phone: formData.secondPhone ? `+91${formData.secondPhone}` : '', // ← NEW: Secondary phone field
       email: formData.email || '',
       location: formData.location || '',
       grade: formData.grade || '',
@@ -191,13 +194,13 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
       console.log('Updated category:', updatedFormData.category);
     }
 
-    // Format phone number
-    if (name === 'phone') {
+    // Format phone numbers
+    if (name === 'phone' || name === 'secondPhone') {
       // Remove any non-digit characters
       const digits = value.replace(/\D/g, '');
       // Limit to 10 digits
       const limitedDigits = digits.slice(0, 10);
-      updatedFormData.phone = limitedDigits;
+      updatedFormData[name] = limitedDigits;
     }
 
     setFormData(updatedFormData);
@@ -227,6 +230,11 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
       newErrors.phone = `${getFieldLabel('phone')} is required`;
     } else if (formData.phone.length !== 10) {
       newErrors.phone = `${getFieldLabel('phone')} must be exactly 10 digits`;
+    }
+
+    // ← NEW: Secondary phone validation (optional but must be valid if provided)
+    if (formData.secondPhone && formData.secondPhone.length !== 10) {
+      newErrors.secondPhone = 'Secondary phone must be exactly 10 digits';
     }
 
     // Email validation (optional but must be valid if provided)
@@ -293,6 +301,7 @@ const handleSubmit = async (e) => {
       kidsName: '',
       location: '',
       phone: '',
+      secondPhone: '', // ← NEW: Reset secondary phone
       email: '',
       grade: settingsData.grades[0]?.name || 'LKG',
       notes: '',
@@ -393,6 +402,25 @@ const handleSubmit = async (e) => {
                       disabled={loading}
                     />
                     {errors.phone && <div className="invalid-feedback">{errors.phone}</div>}
+                  </div>
+                </div>
+
+                {/* ← NEW: Secondary Phone Number */}
+                <div className="col-md-6 mb-3">
+                  <label className="form-label">Secondary Phone</label>
+                  <div className="input-group">
+                    <span className="input-group-text">+91</span>
+                    <input
+                      type="text"
+                      className={`form-control ${errors.secondPhone ? 'is-invalid' : ''}`}
+                      name="secondPhone"
+                      value={formData.secondPhone}
+                      onChange={handleInputChange}
+                      placeholder="Enter 10-digit number (optional)"
+                      maxLength="10"
+                      disabled={loading}
+                    />
+                    {errors.secondPhone && <div className="invalid-feedback">{errors.secondPhone}</div>}
                   </div>
                 </div>
 

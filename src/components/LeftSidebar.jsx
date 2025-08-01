@@ -153,14 +153,13 @@ const LeftSidebar = ({
           )}
           
           <a 
-            href="https://www.app.aisensy.com/projects/680f28f6e0cc850c02c34bb8/history" 
+            href="/followup" 
             target="_blank" 
-            rel="noopener noreferrer"
-            className={`nova-nav-item ${activeNavItem === "messenger" ? "active" : ""}`}
+            className={`nova-nav-item ${activeNavItem === "followup" ? "active" : ""}`}
             onClick={closeMobileMenu}
           >
             <MessageCircle size={18} className="nav-icon" />
-            Alsensy Messenger
+            Follow Up
           </a>
         </nav>
 
