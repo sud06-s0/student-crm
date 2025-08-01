@@ -492,25 +492,7 @@ const LeadSidebar = ({
 
   // Handle mobile close with swipe gesture (optional enhancement)
   const handleTouchStart = useCallback((e) => {
-    if (!isMobile) return;
-    const touchStartX = e.touches[0].clientX;
-    
-    const handleTouchMove = (e) => {
-      const touchCurrentX = e.touches[0].clientX;
-      const diff = touchCurrentX - touchStartX;
-      
-      // If swiped right more than 50px, close sidebar
-      if (diff > 50) {
-        onClose();
-        document.removeEventListener('touchmove', handleTouchMove);
-      }
-    };
-    
-    document.addEventListener('touchmove', handleTouchMove, { passive: true });
-    
-    setTimeout(() => {
-      document.removeEventListener('touchmove', handleTouchMove);
-    }, 1000);
+  
   }, [isMobile, onClose]);
 
   if (!showSidebar) return null;
