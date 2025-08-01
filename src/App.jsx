@@ -128,19 +128,13 @@ function App() {
 
              
               {/* Only show counsellor performance to admins */}
-              {user.role === 'admin' && (
+              
                 <Route 
                   path="/counsellor-performance" 
                   element={<CounsellorPerformance onLogout={handleLogout} user={user} />} 
                 />
-              )}
-              {/* Redirect unauthorized users */}
-              {user.role !== 'admin' && (
-                <Route 
-                  path="/counsellor-performance" 
-                  element={<Navigate to="/all-leads" replace />} 
-                />
-              )}
+              
+              
               
               {/* Only show settings to admins */}
               {user.role === 'admin' && (

@@ -56,6 +56,30 @@ const SettingsPage = ({ onLogout, user }) => {
     fieldType: 'text',
   });
 
+  // Form Field Edit Modal State
+  const [showFormFieldEditModal, setShowFormFieldEditModal] = useState(false);
+  const [editingFormField, setEditingFormField] = useState({
+    id: null,
+    name: '',
+    originalData: {}
+  });
+
+  // Grade Modal States
+  const [showGradeModal, setShowGradeModal] = useState(false);
+  const [gradeModalData, setGradeModalData] = useState({
+    id: null,
+    name: '',
+    isEditing: false
+  });
+
+  // Source Modal States
+  const [showSourceModal, setShowSourceModal] = useState(false);
+  const [sourceModalData, setSourceModalData] = useState({
+    id: null,
+    name: '',
+    isEditing: false
+  });
+
   // Counsellor Modal States
   const [showCounsellorModal, setShowCounsellorModal] = useState(false);
   const [counsellorFormData, setCounsellorFormData] = useState({
@@ -69,15 +93,6 @@ const SettingsPage = ({ onLogout, user }) => {
   const [selectedProfileImage, setSelectedProfileImage] = useState(null);
   const [editingCounsellor, setEditingCounsellor] = useState(null);
   const [counsellorSubmitting, setCounsellorSubmitting] = useState(false);
-
-  // New item input states (for non-counsellor items)
-  const [newSource, setNewSource] = useState('');
-  const [newGrade, setNewGrade] = useState('');
-  const [showNewSourceInput, setShowNewSourceInput] = useState(false);
-  const [showNewGradeInput, setShowNewGradeInput] = useState(false);
-
-  // Editing states
-  const [editingItems, setEditingItems] = useState({});
 
   // Field type options for custom fields
   const fieldTypeOptions = [
@@ -132,6 +147,148 @@ const SettingsPage = ({ onLogout, user }) => {
     } catch (error) {
       console.error('Error moving stage:', error);
       alert('Error moving stage: ' + error.message);
+    }
+  };
+
+  // Form Field Edit Functions
+  const openFormFieldEditModal = (field) => {
+    setEditingFormField({
+      id: field.id,
+      name: field.name,
+      originalData: { ...field }
+    });
+    setShowFormFieldEditModal(true);
+  };
+
+  const handleFormFieldUpdate = async () => {
+    try {
+      const field = editingFormField.originalData;
+      
+      // Preserve all original properties
+      await settingsService.updateItem(editingFormField.id, editingFormField.name, {
+        field_type: field.field_type,
+        is_default: field.is_default || false,
+        is_custom: field.is_custom,
+        field_key: field.field_key,
+        dropdown_options: field.dropdown_options
+      });
+      
+      await loadSettings();
+      setShowFormFieldEditModal(false);
+      alert('Field name updated successfully!');
+    } catch (error) {
+      console.error('Error updating field name:', error);
+      alert('Error updating field name: ' + error.message);
+    }
+  };
+
+  // Grade Modal Functions
+  const openAddGradeModal = () => {
+    setGradeModalData({
+      id: null,
+      name: '',
+      isEditing: false
+    });
+    setShowGradeModal(true);
+  };
+
+  const openEditGradeModal = (grade) => {
+    setGradeModalData({
+      id: grade.id,
+      name: grade.name,
+      isEditing: true
+    });
+    setShowGradeModal(true);
+  };
+
+  const handleGradeSubmit = async () => {
+    if (!gradeModalData.name.trim()) {
+      alert('Grade name is required');
+      return;
+    }
+
+    try {
+      if (gradeModalData.isEditing) {
+        await settingsService.updateItem(gradeModalData.id, gradeModalData.name);
+        alert('Grade updated successfully!');
+      } else {
+        await settingsService.createItem('grades', gradeModalData.name);
+        alert('Grade added successfully!');
+      }
+      
+      await loadSettings();
+      setShowGradeModal(false);
+    } catch (error) {
+      console.error('Error saving grade:', error);
+      alert('Error saving grade: ' + error.message);
+    }
+  };
+
+  const removeGrade = async (gradeId) => {
+    if (window.confirm('Are you sure you want to delete this grade?')) {
+      try {
+        await settingsService.deleteItem(gradeId);
+        await loadSettings();
+        alert('Grade deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting grade:', error);
+        alert('Error deleting grade: ' + error.message);
+      }
+    }
+  };
+
+  // Source Modal Functions
+  const openAddSourceModal = () => {
+    setSourceModalData({
+      id: null,
+      name: '',
+      isEditing: false
+    });
+    setShowSourceModal(true);
+  };
+
+  const openEditSourceModal = (source) => {
+    setSourceModalData({
+      id: source.id,
+      name: source.name,
+      isEditing: true
+    });
+    setShowSourceModal(true);
+  };
+
+  const handleSourceSubmit = async () => {
+    if (!sourceModalData.name.trim()) {
+      alert('Source name is required');
+      return;
+    }
+
+    try {
+      if (sourceModalData.isEditing) {
+        await settingsService.updateItem(sourceModalData.id, sourceModalData.name);
+        alert('Source updated successfully!');
+      } else {
+        await settingsService.createItem('sources', sourceModalData.name);
+        alert('Source added successfully!');
+      }
+      
+      await loadSettings();
+      setShowSourceModal(false);
+    } catch (error) {
+      console.error('Error saving source:', error);
+      alert('Error saving source: ' + error.message);
+    }
+  };
+
+  const removeSource = async (sourceId) => {
+    if (window.confirm('Are you sure you want to delete this source?')) {
+      try {
+        await settingsService.deleteItem(sourceId);
+        await loadSettings();
+        alert('Source deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting source:', error);
+        alert('Error deleting source: ' + error.message);
+      }
     }
   };
 
@@ -279,7 +436,7 @@ const SettingsPage = ({ onLogout, user }) => {
     }));
   };
 
-  // ✅ FIXED: Custom field creation with stable field_key
+  // Custom field creation with stable field_key
   const addNewFormField = async () => {
     if (customFieldData.fieldName.trim()) {
       try {
@@ -297,14 +454,13 @@ const SettingsPage = ({ onLogout, user }) => {
         
         await settingsService.createItem('form_fields', customFieldData.fieldName, {
           field_type: fieldTypeLabel,
-          mandatory: customFieldData.mandatory,
           is_default: false,
           is_custom: true,
           field_key: fieldKey
         });
               
         await loadSettings();
-        setCustomFieldData({ fieldName: '', fieldType: 'text', mandatory: false });
+        setCustomFieldData({ fieldName: '', fieldType: 'text' });
         setShowCustomFieldModal(false);
         alert('Form field added successfully!');
       } catch (error) {
@@ -323,18 +479,6 @@ const SettingsPage = ({ onLogout, user }) => {
     } catch (error) {
       console.error('Error updating stage status:', error);
       alert('Error updating stage status: ' + error.message);
-    }
-  };
-
-  // Toggle form field status (only for custom fields)
-  const toggleFormFieldStatus = async (fieldId) => {
-    try {
-      await settingsService.toggleItemStatus(fieldId);
-      await loadSettings();
-      alert('Field status updated successfully!');
-    } catch (error) {
-      console.error('Error updating field status:', error);
-      alert('Error updating field status: ' + error.message);
     }
   };
 
@@ -361,7 +505,7 @@ const SettingsPage = ({ onLogout, user }) => {
     }
   };
 
-  // ✅ FIXED: Save dropdown options with preserved properties
+  // Save dropdown options with preserved properties
   const saveDropdownOptions = async () => {
     try {
       const field = settingsData.form_fields.find(f => f.id === editingFieldId);
@@ -372,13 +516,12 @@ const SettingsPage = ({ onLogout, user }) => {
         return;
       }
 
-      // ✅ PRESERVE ALL ORIGINAL PROPERTIES
+      // Preserve all original properties
       await settingsService.updateItem(editingFieldId, field.name, {
         field_type: field.field_type,
-        mandatory: field.mandatory,
         is_default: field.is_default || false,
-        is_custom: field.is_custom, // ✅ CRITICAL: Preserve is_custom flag
-        field_key: field.field_key, // ✅ Preserve field_key
+        is_custom: field.is_custom,
+        field_key: field.field_key,
         dropdown_options: validOptions
       });
       
@@ -400,33 +543,6 @@ const SettingsPage = ({ onLogout, user }) => {
     setShowDropdownOptionsModal(true);
   };
 
-  // ✅ FIXED: Toggle field mandatory with preserved properties
-  const toggleFieldMandatory = async (fieldId) => {
-    try {
-      const field = settingsData.form_fields.find(f => f.id === fieldId);
-      if (field && (field.field_key ? 
-        settingsService.canChangeMandatoryStatusByKey(field.field_key) : 
-        settingsService.canChangeMandatoryStatus(field.name))) {
-        
-        // ✅ PRESERVE ALL ORIGINAL PROPERTIES
-        await settingsService.updateItem(fieldId, field.name, {
-          field_type: field.field_type,
-          mandatory: !field.mandatory,
-          is_default: field.is_default || false,
-          is_custom: field.is_custom, // ✅ CRITICAL: Preserve is_custom flag
-          field_key: field.field_key, // ✅ Preserve field_key
-          dropdown_options: field.dropdown_options
-        });
-        
-        await loadSettings();
-        alert('Field updated successfully!');
-      }
-    } catch (error) {
-      console.error('Error updating field:', error);
-      alert('Error updating field: ' + error.message);
-    }
-  };
-
   const removeCustomField = async (fieldId) => {
     const field = settingsData.form_fields.find(f => f.id === fieldId);
     if (field && (field.field_key ? 
@@ -441,142 +557,6 @@ const SettingsPage = ({ onLogout, user }) => {
           console.error('Error deleting field:', error);
           alert('Error deleting field: ' + error.message);
         }
-      }
-    }
-  };
-
-  // Toggle field name editing
-  const toggleFieldNameEdit = (id) => {
-    setEditingItems(prev => ({
-      ...prev,
-      [`field_name_${id}`]: !prev[`field_name_${id}`]
-    }));
-  };
-
-  // ✅ FIXED: Handle field name change with preserved properties
-  const handleFieldNameChange = async (id, newName) => {
-    try {
-      const field = settingsData.form_fields.find(f => f.id === id);
-      
-      // ✅ PRESERVE ALL ORIGINAL PROPERTIES, especially is_custom
-      await settingsService.updateItem(id, newName, {
-        field_type: field.field_type,
-        mandatory: field.mandatory,
-        is_default: field.is_default || false,
-        is_custom: field.is_custom, // ✅ CRITICAL: Preserve is_custom flag
-        field_key: field.field_key, // ✅ Preserve field_key
-        dropdown_options: field.dropdown_options
-      });
-      
-      await loadSettings();
-      setEditingItems(prev => ({
-        ...prev,
-        [`field_name_${id}`]: false
-      }));
-      alert('Field name updated successfully!');
-    } catch (error) {
-      console.error('Error updating field name:', error);
-      alert('Error updating field name: ' + error.message);
-    }
-  };
-
-  // SOURCES, GRADES CRUD OPERATIONS
-  const addNewSource = async () => {
-    if (newSource.trim()) {
-      try {
-        await settingsService.createItem('sources', newSource);
-        await loadSettings();
-        setNewSource('');
-        setShowNewSourceInput(false);
-        alert('Source added successfully!');
-      } catch (error) {
-        console.error('Error adding source:', error);
-        alert('Error adding source: ' + error.message);
-      }
-    }
-  };
-
-  const toggleSourceEdit = (id) => {
-    setEditingItems(prev => ({
-      ...prev,
-      [`source_${id}`]: !prev[`source_${id}`]
-    }));
-  };
-
-  const handleSourceNameChange = async (id, newName) => {
-    try {
-      await settingsService.updateItem(id, newName);
-      await loadSettings();
-      setEditingItems(prev => ({
-        ...prev,
-        [`source_${id}`]: false
-      }));
-      alert('Source updated successfully!');
-    } catch (error) {
-      console.error('Error updating source:', error);
-      alert('Error updating source: ' + error.message);
-    }
-  };
-
-  const removeSource = async (sourceId) => {
-    if (window.confirm('Are you sure you want to delete this source?')) {
-      try {
-        await settingsService.deleteItem(sourceId);
-        await loadSettings();
-        alert('Source deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting source:', error);
-        alert('Error deleting source: ' + error.message);
-      }
-    }
-  };
-
-  const addNewGrade = async () => {
-    if (newGrade.trim()) {
-      try {
-        await settingsService.createItem('grades', newGrade);
-        await loadSettings();
-        setNewGrade('');
-        setShowNewGradeInput(false);
-        alert('Grade added successfully!');
-      } catch (error) {
-        console.error('Error adding grade:', error);
-        alert('Error adding grade: ' + error.message);
-      }
-    }
-  };
-
-  const toggleGradeEdit = (id) => {
-    setEditingItems(prev => ({
-      ...prev,
-      [`grade_${id}`]: !prev[`grade_${id}`]
-    }));
-  };
-
-  const handleGradeNameChange = async (id, newName) => {
-    try {
-      await settingsService.updateItem(id, newName);
-      await loadSettings();
-      setEditingItems(prev => ({
-        ...prev,
-        [`grade_${id}`]: false
-      }));
-      alert('Grade updated successfully!');
-    } catch (error) {
-      console.error('Error updating grade:', error);
-      alert('Error updating grade: ' + error.message);
-    }
-  };
-
-  const removeGrade = async (gradeId) => {
-    if (window.confirm('Are you sure you want to delete this grade?')) {
-      try {
-        await settingsService.deleteItem(gradeId);
-        await loadSettings();
-        alert('Grade deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting grade:', error);
-        alert('Error deleting grade: ' + error.message);
       }
     }
   };
@@ -723,7 +703,6 @@ const SettingsPage = ({ onLogout, user }) => {
                       <tr>
                         <th>Field Name</th>
                         <th>Field Type</th>
-                        <th>Mandatory</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
@@ -742,22 +721,9 @@ const SettingsPage = ({ onLogout, user }) => {
                           settingsService.isCustomField(field.name);
                         
                         return (
-                          <tr key={field.id} style={{ opacity: (isCustom && !field.is_active) ? 0.5 : 1 }}>
+                          <tr key={field.id}>
                             <td>
-                              {editingItems[`field_name_${field.id}`] && (isConstant || isCustom) ? (
-                                <input
-                                  type="text"
-                                  defaultValue={field.name}
-                                  onKeyPress={(e) => {
-                                    if (e.key === 'Enter') {
-                                      handleFieldNameChange(field.id, e.target.value);
-                                    }
-                                  }}
-                                  onBlur={(e) => handleFieldNameChange(field.id, e.target.value)}
-                                />
-                              ) : (
-                                <span>{field.name}</span>
-                              )}
+                              <span>{field.name}</span>
                               {field.field_type === 'Dropdown' && field.dropdown_options && (
                                 <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
                                   Options: {field.dropdown_options.join(', ')}
@@ -771,7 +737,7 @@ const SettingsPage = ({ onLogout, user }) => {
                             </td>
                             <td>
                               {field.field_type}
-                              {field.field_type === 'Dropdown' && isCustom && field.is_active && (
+                              {field.field_type === 'Dropdown' && isCustom && (
                                 <button
                                   className="settings-edit-dropdown-btn"
                                   onClick={() => openDropdownOptionsModal(field.id)}
@@ -782,35 +748,11 @@ const SettingsPage = ({ onLogout, user }) => {
                               )}
                             </td>
                             <td>
-                              {(field.field_key ? 
-                                settingsService.canChangeMandatoryStatusByKey(field.field_key) : 
-                                settingsService.canChangeMandatoryStatus(field.name)) ? (
-                                <button
-                                  className={`settings-mandatory-toggle ${field.mandatory ? 'active' : ''}`}
-                                  onClick={() => toggleFieldMandatory(field.id)}
-                                >
-                                  {field.mandatory ? <Check size={16} /> : <X size={16} />}
-                                </button>
-                              ) : (
-                                <span style={{ color: '#999', fontSize: '14px' }}>N/A</span>
-                              )}
-                            </td>
-                            <td>
                               <div style={{ display: 'flex', gap: '8px' }}>
-                                {isCustom && (
-                                  <button
-                                    className={`settings-toggle-btn ${field.is_active ? 'active' : 'inactive'}`}
-                                    onClick={() => toggleFormFieldStatus(field.id)}
-                                  >
-                                    {field.is_active ? 'ON' : 'OFF'}
-                                  </button>
-                                )}
-                                
                                 {(isConstant || isCustom) && (
                                   <button 
                                     className="settings-edit-btn"
-                                    onClick={() => toggleFieldNameEdit(field.id)}
-                                    disabled={isCustom && !field.is_active}
+                                    onClick={() => openFormFieldEditModal(field)}
                                   >
                                     <Edit size={16} />
                                   </button>
@@ -832,7 +774,7 @@ const SettingsPage = ({ onLogout, user }) => {
                     </tbody>
                   </table>
                   
-                  {/* ✅ UPDATED: Add Custom Fields section - removed repair button */}
+                  {/* Add Custom Fields section */}
                   <div className="settings-add-custom-section">
                     <h3>Add Custom Fields</h3>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -1051,37 +993,13 @@ const SettingsPage = ({ onLogout, user }) => {
               <div className="settings-section-content">
                 <div className="settings-list-section">
                   <div className="settings-add-new-section">
-                    {!showNewSourceInput ? (
-                      <button 
-                        className="settings-add-new-btn"
-                        onClick={() => setShowNewSourceInput(true)}
-                      >
-                        <Plus size={16} />
-                        Add New
-                      </button>
-                    ) : (
-                      <div className="settings-add-input-group">
-                        <input
-                          type="text"
-                          value={newSource}
-                          onChange={(e) => setNewSource(e.target.value)}
-                          placeholder="Enter source name"
-                          onKeyPress={(e) => e.key === 'Enter' && addNewSource()}
-                        />
-                        <button className="settings-submit-btn" onClick={addNewSource}>
-                          Submit
-                        </button>
-                        <button 
-                          className="settings-cancel-btn" 
-                          onClick={() => {
-                            setShowNewSourceInput(false);
-                            setNewSource('');
-                          }}
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    )}
+                    <button 
+                      className="settings-add-new-btn"
+                      onClick={openAddSourceModal}
+                    >
+                      <Plus size={16} />
+                      Add New
+                    </button>
                   </div>
                   
                   <div className="settings-list-items">
@@ -1089,27 +1007,14 @@ const SettingsPage = ({ onLogout, user }) => {
                       <div key={source.id} className="settings-list-item">
                         <div className="settings-item-content">
                           <span className="settings-item-label">Lead Source</span>
-                          {editingItems[`source_${source.id}`] ? (
-                            <input
-                              type="text"
-                              defaultValue={source.name}
-                              onKeyPress={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleSourceNameChange(source.id, e.target.value);
-                                }
-                              }}
-                              onBlur={(e) => handleSourceNameChange(source.id, e.target.value)}
-                            />
-                          ) : (
-                            <span className="settings-item-value">{source.name}</span>
-                          )}
+                          <span className="settings-item-value">{source.name}</span>
                         </div>
                         <div className="settings-item-actions">
                           <span className="settings-item-label">Edit</span>
                           <div style={{ display: 'flex', gap: '8px' }}>
                             <button 
                               className="settings-edit-btn"
-                              onClick={() => toggleSourceEdit(source.id)}
+                              onClick={() => openEditSourceModal(source)}
                             >
                               <Edit size={16} />
                             </button>
@@ -1134,37 +1039,13 @@ const SettingsPage = ({ onLogout, user }) => {
               <div className="settings-section-content">
                 <div className="settings-list-section">
                   <div className="settings-add-new-section">
-                    {!showNewGradeInput ? (
-                      <button 
-                        className="settings-add-new-btn"
-                        onClick={() => setShowNewGradeInput(true)}
-                      >
-                        <Plus size={16} />
-                        Add New
-                      </button>
-                    ) : (
-                      <div className="settings-add-input-group">
-                        <input
-                          type="text"
-                          value={newGrade}
-                          onChange={(e) => setNewGrade(e.target.value)}
-                          placeholder="Enter grade name"
-                          onKeyPress={(e) => e.key === 'Enter' && addNewGrade()}
-                        />
-                        <button className="settings-submit-btn" onClick={addNewGrade}>
-                          Submit
-                        </button>
-                        <button 
-                          className="settings-cancel-btn" 
-                          onClick={() => {
-                            setShowNewGradeInput(false);
-                            setNewGrade('');
-                          }}
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    )}
+                    <button 
+                      className="settings-add-new-btn"
+                      onClick={openAddGradeModal}
+                    >
+                      <Plus size={16} />
+                      Add New
+                    </button>
                   </div>
                   
                   <div className="settings-list-items">
@@ -1172,27 +1053,14 @@ const SettingsPage = ({ onLogout, user }) => {
                       <div key={grade.id} className="settings-list-item">
                         <div className="settings-item-content">
                           <span className="settings-item-label">Grade</span>
-                          {editingItems[`grade_${grade.id}`] ? (
-                            <input
-                              type="text"
-                              defaultValue={grade.name}
-                              onKeyPress={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleGradeNameChange(grade.id, e.target.value);
-                                }
-                              }}
-                              onBlur={(e) => handleGradeNameChange(grade.id, e.target.value)}
-                            />
-                          ) : (
-                            <span className="settings-item-value">{grade.name}</span>
-                          )}
+                          <span className="settings-item-value">{grade.name}</span>
                         </div>
                         <div className="settings-item-actions">
                           <span className="settings-item-label">Edit</span>
                           <div style={{ display: 'flex', gap: '8px' }}>
                             <button 
                               className="settings-edit-btn"
-                              onClick={() => toggleGradeEdit(grade.id)}
+                              onClick={() => openEditGradeModal(grade)}
                             >
                               <Edit size={16} />
                             </button>
@@ -1211,6 +1079,117 @@ const SettingsPage = ({ onLogout, user }) => {
               </div>
             </div>
           </div>
+
+          {/* Form Field Edit Modal */}
+          {showFormFieldEditModal && (
+            <>
+              <div className="settings-modal-overlay" onClick={() => setShowFormFieldEditModal(false)}></div>
+              <div className="settings-modal">
+                <div className="settings-modal-header">
+                  <h3>Edit Field Name</h3>
+                  <button 
+                    className="settings-modal-close"
+                    onClick={() => setShowFormFieldEditModal(false)}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="settings-modal-body">
+                  <div className="settings-field-group">
+                    <label>Field Name</label>
+                    <input
+                      type="text"
+                      value={editingFormField.name}
+                      onChange={(e) => setEditingFormField(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Enter field name"
+                    />
+                  </div>
+                </div>
+                <div className="settings-modal-footer">
+                  <button 
+                    className="settings-modal-submit"
+                    onClick={handleFormFieldUpdate}
+                  >
+                    Update Field
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Grade Modal */}
+          {showGradeModal && (
+            <>
+              <div className="settings-modal-overlay" onClick={() => setShowGradeModal(false)}></div>
+              <div className="settings-modal">
+                <div className="settings-modal-header">
+                  <h3>{gradeModalData.isEditing ? 'Edit Grade' : 'Add New Grade'}</h3>
+                  <button 
+                    className="settings-modal-close"
+                    onClick={() => setShowGradeModal(false)}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="settings-modal-body">
+                  <div className="settings-field-group">
+                    <label>Grade Name</label>
+                    <input
+                      type="text"
+                      value={gradeModalData.name}
+                      onChange={(e) => setGradeModalData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Enter grade name"
+                    />
+                  </div>
+                </div>
+                <div className="settings-modal-footer">
+                  <button 
+                    className="settings-modal-submit"
+                    onClick={handleGradeSubmit}
+                  >
+                    {gradeModalData.isEditing ? 'Update Grade' : 'Add Grade'}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Source Modal */}
+          {showSourceModal && (
+            <>
+              <div className="settings-modal-overlay" onClick={() => setShowSourceModal(false)}></div>
+              <div className="settings-modal">
+                <div className="settings-modal-header">
+                  <h3>{sourceModalData.isEditing ? 'Edit Source' : 'Add New Source'}</h3>
+                  <button 
+                    className="settings-modal-close"
+                    onClick={() => setShowSourceModal(false)}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="settings-modal-body">
+                  <div className="settings-field-group">
+                    <label>Source Name</label>
+                    <input
+                      type="text"
+                      value={sourceModalData.name}
+                      onChange={(e) => setSourceModalData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Enter source name"
+                    />
+                  </div>
+                </div>
+                <div className="settings-modal-footer">
+                  <button 
+                    className="settings-modal-submit"
+                    onClick={handleSourceSubmit}
+                  >
+                    {sourceModalData.isEditing ? 'Update Source' : 'Add Source'}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Counsellor Modal */}
           {showCounsellorModal && (
@@ -1283,21 +1262,21 @@ const SettingsPage = ({ onLogout, user }) => {
                   </div>
 
                   <div className="settings-field-group">
-                  <label>
-                    <Image size={16} style={{ display: 'inline-block', marginRight: '8px' }} />
-                    Profile Image
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setSelectedProfileImage(e.target.files[0])}
-                  />
-                  {selectedProfileImage && (
-                    <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                      Selected: {selectedProfileImage.name}
-                    </div>
-                  )}
-                </div>
+                    <label>
+                      <Image size={16} style={{ display: 'inline-block', marginRight: '8px' }} />
+                      Profile Image
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setSelectedProfileImage(e.target.files[0])}
+                    />
+                    {selectedProfileImage && (
+                      <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                        Selected: {selectedProfileImage.name}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="settings-modal-footer">
                   <button 

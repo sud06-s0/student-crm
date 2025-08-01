@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSettingsData } from '../contexts/SettingsDataProvider';
 import { supabase } from '../lib/supabase';
-import { settingsService } from '../services/settingsService'; // ← NEW: Import for custom fields
+import { settingsService } from '../services/settingsService';
 import { 
   logAction,
   logMeetingScheduled,
@@ -16,10 +16,10 @@ import {
   FileText,
   Edit,
   ChevronDown,
-  Calendar
+  Calendar,
+  X // Added X icon for mobile close button
 } from 'lucide-react';
 import LeadStateProvider,{ useLeadState } from './LeadStateProvider';
-// Import the InfoTab component
 import InfoTab from './InfoTab';
 
 // Add debounce utility
@@ -96,6 +96,8 @@ const LeadSidebar = ({
     stageKeyToDataMapping
   } = useSettingsData();
 
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
 
@@ -111,30 +113,47 @@ const LeadSidebar = ({
   // Store original values for comparison
   const [originalFormData, setOriginalFormData] = useState({});
 
-  // ← NEW: Custom fields states
+  // Custom fields states
   const [customFieldsData, setCustomFieldsData] = useState({});
   const [originalCustomFieldsData, setOriginalCustomFieldsData] = useState({});
 
+  // Mobile detection effect
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Prevent body scroll when sidebar is open on mobile
+  useEffect(() => {
+    if (isMobile && showSidebar) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = 'auto';
+      };
+    }
+  }, [isMobile, showSidebar]);
+
   // Convert stage names to stage_keys for leads
   const getLeadStageKey = (leadStageValue) => {
-    // If the lead already has a stage_key, return it
     if (stageKeyToDataMapping[leadStageValue]) {
       return leadStageValue;
     }
     
-    // Otherwise, try to convert stage name to stage_key
     const stageKey = getStageKeyFromName(leadStageValue);
-    return stageKey || leadStageValue; // fallback to original value
+    return stageKey || leadStageValue;
   };
 
   // Get stage display name for UI
   const getLeadStageDisplayName = (leadStageValue) => {
-    // If it's a stage_key, get the display name
     if (stageKeyToDataMapping[leadStageValue]) {
       return getStageNameFromKey(leadStageValue);
     }
     
-    // Otherwise, it's probably already a stage name
     return leadStageValue;
   };
 
@@ -149,7 +168,7 @@ const LeadSidebar = ({
     return contextGetStageCategory(stageKey) || getCategoryFromStage?.(stageValue) || 'New';
   };
 
-  // ← NEW: Fetch custom fields for the selected lead
+  // Fetch custom fields for the selected lead
   const fetchCustomFields = async () => {
     if (!selectedLead?.id) return;
     
@@ -167,7 +186,7 @@ const LeadSidebar = ({
     }
   };
 
-  // ← NEW: Handle custom field changes
+  // Handle custom field changes
   const handleCustomFieldChange = (fieldKey, value) => {
     console.log('Custom field change:', fieldKey, value);
     setCustomFieldsData(prev => ({
@@ -185,7 +204,7 @@ const LeadSidebar = ({
         .from('follow_ups')
         .select('*')
         .eq('lead_id', selectedLead.id)
-        .order('follow_up_date', { ascending: false }); // Sort by date
+        .order('follow_up_date', { ascending: false });
 
       if (error) throw error;
       setFollowUpData(data || []);
@@ -212,11 +231,9 @@ const LeadSidebar = ({
 
       if (error) throw error;
 
-      // Clear form
       setFollowUpDate('');
       setFollowUpDetails('');
       
-      // Refresh follow-ups
       fetchFollowUps();
       
     } catch (error) {
@@ -225,10 +242,9 @@ const LeadSidebar = ({
     }
   };
 
-  // ← UPDATED: Update original form data when selectedLead changes - NOW INCLUDES CUSTOM FIELDS
+  // Update original form data when selectedLead changes
   useEffect(() => {
     if (selectedLead) {
-      // Store original form data for comparison
       setOriginalFormData({
         parentsName: selectedLead.parentsName || '',
         kidsName: selectedLead.kidsName || '',
@@ -252,12 +268,12 @@ const LeadSidebar = ({
         enrolled: selectedLead.enrolled || ''
       });
       
-      // ← NEW: Fetch custom fields when lead changes
+      // Fetch custom fields when lead changes
       fetchCustomFields();
     }
   }, [selectedLead, settingsData]);
 
-  // New History
+  // Fetch history
   const fetchHistory = async () => {
     if (!selectedLead?.id) return;
     
@@ -267,7 +283,7 @@ const LeadSidebar = ({
         .select('*')
         .eq('record_id', selectedLead.id.toString())
         .order('action_timestamp', { ascending: false })
-        .limit(50); // Only get recent 50 entries
+        .limit(50);
 
       if (error) throw error;
       setHistoryData(data || []);
@@ -298,15 +314,12 @@ const LeadSidebar = ({
       console.log('=== STAGE CHANGE ===');
       console.log('New stage value:', newStageValue);
       
-      // Check if this is a stage name or stage_key
       let stageKeyToStore, stageNameToDisplay;
       
       if (stageKeyToDataMapping[newStageValue]) {
-        // It's a stage_key
         stageKeyToStore = newStageValue;
         stageNameToDisplay = getStageNameFromKey(newStageValue);
       } else {
-        // It's a stage name, convert to stage_key
         stageKeyToStore = getStageKeyFromName(newStageValue);
         stageNameToDisplay = newStageValue;
       }
@@ -314,18 +327,13 @@ const LeadSidebar = ({
       console.log('Stage key to store:', stageKeyToStore);
       console.log('Stage name to display:', stageNameToDisplay);
       
-      // Update the sidebar form data with stage_key for internal consistency
-      // but use stage name for display compatibility
       onFieldChange('stage', stageKeyToStore || newStageValue);
       
-      // Close dropdown
       setStageDropdownOpen(false);
       
-      // Call the stage-specific update function if provided
       if (onStageChange) {
         await onStageChange(selectedLead.id, stageKeyToStore || newStageValue);
         
-        // Refresh history
         if (activeTab === 'history') {
           fetchHistory();
         }
@@ -336,10 +344,9 @@ const LeadSidebar = ({
     }
   };
 
-  // ← UPDATED: Update function with logging and enhanced field support + CUSTOM FIELDS
+  // Update function with logging and enhanced field support + CUSTOM FIELDS
   const handleUpdateAllFields = async () => {
     try {
-      // Track all changes before calling parent update
       const changes = {};
       
       // Compare each standard field and track changes
@@ -355,13 +362,12 @@ const LeadSidebar = ({
         }
       });
 
-      // ← NEW: Compare custom fields and track changes
+      // Compare custom fields and track changes
       Object.keys(customFieldsData).forEach(fieldKey => {
         const oldValue = originalCustomFieldsData[fieldKey];
         const newValue = customFieldsData[fieldKey];
         
         if (oldValue !== newValue) {
-          // Find the field definition to get the display name
           const fieldDef = settingsData?.form_fields?.find(f => 
             (f.field_key && f.field_key === fieldKey) || 
             f.name.toLowerCase().replace(/[^a-z0-9]/g, '') === fieldKey
@@ -375,14 +381,13 @@ const LeadSidebar = ({
         }
       });
 
-      // ← NEW: Save custom fields to database
+      // Save custom fields to database
       if (Object.keys(customFieldsData).some(key => customFieldsData[key] !== originalCustomFieldsData[key])) {
         try {
           console.log('Saving custom fields:', customFieldsData);
           await settingsService.saveCustomFieldsForLead(selectedLead.id, customFieldsData);
           console.log('Custom fields saved successfully');
           
-          // Update original custom fields data for future comparisons
           setOriginalCustomFieldsData({ ...customFieldsData });
         } catch (error) {
           console.error('Error saving custom fields:', error);
@@ -463,7 +468,7 @@ const LeadSidebar = ({
     };
   }, [stageDropdownOpen]);
 
-  // ← UPDATED: Fetch data based on active tab
+  // Fetch data based on active tab
   useEffect(() => {
     if (selectedLead?.id) {
       if (activeTab === 'history') {
@@ -471,21 +476,42 @@ const LeadSidebar = ({
       } else if (activeTab === 'followup') {
         fetchFollowUps();
       } else if (activeTab === 'info') {
-        // ← NEW: Fetch custom fields when switching to info tab
         fetchCustomFields();
       }
     }
   }, [selectedLead?.id, activeTab]);
 
-  // Refresh history when lead data changes (for updates from AddLeadForm)
+  // Refresh history when lead data changes
   useEffect(() => {
     if (selectedLead?.id && activeTab === 'history') {
-      // Small delay to ensure database changes are committed
       setTimeout(() => {
         fetchHistory();
       }, 500);
     }
   }, [selectedLead?.id, selectedLead?.stage, selectedLead?.phone, selectedLead?.email]);
+
+  // Handle mobile close with swipe gesture (optional enhancement)
+  const handleTouchStart = useCallback((e) => {
+    if (!isMobile) return;
+    const touchStartX = e.touches[0].clientX;
+    
+    const handleTouchMove = (e) => {
+      const touchCurrentX = e.touches[0].clientX;
+      const diff = touchCurrentX - touchStartX;
+      
+      // If swiped right more than 50px, close sidebar
+      if (diff > 50) {
+        onClose();
+        document.removeEventListener('touchmove', handleTouchMove);
+      }
+    };
+    
+    document.addEventListener('touchmove', handleTouchMove, { passive: true });
+    
+    setTimeout(() => {
+      document.removeEventListener('touchmove', handleTouchMove);
+    }, 1000);
+  }, [isMobile, onClose]);
 
   if (!showSidebar) return null;
 
@@ -498,15 +524,21 @@ const LeadSidebar = ({
 
   return (
     <>
-      <div className="lead-sidebar-overlay" onClick={onClose}></div>
-      <div className="lead-sidebar" style={{display: 'block'}}>
+      {/* Overlay - only show on desktop */}
+      {!isMobile && <div className="lead-sidebar-overlay" onClick={onClose}></div>}
+      
+      <div 
+        className="lead-sidebar" 
+        style={{display: 'block'}}
+        onTouchStart={handleTouchStart}
+      >
         {/* Header with Parent Name */}
         <div className="lead-sidebar-header">
           <h5 className="lead-sidebar-title">
             {selectedLead?.parentsName}
           </h5>
           <button onClick={onClose} className="lead-sidebar-close-btn">
-            ×
+            {isMobile ? <X size={18} /> : '×'}
           </button>
         </div>
         
@@ -515,11 +547,11 @@ const LeadSidebar = ({
           Created {selectedLead?.createdTime}
         </div>
         
-        {/* Light Border */}
+        {/* Light Border - hidden on mobile */}
         <div className="lead-sidebar-divider"></div>
         
         <div className="lead-sidebar-content">
-          {/* Two Column Layout */}
+          {/* Two Column Layout - becomes single column on mobile */}
           <div className="lead-sidebar-two-column">
             {/* Left Column */}
             <div className="lead-sidebar-left-column">
@@ -582,7 +614,7 @@ const LeadSidebar = ({
                   >
                     <span>{currentStageDisplayName}</span>
                     <ChevronDown 
-                      size={12} 
+                      size={isMobile ? 16 : 12} 
                       style={{ 
                         transform: stageDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                         transition: 'transform 0.2s ease'
@@ -596,7 +628,6 @@ const LeadSidebar = ({
                       className="lead-sidebar-stage-dropdown-menu"
                     >
                       {stages.map((stage, index) => {
-                        // Handle both stage name and stage_key
                         const stageKey = getStageKeyFromName(stage.value) || stage.value;
                         const stageName = stage.label;
                         
@@ -605,15 +636,9 @@ const LeadSidebar = ({
                             key={stage.value}
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleStageChange(stageKey); // Pass stage_key instead of stage name
+                              handleStageChange(stageKey);
                             }}
                             className="lead-sidebar-stage-item"
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = '#f8f9fa';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = 'white';
-                            }}
                           >
                             <span 
                               className="lead-sidebar-stage-dot"
@@ -672,19 +697,22 @@ const LeadSidebar = ({
                 onClick={() => setActiveTab('info')}
                 className={`lead-sidebar-tab-button ${activeTab === 'info' ? 'active' : ''}`}
               >
-                <Clipboard size={16} /> Info
+                <Clipboard size={isMobile ? 18 : 16} /> 
+                {isMobile ? 'Info' : 'Info'}
               </button>
               <button 
                 onClick={() => setActiveTab('followup')}
                 className={`lead-sidebar-tab-button ${activeTab === 'followup' ? 'active' : ''}`}
               >
-                <Calendar size={16} /> Follow Up
+                <Calendar size={isMobile ? 18 : 16} /> 
+                {isMobile ? 'Follow Up' : 'Follow Up'}
               </button>
               <button 
                 onClick={() => setActiveTab('history')}
                 className={`lead-sidebar-tab-button ${activeTab === 'history' ? 'active' : ''}`}
               >
-                <FileText size={16} /> History
+                <FileText size={isMobile ? 18 : 16} /> 
+                {isMobile ? 'History' : 'History'}
               </button>
             </div>
           </div>
@@ -698,8 +726,8 @@ const LeadSidebar = ({
               onFieldChange={onFieldChange}
               settingsData={settingsData}
               getFieldLabel={getFieldLabel}
-              customFieldsData={customFieldsData} // ← NEW: Pass custom fields data
-              onCustomFieldChange={handleCustomFieldChange} // ← NEW: Pass custom field handler
+              customFieldsData={customFieldsData}
+              onCustomFieldChange={handleCustomFieldChange}
             />
           )}
 
@@ -884,7 +912,7 @@ const LeadSidebar = ({
                   onClick={onEditModeToggle}
                   className="lead-sidebar-update-button"
                 >
-                  <Edit size={16} /> Update
+                  <Edit size={isMobile ? 18 : 16} /> Update
                 </button>
               ) : (
                 <div className="lead-sidebar-update-buttons">

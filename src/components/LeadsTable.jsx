@@ -7,10 +7,11 @@ import LeftSidebar from './LeftSidebar';
 import LeadSidebar from './LeadSidebar';
 import DeleteConfirmationDialog from './DeleteConfirmationDialog';
 import MeToggle from './MeToggle';
-import { FilterButton, applyFilters } from './FilterDropdown';
+import FilterDropdown, { FilterButton, applyFilters } from './FilterDropdown';
 import LeadStateProvider,{ useLeadState } from './LeadStateProvider';
 import SettingsDataProvider, { useSettingsData } from '../contexts/SettingsDataProvider';
 import ImportLeadsModal from './ImportLeadsModal';
+import MobileHeaderDropdown from './MobileHeaderDropdown';
 import { 
   Search,
   Filter,
@@ -65,6 +66,9 @@ const LeadsTable = ({ onLogout, user }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   
+  const [isMobile, setIsMobile] = useState(false);
+
+
   // Search functionality states
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -877,6 +881,23 @@ const LeadsTable = ({ onLogout, user }) => {
 
   const displayLeads = getDisplayLeads();
 
+  // Format phone for mobile display (remove +91 prefix)
+  const formatPhoneForMobile = (phone) => {
+    if (!phone) return '';
+    return phone.replace('+91', '').trim();
+  };
+
+  // Check if screen is mobile (optional - for conditional rendering)
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Show loading if either leads or settings are loading
   if (loading || settingsLoading) {
     return (
@@ -963,61 +984,88 @@ const LeadsTable = ({ onLogout, user }) => {
               </button>
             )}
           </div>
-          <div className="header-right">
-            <div className="search-container">
-              <Search size={16} className="search-icon" />
-              <input
-                type="text"
-                placeholder="Search leads..."
-                value={searchTerm}
-                onChange={handleSearchChange}
-                className="search-input"
-              />
-            </div>
-            <FilterButton
-              showFilter={showFilter}
-              setShowFilter={setShowFilter}
-              counsellorFilters={counsellorFilters}
-              stageFilters={stageFilters}
-              statusFilters={statusFilters}  
-              setCounsellorFilters={setCounsellorFilters}
-              setStageFilters={setStageFilters}
-              setStatusFilters={setStatusFilters}
-              settingsData={settingsData} 
-              getFieldLabel={getFieldLabel} // ← NEW
-              getStageKeyFromName={getStageKeyFromName} // ← NEW
-              getStageDisplayName={getStageDisplayName} // ← NEW
-            />
-            <button 
-              className="import-leads-btn" 
-              onClick={handleShowImportModal}
-              title="Import Leads"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '40px',
-                height: '40px',
-                backgroundColor: '#10b981',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#059669';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = '#10b981';
-              }}
-            >
-              <Plus size={20} />
-            </button>
-            <button className="add-lead-btn" onClick={handleShowAddForm}>
-              + Add Lead
-            </button>
-          </div>
+      <div className="header-right">
+  {/* Desktop View - Original Layout */}
+  <div className="desktop-header-actions">
+    <div className="search-container">
+      <Search size={16} className="search-icon" />
+      <input
+        type="text"
+        placeholder="Search leads..."
+        value={searchTerm}
+        onChange={handleSearchChange}
+        className="search-input"
+      />
+    </div>
+    <FilterButton
+      showFilter={showFilter}
+      setShowFilter={setShowFilter}
+      counsellorFilters={counsellorFilters}
+      stageFilters={stageFilters}
+      statusFilters={statusFilters}  
+      setCounsellorFilters={setCounsellorFilters}
+      setStageFilters={setStageFilters}
+      setStatusFilters={setStatusFilters}
+      settingsData={settingsData} 
+      getFieldLabel={getFieldLabel}
+      getStageKeyFromName={getStageKeyFromName}
+      getStageDisplayName={getStageDisplayName}
+    />
+    <button 
+      className="import-leads-btn" 
+      onClick={handleShowImportModal}
+      title="Import Leads"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '40px',
+        height: '40px',
+        backgroundColor: '#10b981',
+        color: 'white',
+        border: 'none',
+        borderRadius: '6px',
+        cursor: 'pointer',
+        transition: 'all 0.2s'
+      }}
+      onMouseEnter={(e) => {
+        e.target.style.backgroundColor = '#059669';
+      }}
+      onMouseLeave={(e) => {
+        e.target.style.backgroundColor = '#10b981';
+      }}
+    >
+      <Plus size={20} />
+    </button>
+    <button className="add-lead-btn" onClick={handleShowAddForm}>
+      + Add Lead
+    </button>
+  </div>
+
+  {/* Mobile View - Dropdown */}
+  <div className="mobile-header-actions">
+    <MobileHeaderDropdown
+      searchTerm={searchTerm}
+      onSearchChange={handleSearchChange}
+      showFilter={showFilter}
+      setShowFilter={setShowFilter}
+      counsellorFilters={counsellorFilters}
+      stageFilters={stageFilters}
+      statusFilters={statusFilters}
+      setCounsellorFilters={setCounsellorFilters}
+      setStageFilters={setStageFilters}
+      setStatusFilters={setStatusFilters}
+      settingsData={settingsData}
+      getFieldLabel={getFieldLabel}
+      getStageKeyFromName={getStageKeyFromName}
+      getStageDisplayName={getStageDisplayName}
+      onShowImportModal={handleShowImportModal}
+      onShowAddForm={handleShowAddForm}
+      FilterButton={FilterButton}
+    />
+  </div>
+</div>
+
         </div>
 
         {/* Error Display */}
@@ -1041,12 +1089,12 @@ const LeadsTable = ({ onLogout, user }) => {
                   />
                 </th>
                 <th>ID</th>
-                <th>{getFieldLabel('parentsName')}</th> {/* ← Dynamic field label */}
-                <th>{getFieldLabel('phone')}</th> {/* ← Dynamic field label */}
-                <th>{getFieldLabel('grade')}</th> {/* ← Dynamic field label */}
-                <th>{getFieldLabel('stage')}</th> {/* ← Dynamic field label */}
-                <th>Status</th>
-                <th>{getFieldLabel('counsellor')}</th> {/* ← Dynamic field label */}
+                <th>Parent</th> {/* Shortened for mobile */}
+                <th>Phone</th>
+                <th className="desktop-only">{getFieldLabel('grade')}</th> {/* Will be hidden on mobile */}
+                <th>Stage</th>
+                <th className="desktop-only">Status</th> {/* Will be hidden on mobile */}
+                <th className="desktop-only">{getFieldLabel('counsellor')}</th> {/* Will be hidden on mobile */}
                 <th>Alert</th>
               </tr>
             </thead>
@@ -1056,7 +1104,7 @@ const LeadsTable = ({ onLogout, user }) => {
                   <tr 
                     key={lead.id} 
                     onClick={() => openSidebar(lead)} 
-                    className="table-row"
+                    className="table-row mobile-tap-row"
                   >
                     <td>
                       <input 
@@ -1078,7 +1126,7 @@ const LeadsTable = ({ onLogout, user }) => {
                         <div className="kid-name">{lead.kidsName}</div>
                       </div>
                     </td>
-                    <td>{lead.phone?.replace('+91', '')}</td>
+                    <td>{formatPhoneForMobile(lead.phone)}</td>
                     <td>{lead.grade}</td>
                     <td>
                       <div className="stage-dropdown-container" style={{ position: 'relative', width: '100%' }}>

@@ -460,4 +460,6 @@ export const FilterButton = ({
   </div>
 );
 
+// Export FilterDropdown as both default and named export
+export { FilterDropdown };
 export default FilterDropdown;
