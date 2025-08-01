@@ -4407,6 +4407,14 @@
     border-radius: 8px;
     border: 1px solid #f3f4f6;
   }
+
+  .dashboard-date-input{
+    width:-webkit-fill-available;
+  }
+
+  .dashboard-date-input-group{
+    width:-webkit-fill-available;
+  }
 }
 
 /* Tablet - keep desktop layout but adjust spacing */

@@ -41,6 +41,10 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     isActive: false
   });
   const [selectedMetric, setSelectedMetric] = useState('admission');
+  
+  // NEW: Mobile navigation state
+  const [isMobile, setIsMobile] = useState(false);
+  const [currentBarIndex, setCurrentBarIndex] = useState(0);
 
   // ← COPIED FROM LEADSIDEBAR: Get dynamic stages with stage_key support
   const stages = useMemo(() => {
@@ -52,6 +56,18 @@ const CounsellorPerformance = ({ onLogout, user }) => {
       category: stage.status || 'New'
     }));
   }, [settingsData.stages]);
+
+  // NEW: Mobile detection effect
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // ← COPIED EXACTLY FROM LEADSIDEBAR: Stage key conversion functions
   const getLeadStageKey = (leadStageValue) => {
@@ -73,16 +89,6 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     
     // Otherwise, it's probably already a stage name
     return leadStageValue;
-  };
-
-  const getStageColorForLead = (stageValue) => {
-    const stageKey = getLeadStageKey(stageValue);
-    return contextGetStageColor(stageKey) || '#B3D7FF';
-  };
-
-  const getStageCategoryForLead = (stageValue) => {
-    const stageKey = getLeadStageKey(stageValue);
-    return contextGetStageCategory(stageKey) || 'New';
   };
 
   // ← COPIED FROM LEADSIDEBAR: Convert database record to UI format with stage_key support
@@ -169,7 +175,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     const processedData = rawLeadsData.map(convertDatabaseToUI);
     console.log('Processed leads count:', processedData.length);
     return processedData;
-  }, [rawLeadsData, settingsData, stageKeyToDataMapping]);
+  }, [rawLeadsData, settingsData, stageKeyToDataMapping, getLeadStageKey, getLeadStageDisplayName]);
 
   // Fetch leads function - only fetches raw data
   const fetchLeads = async () => {
@@ -307,11 +313,11 @@ const CounsellorPerformance = ({ onLogout, user }) => {
       ...stats,
       conversionRate: stats.totalLeads > 0 ? ((stats.admission || 0) / stats.totalLeads * 100).toFixed(0) : 0
     })).filter(counsellor => {
-  // Only show counsellors that exist in settings
-  const validCounsellors = settingsData?.counsellors?.map(c => c.name) || [];
-  return validCounsellors.includes(counsellor.name);
-}).sort((a, b) => b.conversionRate - a.conversionRate);
-  }, [getFilteredLeadsByDate, performanceStages, getLeadStageKey]);
+      // Only show counsellors that exist in settings
+      const validCounsellors = settingsData?.counsellors?.map(c => c.name) || [];
+      return validCounsellors.includes(counsellor.name);
+    }).sort((a, b) => b.conversionRate - a.conversionRate);
+  }, [getFilteredLeadsByDate, performanceStages, getLeadStageKey, settingsData?.counsellors]);
 
   // Get top performer
   const topPerformer = useMemo(() => {
@@ -319,15 +325,42 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     return counsellorData[0];
   }, [counsellorData]);
 
-  // Prepare bar chart data
+  // UPDATED: Prepare bar chart data with mobile support
   const barChartData = useMemo(() => {
-    return counsellorData.map(counsellor => ({
+    const fullData = counsellorData.map(counsellor => ({
       name: counsellor.name.split(' ')[0],
       value: counsellor[selectedMetric] || 0,
       fullName: counsellor.name,
       metric: selectedMetric
     }));
-  }, [counsellorData, selectedMetric]);
+    
+    // On mobile, show only one bar at a time
+    if (isMobile && fullData.length > 0) {
+      return [fullData[currentBarIndex] || fullData[0]];
+    }
+    
+    return fullData;
+  }, [counsellorData, selectedMetric, isMobile, currentBarIndex]);
+
+  // NEW: Navigation functions for mobile
+  const goToPreviousBar = () => {
+    setCurrentBarIndex(prev => 
+      prev > 0 ? prev - 1 : counsellorData.length - 1
+    );
+  };
+
+  const goToNextBar = () => {
+    setCurrentBarIndex(prev => 
+      prev < counsellorData.length - 1 ? prev + 1 : 0
+    );
+  };
+
+  // Reset current bar index when counsellor data changes
+  useEffect(() => {
+    if (currentBarIndex >= counsellorData.length && counsellorData.length > 0) {
+      setCurrentBarIndex(0);
+    }
+  }, [counsellorData.length, currentBarIndex]);
 
   // ← UPDATED: Count function for sidebar using stage_key (EXACTLY like LeadSidebar)
   const getStageCount = (stageName) => {
@@ -522,7 +555,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
                         <div key={stage.key} className="counsellor-metric">
                           <div className="counsellor-metric-icon">
                             <img 
-                              src={stage.key === 'visitBooked' ? visitsDoneIcon : 
+                              src={stage.key === 'meetingDone' ? meetingsDoneIcon :
                                    stage.key === 'visitDone' ? visitsDoneIcon : 
                                    stage.key === 'registered' ? registeredIcon : 
                                    enrolledIcon} 
@@ -552,7 +585,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
 
           {/* Charts Section */}
           <div className="counsellor-charts-section">
-            {/* Success Rate Chart */}
+            {/* Success Rate Chart - UPDATED WITH MOBILE SUPPORT */}
             <div className="counsellor-chart-container">
               <h3 className="counsellor-chart-title">
                 Success Rate by {getFieldLabel('counsellor')}
@@ -575,14 +608,56 @@ const CounsellorPerformance = ({ onLogout, user }) => {
               
               {barChartData.length > 0 ? (
                 <>
+                  {/* NEW: Mobile Navigation Controls */}
+                  {isMobile && counsellorData.length > 1 && (
+                    <div className="mobile-chart-navigation">
+                      <button 
+                        onClick={goToPreviousBar}
+                        className="mobile-nav-btn"
+                        aria-label="Previous counsellor"
+                      >
+                        ←
+                      </button>
+                      
+                      <div className="mobile-chart-info">
+                        <span className="mobile-chart-counter">
+                          {currentBarIndex + 1} of {counsellorData.length}
+                        </span>
+                        <span className="mobile-chart-name">
+                          {counsellorData[currentBarIndex]?.name || 'N/A'}
+                        </span>
+                      </div>
+                      
+                      <button 
+                        onClick={goToNextBar}
+                        className="mobile-nav-btn"
+                        aria-label="Next counsellor"
+                      >
+                        →
+                      </button>
+                    </div>
+                  )}
+                  
                   <div className="counsellor-bar-chart">
-                    <ResponsiveContainer width="60%" height={300}>
-                      <BarChart data={barChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <ResponsiveContainer width="100%" height={isMobile ? 250 : 300}>
+                      <BarChart 
+                        data={barChartData} 
+                        margin={{ 
+                          top: 20, 
+                          right: 30, 
+                          left: 20, 
+                          bottom: isMobile ? 40 : 5 
+                        }}
+                      >
                         <XAxis 
                           dataKey="name" 
                           axisLine={false}
                           tickLine={false}
-                          style={{ fontSize: '12px', fontWeight: '500' }}
+                          style={{ 
+                            fontSize: isMobile ? '14px' : '12px', 
+                            fontWeight: '500' 
+                          }}
+                          interval={0} // Show all labels
                         />
                         <YAxis 
                           axisLine={false}
@@ -593,7 +668,11 @@ const CounsellorPerformance = ({ onLogout, user }) => {
                           dataKey="value" 
                           fill="#3B82F6" 
                           radius={[4, 4, 0, 0]}
-                          label={{ position: 'top', fontSize: 12, fontWeight: 'bold' }}
+                          label={{ 
+                            position: 'top', 
+                            fontSize: isMobile ? 14 : 12, 
+                            fontWeight: 'bold' 
+                          }}
                         />
                         <Tooltip content={<BarTooltip />} />
                       </BarChart>
@@ -602,6 +681,11 @@ const CounsellorPerformance = ({ onLogout, user }) => {
                   
                   <div className="counsellor-chart-footer">
                     Currently viewing: {getStageDisplayName(selectedMetric)} this month.
+                    {isMobile && counsellorData.length > 1 && (
+                      <div className="mobile-swipe-hint">
+                        Use navigation buttons to view other counsellors
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (
@@ -824,6 +908,88 @@ const CounsellorPerformance = ({ onLogout, user }) => {
           color: #1f2937;
         }
 
+        .counsellor-chart-controls {
+          margin-bottom: 16px;
+        }
+
+        .counsellor-metric-dropdown {
+          padding: 8px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 14px;
+          background: white;
+          color: #374151;
+          cursor: pointer;
+        }
+
+        .counsellor-metric-dropdown:focus {
+          outline: none;
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* NEW: Mobile navigation styles */
+        .mobile-chart-navigation {
+          display: none;
+          align-items: center;
+          justify-content: space-between;
+          margin: 16px 0;
+          padding: 12px;
+          background: #f9fafb;
+          border-radius: 8px;
+          border: 1px solid #e5e7eb;
+        }
+
+        .mobile-nav-btn {
+          background: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 18px;
+          font-weight: bold;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .mobile-nav-btn:hover {
+          background: #2563eb;
+        }
+
+        .mobile-nav-btn:active {
+          background: #1d4ed8;
+        }
+
+        .mobile-chart-info {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+        }
+
+        .mobile-chart-counter {
+          font-size: 12px;
+          color: #6b7280;
+          margin-bottom: 4px;
+        }
+
+        .mobile-chart-name {
+          font-size: 14px;
+          font-weight: 600;
+          color: #1f2937;
+        }
+
+        .mobile-swipe-hint {
+          font-size: 11px;
+          color: #9ca3af;
+          text-align: center;
+          margin-top: 8px;
+        }
+
         .counsellor-bar-chart {
           height: 300px;
           margin-bottom: 16px;
@@ -942,6 +1108,113 @@ const CounsellorPerformance = ({ onLogout, user }) => {
           font-size: 14px;
         }
 
+        .dashboard-date-filter-label {
+          font-size: 14px;
+          font-weight: 500;
+          color: #374151;
+        }
+
+        .dashboard-date-input-group {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .dashboard-date-label {
+          font-size: 12px;
+          color: #6b7280;
+        }
+
+        .dashboard-date-input {
+          padding: 8px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 14px;
+        }
+
+        .dashboard-submit-btn,
+        .dashboard-clear-btn {
+          padding: 8px 16px;
+          border: none;
+          border-radius: 6px;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+
+        .dashboard-submit-btn {
+          background: #3b82f6;
+          color: white;
+        }
+
+        .dashboard-submit-btn:hover {
+          background: #2563eb;
+        }
+
+        .dashboard-clear-btn {
+          background: #ef4444;
+          color: white;
+        }
+
+        .dashboard-clear-btn:hover {
+          background: #dc2626;
+        }
+
+        .dashboard-date-info {
+          font-size: 14px;
+          color: #6b7280;
+          text-align: center;
+          margin-top: 16px;
+          padding: 12px;
+          background: #f0f9ff;
+          border-radius: 6px;
+          border: 1px solid #bae6fd;
+        }
+
+        .dashboard-no-data {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 50vh;
+          text-align: center;
+        }
+
+        .dashboard-no-data-title {
+          font-size: 18px;
+          font-weight: 600;
+          color: #374151;
+          margin-bottom: 8px;
+        }
+
+        .dashboard-no-data-subtitle {
+          font-size: 14px;
+          color: #6b7280;
+        }
+
+        .dashboard-pie-tooltip {
+          background: white;
+          border: 1px solid #e5e7eb;
+          border-radius: 6px;
+          padding: 8px 12px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .dashboard-pie-tooltip-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: #1f2937;
+          margin: 0 0 4px 0;
+        }
+
+        .dashboard-pie-tooltip-value {
+          font-size: 13px;
+          color: #6b7280;
+          margin: 0;
+        }
+
+        /* Mobile Responsive Styles */
         @media (max-width: 768px) {
           .counsellor-charts-section {
             grid-template-columns: 1fr;
@@ -949,6 +1222,67 @@ const CounsellorPerformance = ({ onLogout, user }) => {
           
           .counsellor-cards-grid {
             grid-template-columns: 1fr;
+          }
+          
+          .counsellor-bar-chart {
+            height: 250px;
+            margin-bottom: 8px;
+          }
+          
+          .counsellor-chart-container {
+            padding: 16px;
+          }
+          
+          .mobile-chart-navigation {
+            display: flex;
+          }
+
+          .dashboard-date-filter {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+          }
+
+          .dashboard-date-filter .dashboard-date-input-group {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+          }
+
+          .dashboard-date-label {
+            min-width: 40px;
+          }
+
+          .dashboard-overview {
+            padding: 16px;
+          }
+
+          .dashboard-title {
+            font-size: 20px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .counsellor-card {
+            padding: 12px;
+          }
+
+          .counsellor-name {
+            font-size: 14px;
+          }
+
+          .mobile-nav-btn {
+            width: 36px;
+            height: 36px;
+            font-size: 16px;
+          }
+
+          .mobile-chart-name {
+            font-size: 13px;
+          }
+
+          .mobile-chart-counter {
+            font-size: 11px;
           }
         }
       `}</style>
