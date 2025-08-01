@@ -154,7 +154,6 @@ const LeftSidebar = ({
           
           <a 
             href="/followup" 
-            target="_blank" 
             className={`nova-nav-item ${activeNavItem === "followup" ? "active" : ""}`}
             onClick={closeMobileMenu}
           >
