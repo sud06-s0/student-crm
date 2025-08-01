@@ -28,6 +28,7 @@ const LeftSidebar = ({
   
   // Check if user is admin
   const isAdmin = user?.role === 'admin';
+  console.log("activeNavItem:", activeNavItem);
   
   const handleLogout = async (e) => {
     e.preventDefault();
@@ -140,8 +141,7 @@ const LeftSidebar = ({
             Dashboard
           </a>
           
-          {/* ADMIN ONLY: Counsellor Performance */}
-          {isAdmin && (
+          
             <a 
               href="/counsellor-performance" 
               className={`nova-nav-item ${activeNavItem === "counsellor" ? "active" : ""}`}
@@ -150,17 +150,22 @@ const LeftSidebar = ({
               <TrendingUp size={18} className="nav-icon" />
               Counsellor Performance
             </a>
-          )}
+
+             <a 
+              href="/followup" 
+              className={`nova-nav-item ${activeNavItem === "followup" ? "active" : ""}`}
+              onClick={closeMobileMenu}
+            >
+              <TrendingUp size={18} className="nav-icon" />
+              Follow Up
+            </a>
           
-          <a 
-            href="/followup" 
-            className={`nova-nav-item ${activeNavItem === "followup" ? "active" : ""}`}
-            onClick={closeMobileMenu}
-          >
-            <MessageCircle size={18} className="nav-icon" />
-            Follow Up
-          </a>
+          
+          
+          
         </nav>
+        
+
 
         {/* All Leads Section */}
         <div className="nova-all-leads">

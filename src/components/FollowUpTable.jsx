@@ -895,8 +895,8 @@ const FollowUpTable = ({ onLogout, user }) => {
     <div className="nova-crm" style={{ fontFamily: 'Inter, sans-serif' }}>
       {/* Left Sidebar */}
       <LeftSidebar 
-        activeNavItem="leads"
-        activeSubmenuItem="followup"
+        activeNavItem="followup"
+        activeSubmenuItem=""
         stages={stages}
         getStageCount={getStageCount}
         stagesTitle="Stages"

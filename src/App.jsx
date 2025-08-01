@@ -105,10 +105,6 @@ function App() {
                 element={<Dashboard onLogout={handleLogout} user={user} />} 
               />
 
-              <Route 
-                path="/followup" 
-                element={<FollowUpTable onLogout={handleLogout} user={user} />} 
-              />
               
               <Route path="/" element={<Navigate to="/all-leads" replace />} />
               <Route 
@@ -139,6 +135,11 @@ function App() {
                   path="/counsellor-performance" 
                   element={<CounsellorPerformance onLogout={handleLogout} user={user} />} 
                 />
+              
+              <Route 
+                path="/followup" 
+                element={<FollowUpTable onLogout={handleLogout} user={user} />} 
+              />
               
               
               
