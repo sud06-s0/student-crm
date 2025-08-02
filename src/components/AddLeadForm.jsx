@@ -232,9 +232,9 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
       newErrors.phone = `${getFieldLabel('phone')} must be exactly 10 digits`;
     }
 
-    // ← NEW: Secondary phone validation (optional but must be valid if provided)
+    // ← UPDATED: Secondary phone validation with dynamic label
     if (formData.secondPhone && formData.secondPhone.length !== 10) {
-      newErrors.secondPhone = 'Secondary phone must be exactly 10 digits';
+      newErrors.secondPhone = `${getFieldLabel('secondPhone')} must be exactly 10 digits`;
     }
 
     // Email validation (optional but must be valid if provided)
@@ -405,9 +405,9 @@ const handleSubmit = async (e) => {
                   </div>
                 </div>
 
-                {/* ← NEW: Secondary Phone Number */}
+                {/* ← UPDATED: Secondary Phone Number with dynamic label from settings */}
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">Secondary Phone</label>
+                  <label className="form-label">{getFieldLabel('secondPhone')}</label>
                   <div className="input-group">
                     <span className="input-group-text">+91</span>
                     <input
@@ -416,7 +416,7 @@ const handleSubmit = async (e) => {
                       name="secondPhone"
                       value={formData.secondPhone}
                       onChange={handleInputChange}
-                      placeholder="Enter 10-digit number (optional)"
+                      placeholder={`Enter 10-digit ${getFieldLabel('secondPhone').toLowerCase()} (optional)`}
                       maxLength="10"
                       disabled={loading}
                     />

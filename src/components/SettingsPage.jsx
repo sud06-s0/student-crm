@@ -11,9 +11,7 @@ import {
   Loader2,
   User,
   Mail,
-  Phone,
-  Lock,
-  Image
+  Lock
 } from 'lucide-react';
 import LeftSidebar from './LeftSidebar';
 import { settingsService } from '../services/settingsService';
@@ -80,17 +78,14 @@ const SettingsPage = ({ onLogout, user }) => {
     isEditing: false
   });
 
-  // Counsellor Modal States
+  // ← UPDATED: Counsellor Modal States (removed phone and profileImage)
   const [showCounsellorModal, setShowCounsellorModal] = useState(false);
   const [counsellorFormData, setCounsellorFormData] = useState({
     name: '',
     email: '',
-    password: '',
-    phone: '',
-    profileImage: ''
+    password: ''
   });
 
-  const [selectedProfileImage, setSelectedProfileImage] = useState(null);
   const [editingCounsellor, setEditingCounsellor] = useState(null);
   const [counsellorSubmitting, setCounsellorSubmitting] = useState(false);
 
@@ -292,14 +287,12 @@ const SettingsPage = ({ onLogout, user }) => {
     }
   };
 
-  // Counsellor Management Functions
+  // ← UPDATED: Counsellor Management Functions (removed phone and profile image)
   const openAddCounsellorModal = () => {
     setCounsellorFormData({
       name: '',
       email: '',
-      password: '',
-      phone: '',
-      profileImage: ''
+      password: ''
     });
     setEditingCounsellor(null);
     setShowCounsellorModal(true);
@@ -314,18 +307,14 @@ const SettingsPage = ({ onLogout, user }) => {
         setCounsellorFormData({
           name: counsellorWithUser.users.full_name || counsellorWithUser.name,
           email: counsellorWithUser.users.email || '',
-          password: '', // Always empty for edit
-          phone: counsellorWithUser.users.phone || '',
-          profileImage: counsellorWithUser.users.profile_image_url || ''
+          password: '' // Always empty for edit
         });
       } else {
         // Fallback for counsellors without linked users
         setCounsellorFormData({
           name: counsellor.name,
           email: '',
-          password: '',
-          phone: '',
-          profileImage: ''
+          password: ''
         });
       }
       
@@ -371,13 +360,10 @@ const SettingsPage = ({ onLogout, user }) => {
 
       await loadSettings();
       setShowCounsellorModal(false);
-      setSelectedProfileImage(null);
       setCounsellorFormData({
         name: '',
         email: '',
-        password: '',
-        phone: '',
-        profileImage: ''
+        password: ''
       });
       setEditingCounsellor(null);
 
@@ -389,12 +375,13 @@ const SettingsPage = ({ onLogout, user }) => {
     }
   };
 
+  // ← UPDATED: Counsellor deletion now updates leads to "Not Assigned"
   const removeCounsellor = async (counsellorId) => {
-    if (window.confirm('Are you sure you want to delete this counsellor? This will also delete their user account.')) {
+    if (window.confirm('Are you sure you want to delete this counsellor? All leads assigned to this counsellor will be changed to "Not Assigned".')) {
       try {
         await settingsService.deleteCounsellorWithUser(counsellorId);
         await loadSettings();
-        alert('Counsellor and user account deleted successfully!');
+        alert('Counsellor deleted successfully! All their assigned leads have been changed to "Not Assigned".');
       } catch (error) {
         console.error('Error deleting counsellor:', error);
         alert('Error deleting counsellor: ' + error.message);
@@ -1191,7 +1178,7 @@ const SettingsPage = ({ onLogout, user }) => {
             </>
           )}
 
-          {/* Counsellor Modal */}
+          {/* ← UPDATED: Counsellor Modal (removed phone and profile image fields) */}
           {showCounsellorModal && (
             <>
               <div className="settings-modal-overlay" onClick={() => setShowCounsellorModal(false)}></div>
@@ -1246,36 +1233,6 @@ const SettingsPage = ({ onLogout, user }) => {
                       placeholder={editingCounsellor ? "Enter new password" : "Enter password"}
                       required={!editingCounsellor}
                     />
-                  </div>
-
-                  <div className="settings-field-group">
-                    <label>
-                      <Phone size={16} style={{ display: 'inline-block', marginRight: '8px' }} />
-                      Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      value={counsellorFormData.phone}
-                      onChange={(e) => setCounsellorFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      placeholder="Enter phone number (optional)"
-                    />
-                  </div>
-
-                  <div className="settings-field-group">
-                    <label>
-                      <Image size={16} style={{ display: 'inline-block', marginRight: '8px' }} />
-                      Profile Image
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setSelectedProfileImage(e.target.files[0])}
-                    />
-                    {selectedProfileImage && (
-                      <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                        Selected: {selectedProfileImage.name}
-                      </div>
-                    )}
                   </div>
                 </div>
                 <div className="settings-modal-footer">

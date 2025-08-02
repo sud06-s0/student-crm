@@ -283,9 +283,9 @@ const InfoTab = ({
               )}
             </div>
 
-            {/* ← NEW: Secondary Phone Number */}
+            {/* ← FIXED: Secondary Phone Number with dynamic label from settings */}
             <div className="lead-sidebar-form-row">
-              <label className="lead-sidebar-form-label">Secondary Phone</label>
+              <label className="lead-sidebar-form-label">{getFieldLabel('secondPhone')}</label>
               {!isEditingMode ? (
                 <div className="lead-sidebar-field-value">
                   {selectedLead?.secondPhone || sidebarFormData.secondPhone || ''}
@@ -305,7 +305,7 @@ const InfoTab = ({
                     type="text" 
                     value={formatPhoneForDisplay(sidebarFormData.secondPhone || selectedLead?.secondPhone || '')} 
                     onChange={(e) => handlePhoneChange('secondPhone', e.target.value)}
-                    placeholder="Enter 10-digit number (optional)"
+                    placeholder={`Enter 10-digit ${getFieldLabel('secondPhone').toLowerCase()} (optional)`}
                     maxLength="10"
                     className="lead-sidebar-form-input"
                     style={{ borderLeft: 'none' }}

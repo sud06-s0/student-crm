@@ -107,13 +107,20 @@ const LeadStateProvider = ({ children, user }) => { // ← NEW: Accept user prop
     updateLead(leadId, updateFields);
   }, [updateLead]);
 
-  // ← UPDATED: Handle complete lead updates with field_key and stage_key support
+  // ← UPDATED: Handle complete lead updates with field_key and stage_key support + FIXED secondPhone
   const updateCompleteLeadData = useCallback((leadId, formData, getScoreFromStage, getCategoryFromStage, getStageKeyFromName, getStageDisplayName) => {
     // Format phone number properly
     let formattedPhone = formData.phone;
     if (formattedPhone && !formattedPhone.startsWith('+91')) {
       formattedPhone = formattedPhone.replace(/^\+91/, '');
       formattedPhone = `+91${formattedPhone}`;
+    }
+
+    // ← NEW: Format secondary phone number properly
+    let formattedSecondPhone = formData.secondPhone;
+    if (formattedSecondPhone && !formattedSecondPhone.startsWith('+91')) {
+      formattedSecondPhone = formattedSecondPhone.replace(/^\+91/, '');
+      formattedSecondPhone = `+91${formattedSecondPhone}`;
     }
 
     // ← NEW: Handle stage_key conversion
@@ -132,12 +139,13 @@ const LeadStateProvider = ({ children, user }) => { // ← NEW: Accept user prop
       }
     }
 
-    // ← UPDATED: Complete field mapping with field_key support
+    // ← UPDATED: Complete field mapping with field_key support + ADDED secondPhone
     const updatedFields = {
       // ← Core identity fields (field_key: parentsName, kidsName, phone, email)
       parentsName: formData.parentsName,
       kidsName: formData.kidsName, 
       phone: formattedPhone,
+      secondPhone: formattedSecondPhone, // ← NEW: Added secondPhone field support
       email: formData.email,
 
       // ← Basic lead fields (field_key: grade, source, counsellor)  

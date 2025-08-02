@@ -23,6 +23,7 @@ const SettingsDataProvider = ({ children }) => {
     formFields: []
   });
 
+  // ← UPDATED: Added secondPhone to field labels
   const [fieldLabels, setFieldLabels] = useState({
     // Static fields (never change their labels)
     parentsName: 'Parents Name',
@@ -35,6 +36,7 @@ const SettingsDataProvider = ({ children }) => {
     source: 'Source',
     
     // Dynamic fields (labels can change based on settings)
+    secondPhone: 'Second Phone', // ← NEW: Added secondPhone
     offer: 'Offer',
     occupation: 'Occupation',
     location: 'Location',
@@ -97,13 +99,13 @@ const SettingsDataProvider = ({ children }) => {
         ?.filter(stage => stage.is_active)
         ?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)) || [];
       
-      // ← UPDATED: Handle counsellors with user_id
+      // Handle counsellors with user_id
       const counsellors = data.counsellors
         ?.filter(counsellor => counsellor.is_active)
         ?.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
         ?.map(counsellor => ({
           ...counsellor,
-          hasUserAccount: !!counsellor.user_id // ← NEW: Flag for UI indication
+          hasUserAccount: !!counsellor.user_id // Flag for UI indication
         })) || [];
       
       const sources = data.sources
@@ -118,7 +120,7 @@ const SettingsDataProvider = ({ children }) => {
       
       console.log('Form fields from database:', formFields);
       console.log('Stages from database:', stages);
-      console.log('Counsellors from database:', counsellors); // ← NEW: Log counsellors with user account info
+      console.log('Counsellors from database:', counsellors);
       
       // Create direct mappings for form fields
       const newFieldMappings = {};
@@ -176,7 +178,7 @@ const SettingsDataProvider = ({ children }) => {
       // Set all state
       setSettingsData({
         stages,
-        counsellors, // ← UPDATED: Now includes hasUserAccount flag
+        counsellors, // Now includes hasUserAccount flag
         sources,
         grades,
         formFields
@@ -194,7 +196,7 @@ const SettingsDataProvider = ({ children }) => {
     }
   };
 
-  // Check if field is static (label never changes)
+  // ← UPDATED: Check if field is static (label never changes) - added secondPhone exception
   const isStaticField = (fieldKey) => {
     const staticFields = ['parentsName', 'kidsName', 'phone', 'email', 'grade', 'counsellor', 'stage', 'source'];
     return staticFields.includes(fieldKey);
@@ -246,7 +248,7 @@ const SettingsDataProvider = ({ children }) => {
     return stage?.name || stageKey;
   };
 
-  // ← NEW: Helper functions for counsellors
+  // Helper functions for counsellors
   const getCounsellorById = (counsellorId) => {
     return settingsData.counsellors.find(counsellor => counsellor.id === counsellorId);
   };
@@ -289,7 +291,7 @@ const SettingsDataProvider = ({ children }) => {
     getStageKeyFromName,
     getStageNameFromKey,
     
-    // ← NEW: Helper functions for counsellors
+    // Helper functions for counsellors
     getCounsellorById,
     getCounsellorsByUserAccount,
     

@@ -49,39 +49,9 @@ export const settingsService = {
     return grouped;
   },
 
-  // Upload profile image to Supabase Storage
-  async uploadProfileImage(file, userId) {
-    try {
-      if (!file) return null;
-      
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${userId}-${Date.now()}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      const { data, error } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true
-        });
-
-      if (error) throw error;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      return publicUrl;
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      throw error;
-    }
-  },
-
-  // Create counsellor with user account - USES ADMIN CLIENT
+  // ← UPDATED: Create counsellor with user account (removed phone and profile image)
   async createCounsellorWithUser(counsellorData) {
-    const { name, email, password, phone, profileImageFile } = counsellorData;
+    const { name, email, password } = counsellorData;
     
     try {
       // Step 1: Create user in Supabase Auth using ADMIN CLIENT
@@ -97,21 +67,13 @@ export const settingsService = {
         throw new Error('Failed to create auth user');
       }
 
-      // Step 2: Upload profile image if provided
-      let profileImageUrl = null;
-      if (profileImageFile) {
-        profileImageUrl = await this.uploadProfileImage(profileImageFile, authData.user.id);
-      }
-
-      // Step 3: Create user in custom users table using REGULAR CLIENT
+      // Step 2: Create user in custom users table using REGULAR CLIENT
       const { data: userData, error: userError } = await supabase
         .from('users')
         .insert([{
           auth_id: authData.user.id,
           email: email,
           full_name: name,
-          phone: phone || null,
-          profile_image_url: profileImageUrl,
           role: 'user',
           is_active: true
         }])
@@ -124,7 +86,7 @@ export const settingsService = {
         throw userError;
       }
 
-      // Step 4: Create counsellor in settings table - Store user data in value field
+      // Step 3: Create counsellor in settings table - Store user data in value field
       const maxOrder = await this.getMaxSortOrder('counsellors');
       
       const { data: counsellorData, error: counsellorError } = await supabase
@@ -134,9 +96,7 @@ export const settingsService = {
           name: name,
           value: {
             user_id: userData.id,
-            email: email,
-            phone: phone || null,
-            profile_image_url: profileImageUrl
+            email: email
           },
           sort_order: maxOrder + 1,
           is_active: true
@@ -163,9 +123,9 @@ export const settingsService = {
     }
   },
 
-  // Update counsellor and linked user - USES ADMIN CLIENT for auth updates
+  // ← UPDATED: Update counsellor and linked user (removed phone and profile image) + update leads
   async updateCounsellorWithUser(counsellorId, updateData) {
-    const { name, email, password, phone, profileImageFile } = updateData;
+    const { name, email, password } = updateData;
     
     try {
       // Step 1: Get current counsellor data
@@ -182,6 +142,7 @@ export const settingsService = {
       }
 
       const userId = counsellor.value.user_id;
+      const oldCounsellorName = counsellor.name; // ← NEW: Store old name for leads update
 
       // Step 2: Get user data
       const { data: user, error: userFetchError } = await supabase
@@ -192,18 +153,10 @@ export const settingsService = {
 
       if (userFetchError) throw userFetchError;
 
-      // Step 3: Upload new profile image if provided
-      let profileImageUrl = user.profile_image_url;
-      if (profileImageFile) {
-        profileImageUrl = await this.uploadProfileImage(profileImageFile, user.auth_id);
-      }
-
-      // Step 4: Update user in custom users table using REGULAR CLIENT
+      // Step 3: Update user in custom users table using REGULAR CLIENT
       const userUpdates = {
         full_name: name,
-        email: email,
-        phone: phone || null,
-        profile_image_url: profileImageUrl
+        email: email
       };
 
       const { error: userUpdateError } = await supabase
@@ -213,7 +166,7 @@ export const settingsService = {
 
       if (userUpdateError) throw userUpdateError;
 
-      // Step 5: Update auth user email if changed using ADMIN CLIENT
+      // Step 4: Update auth user email if changed using ADMIN CLIENT
       if (email !== user.email) {
         const { error: authEmailError } = await supabaseAdmin.auth.admin.updateUserById(
           user.auth_id,
@@ -223,7 +176,7 @@ export const settingsService = {
         if (authEmailError) throw authEmailError;
       }
 
-      // Step 6: Update password if provided using ADMIN CLIENT
+      // Step 5: Update password if provided using ADMIN CLIENT
       if (password && password.trim() !== '') {
         const { error: authPasswordError } = await supabaseAdmin.auth.admin.updateUserById(
           user.auth_id,
@@ -233,21 +186,35 @@ export const settingsService = {
         if (authPasswordError) throw authPasswordError;
       }
 
-      // Step 7: Update counsellor in settings table - Update value field
+      // Step 6: Update counsellor in settings table - Update value field
       const { error: counsellorUpdateError } = await supabase
         .from('settings')
         .update({ 
           name: name,
           value: {
             ...counsellor.value,
-            email: email,
-            phone: phone || null,
-            profile_image_url: profileImageUrl
+            email: email
           }
         })
         .eq('id', counsellorId);
 
       if (counsellorUpdateError) throw counsellorUpdateError;
+
+      // ← NEW: Step 7: Update all leads with old counsellor name to new counsellor name
+      if (oldCounsellorName !== name) {
+        console.log(`Updating leads from counsellor "${oldCounsellorName}" to "${name}"`);
+        const { error: leadsUpdateError } = await supabase
+          .from('Leads')
+          .update({ counsellor: name })
+          .eq('counsellor', oldCounsellorName);
+
+        if (leadsUpdateError) {
+          console.error('Error updating leads with new counsellor name:', leadsUpdateError);
+          throw leadsUpdateError;
+        }
+
+        console.log(`Successfully updated leads from "${oldCounsellorName}" to "${name}"`);
+      }
 
       return { success: true };
 
@@ -257,7 +224,7 @@ export const settingsService = {
     }
   },
 
-  // Delete counsellor and linked user - USES ADMIN CLIENT for auth deletion
+  // ← UPDATED: Delete counsellor and linked user + update leads to "Not Assigned"
   async deleteCounsellorWithUser(counsellorId) {
     try {
       // Step 1: Get counsellor data
@@ -269,6 +236,20 @@ export const settingsService = {
 
       if (counsellorError) throw counsellorError;
 
+      const counsellorName = counsellor.name;
+
+      // Step 2: Update all leads with this counsellor to "Not Assigned"
+      console.log(`Updating leads with counsellor "${counsellorName}" to "Not Assigned"`);
+      const { error: leadsUpdateError } = await supabase
+        .from('Leads')
+        .update({ counsellor: 'Not Assigned' })
+        .eq('counsellor', counsellorName);
+
+      if (leadsUpdateError) {
+        console.error('Error updating leads:', leadsUpdateError);
+        throw leadsUpdateError;
+      }
+
       if (!counsellor.value || !counsellor.value.user_id) {
         // If no linked user, just delete counsellor
         return await this.deleteItem(counsellorId);
@@ -276,7 +257,7 @@ export const settingsService = {
 
       const userId = counsellor.value.user_id;
 
-      // Step 2: Get user data
+      // Step 3: Get user data
       const { data: user, error: userFetchError } = await supabase
         .from('users')
         .select('*')
@@ -286,20 +267,6 @@ export const settingsService = {
       if (userFetchError) {
         console.warn('User not found, proceeding with counsellor deletion');
         return await this.deleteItem(counsellorId);
-      }
-
-      // Step 3: Delete profile image from storage if exists
-      if (user.profile_image_url) {
-        try {
-          const url = new URL(user.profile_image_url);
-          const filePath = url.pathname.split('/').pop();
-          
-          await supabase.storage
-            .from('avatars')
-            .remove([filePath]);
-        } catch (imageError) {
-          console.warn('Failed to delete profile image:', imageError);
-        }
       }
 
       // Step 4: Delete from settings table using REGULAR CLIENT
@@ -325,6 +292,7 @@ export const settingsService = {
         console.warn('Failed to delete auth user:', authDeleteError);
       }
 
+      console.log(`Successfully updated ${counsellorName}'s leads to "Not Assigned" and deleted counsellor`);
       return { success: true };
 
     } catch (error) {
@@ -348,7 +316,7 @@ export const settingsService = {
     if (counsellor.value && counsellor.value.user_id) {
       const { data: user, error: userError } = await supabase
         .from('users')
-        .select('id, email, full_name, phone, profile_image_url, role, is_active')
+        .select('id, email, full_name, role, is_active')
         .eq('id', counsellor.value.user_id)
         .single();
 
@@ -361,7 +329,7 @@ export const settingsService = {
     return counsellor;
   },
 
-  // ← NEW: Custom Fields Operations
+  // ← Custom Fields Operations
   async getCustomFieldsForLead(leadId) {
     try {
       const { data, error } = await supabase
@@ -384,7 +352,7 @@ export const settingsService = {
     }
   },
 
-  // ← NEW: Save/Update custom fields for a lead
+  // Save/Update custom fields for a lead
   async saveCustomFieldsForLead(leadId, customFieldsData) {
     try {
       console.log('Saving custom fields for lead:', leadId, customFieldsData);
@@ -462,7 +430,7 @@ export const settingsService = {
     }
   },
 
-  // ← NEW: Get active custom field definitions from settings
+  // Get active custom field definitions from settings
   async getActiveCustomFieldDefinitions() {
     try {
       const { data, error } = await supabase
@@ -486,7 +454,7 @@ export const settingsService = {
     }
   },
 
-  // ← NEW: Delete all custom fields for a lead (when lead is deleted)
+  // Delete all custom fields for a lead (when lead is deleted)
   async deleteAllCustomFieldsForLead(leadId) {
     try {
       const { error } = await supabase
@@ -503,7 +471,7 @@ export const settingsService = {
     }
   },
 
-  // ← NEW: Get custom fields count for a specific lead
+  // Get custom fields count for a specific lead
   async getCustomFieldsCountForLead(leadId) {
     try {
       const { data, error } = await supabase
@@ -520,7 +488,7 @@ export const settingsService = {
     }
   },
 
-  // ← NEW: Fix existing custom fields without field_key
+  // Fix existing custom fields without field_key
   async fixCustomFieldKeys() {
     try {
       const { data: customFields, error } = await supabase
@@ -622,7 +590,7 @@ export const settingsService = {
     return customFields.length;
   },
 
-  // Field validation functions
+  // ← UPDATED: Field validation functions (added secondPhone)
   isSuperConstantField(fieldName) {
     const superConstantFields = ['Parents Name', 'Kids Name', 'Phone', 'Email'];
     return superConstantFields.includes(fieldName);
@@ -637,7 +605,8 @@ export const settingsService = {
     const exactConstantFields = [
       'Location', 'Occupation', 'Current School', 'Offer', 'Notes',
       'Meeting Date', 'Meeting Time', 'Meeting Link', 'Visit Date',
-      'Visit Time', 'Visit Location', 'Registration Fees', 'Enrolled'
+      'Visit Time', 'Visit Location', 'Registration Fees', 'Enrolled',
+      'Second Phone' // ← NEW: Added Second Phone as a constant field
     ];
     return exactConstantFields.includes(fieldName);
   },
@@ -646,7 +615,8 @@ export const settingsService = {
     const constantKeys = [
       'location', 'occupation', 'currentSchool', 'offer', 'notes',
       'meetingDate', 'meetingTime', 'meetingLink', 'visitDate',
-      'visitTime', 'visitLocation', 'registrationFees', 'enrolled'
+      'visitTime', 'visitLocation', 'registrationFees', 'enrolled',
+      'secondPhone' // ← NEW: Added secondPhone as a constant field key
     ];
     return constantKeys.includes(fieldKey);
   },
@@ -712,7 +682,7 @@ export const settingsService = {
       is_active: true
     };
 
-    // ← FIX: Add field_key for custom form fields
+    // Add field_key for custom form fields
     if (type === 'form_fields' && additionalData.is_custom) {
       insertData.field_key = additionalData.field_key || null;
     }
@@ -726,7 +696,7 @@ export const settingsService = {
     return data[0];
   },
 
-  // ← UPDATED: Modify updateItem to preserve field_key for custom fields
+  // Modify updateItem to preserve field_key for custom fields
   async updateItem(id, name, additionalData = {}) {
     try {
       // Get current item to preserve field_key
