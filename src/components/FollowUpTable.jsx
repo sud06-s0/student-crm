@@ -5,7 +5,6 @@ import { logStageChange } from '../utils/historyLogger';
 import LeftSidebar from './LeftSidebar';
 import LeadSidebar from './LeadSidebar';
 import DeleteConfirmationDialog from './DeleteConfirmationDialog';
-import MeToggle from './MeToggle';
 import FilterDropdown, { FilterButton, applyFilters } from './FilterDropdown';
 import LeadStateProvider, { useLeadState } from './LeadStateProvider';
 import SettingsDataProvider, { useSettingsData } from '../contexts/SettingsDataProvider';
@@ -32,7 +31,9 @@ import {
   DollarSign,
   CheckCircle,
   Trash2,
-  CalendarDays
+  CalendarDays,
+  Eye,
+  X
 } from 'lucide-react';
 
 const FollowUpTable = ({ onLogout, user }) => {
@@ -80,8 +81,9 @@ const FollowUpTable = ({ onLogout, user }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // ME FILTER STATE
-  const [showMyLeads, setShowMyLeads] = useState(false);
+  // VIEW DETAILS POPUP STATES - NEW
+  const [showDetailsPopup, setShowDetailsPopup] = useState(false);
+  const [selectedFollowUpDetails, setSelectedFollowUpDetails] = useState(null);
 
   // Sidebar editing states
   const [isEditingMode, setIsEditingMode] = useState(false);
@@ -332,11 +334,28 @@ const FollowUpTable = ({ onLogout, user }) => {
     setShowDeleteDialog(false);
   };
 
+  // VIEW DETAILS FUNCTIONALITY - NEW
+  const handleViewDetails = (e, lead) => {
+    e.stopPropagation(); // Prevent opening sidebar
+    setSelectedFollowUpDetails({
+      lead: lead,
+      followUps: lead.followUps || [],
+      nextFollowUpDate: lead.nextFollowUpDate,
+      followUpDetails: lead.followUpDetails
+    });
+    setShowDetailsPopup(true);
+  };
+
+  const closeDetailsPopup = () => {
+    setShowDetailsPopup(false);
+    setSelectedFollowUpDetails(null);
+  };
+
   // Clear selections when data changes
   useEffect(() => {
     setSelectedLeads([]);
     setSelectAll(false);
-  }, [searchTerm, counsellorFilters, stageFilters, statusFilters, showMyLeads, dateRange]);
+  }, [searchTerm, counsellorFilters, stageFilters, statusFilters, dateRange]);
 
   // Calculate stage counts
   const getStageCount = (stageName) => {
@@ -379,26 +398,6 @@ const FollowUpTable = ({ onLogout, user }) => {
     } catch (error) {
       console.error('Error fetching last activity data:', error);
     }
-  };
-
-  // Calculate days since last activity
-  const getDaysSinceLastActivity = (leadId) => {
-    const lastActivity = lastActivityData[leadId];
-    if (!lastActivity) {
-      return 0;
-    }
-    
-    const lastActivityDate = new Date(lastActivity);
-    const today = new Date();
-    const diffTime = today - lastActivityDate;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
-
-  // Check if lead needs alert
-  const shouldShowAlert = (leadId) => {
-    const days = getDaysSinceLastActivity(leadId);
-    return days >= 3;
   };
 
   // ← UPDATED: MAIN FETCH FUNCTION WITH ROLE-BASED FILTERING
@@ -483,7 +482,7 @@ const FollowUpTable = ({ onLogout, user }) => {
       
       // Process activity data
       const activityMap = {};
-      activityResponse.data.forEach(item => {
+      activityResponse.forEach(item => {
         activityMap[item.record_id] = item.last_activity;
       });
       setLastActivityData(activityMap);
@@ -838,12 +837,7 @@ const FollowUpTable = ({ onLogout, user }) => {
   const getDisplayLeads = () => {
     let filtered = followUpLeadsData;
     
-    // Apply "Me" filter first if enabled
-    if (showMyLeads) {
-      filtered = filtered.filter(lead => lead.counsellor === user.full_name);
-    }
-    
-    // Apply search next
+    // Apply search first
     if (searchTerm.trim() !== '') {
       filtered = filtered.filter(lead => 
         lead.parentsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -893,6 +887,17 @@ const FollowUpTable = ({ onLogout, user }) => {
     });
   };
 
+  // Format full date for popup
+  const formatFullDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
   // Show loading if either leads or settings are loading
   if (loading || settingsLoading) {
     return (
@@ -930,12 +935,6 @@ const FollowUpTable = ({ onLogout, user }) => {
                 <CalendarDays size={24} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
                 Follow-ups
               </h1>
-              <MeToggle 
-                showMyLeads={showMyLeads}
-                setShowMyLeads={setShowMyLeads}
-                user={user}
-                leadsData={followUpLeadsData}
-              />
             </div>
             
             {/* DATE RANGE PICKER */}
@@ -1002,9 +1001,7 @@ const FollowUpTable = ({ onLogout, user }) => {
             </div>
 
             <span className="total-count">
-              Follow-ups Found: {showMyLeads 
-                ? followUpLeadsData.filter(lead => lead.counsellor === user.full_name).length 
-                : followUpLeadsData.length}
+              Follow-ups Found: {followUpLeadsData.length}
             </span>
             
             {/* DELETE BUTTON */}
@@ -1117,7 +1114,7 @@ const FollowUpTable = ({ onLogout, user }) => {
                 <th className="desktop-only">Status</th>
                 <th className="desktop-only">{getFieldLabel('counsellor')}</th>
                 <th>Follow-up</th>
-                <th>Alert</th>
+                <th>View Details</th>
               </tr>
             </thead>
             <tbody>
@@ -1149,7 +1146,7 @@ const FollowUpTable = ({ onLogout, user }) => {
                       </div>
                     </td>
                     <td>{formatPhoneForMobile(lead.phone)}</td>
-                    <td>{lead.grade}</td>
+                    <td className="desktop-only">{lead.grade}</td>
                     <td>
                       <div className="stage-dropdown-container" style={{ position: 'relative', width: '100%' }}>
                         <div 
@@ -1246,7 +1243,7 @@ const FollowUpTable = ({ onLogout, user }) => {
                       </div>
                     </td>
                     
-                    <td>
+                    <td className="desktop-only">
                       <span className="status-badge-text">
                         {lead.category}
                       </span>
@@ -1269,37 +1266,49 @@ const FollowUpTable = ({ onLogout, user }) => {
                         }}>
                           {formatDateForDisplay(lead.nextFollowUpDate)}
                         </div>
-                        <div className="follow-up-details" style={{
-                          fontSize: '11px',
-                          color: '#6b7280',
-                          maxWidth: '120px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {lead.followUpDetails || 'No details'}
-                        </div>
                       </div>
                     </td>
-                    <td>
-                      {shouldShowAlert(lead.id) && (
-                        <div className="alert-badge">
-                          {getDaysSinceLastActivity(lead.id)}D
-                        </div>
-                      )}
+                    <td className="counsellor-middle">
+                      <button
+                        className="view-details-btn"
+                        onClick={(e) => handleViewDetails(e, lead)}
+                        style={{
+                          background: '#676767',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '6px 8px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          transition: 'all 0.2s ease',
+                          fontWeight: '500'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = '#676767';
+                          e.target.style.transform = 'translateY(-1px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = '#676767';
+                          e.target.style.transform = 'translateY(0px)';
+                        }}
+                      >
+                        <Eye size={14} />
+                        View
+                      </button>
                     </td>
                   </tr>
                 ))
               ) : !loading ? (
                 <tr>
                   <td colSpan="10" className="no-data">
-                    {showMyLeads 
-                      ? 'No follow-ups assigned to you in this date range.' 
-                      : searchTerm 
-                        ? 'No follow-ups found for your search.' 
-                        : `No follow-ups scheduled for ${dateRange.startDate === dateRange.endDate ? 
-                            formatDateForDisplay(dateRange.startDate) : 
-                            `${formatDateForDisplay(dateRange.startDate)} - ${formatDateForDisplay(dateRange.endDate)}`}`}
+                    {searchTerm 
+                      ? 'No follow-ups found for your search.' 
+                      : `No follow-ups scheduled for ${dateRange.startDate === dateRange.endDate ? 
+                          formatDateForDisplay(dateRange.startDate) : 
+                          `${formatDateForDisplay(dateRange.startDate)} - ${formatDateForDisplay(dateRange.endDate)}`}`}
                   </td>
                 </tr>
               ) : null}
@@ -1328,6 +1337,220 @@ const FollowUpTable = ({ onLogout, user }) => {
         getScoreFromStage={getStageScore}
         getCategoryFromStage={getStageCategory}
       />
+
+      {/* Follow-up Details Popup */}
+      {showDetailsPopup && selectedFollowUpDetails && (
+        <div 
+          className="popup-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px'
+          }}
+          onClick={closeDetailsPopup}
+        >
+          <div 
+            className="popup-content"
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              padding: '24px',
+              maxWidth: '500px',
+              width: '100%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              position: 'relative'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '20px',
+              paddingBottom: '16px',
+              borderBottom: '1px solid #e5e7eb'
+            }}>
+              <h3 style={{
+                fontSize: '18px',
+                fontWeight: '600',
+                color: '#111827',
+                margin: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <CalendarDays size={20} />
+                Follow-up Details
+              </h3>
+              <button
+                onClick={closeDetailsPopup}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  borderRadius: '4px',
+                  color: '#6b7280',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#f3f4f6';
+                  e.target.style.color = '#374151';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = 'transparent';
+                  e.target.style.color = '#6b7280';
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Lead Info */}
+            <div style={{
+              backgroundColor: '#f8fafc',
+              padding: '16px',
+              borderRadius: '8px',
+              marginBottom: '20px'
+            }}>
+              <h4 style={{
+                fontSize: '14px',
+                fontWeight: '600',
+                color: '#374151',
+                margin: '0 0 8px 0'
+              }}>
+                Lead Information
+              </h4>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '8px',
+                fontSize: '13px'
+              }}>
+                <div>
+                  <strong>Parent:</strong> {selectedFollowUpDetails.lead.parentsName}
+                </div>
+                <div>
+                  <strong>Child:</strong> {selectedFollowUpDetails.lead.kidsName}
+                </div>
+                <div>
+                  <strong>Phone:</strong> {selectedFollowUpDetails.lead.phone}
+                </div>
+                <div>
+                  <strong>Grade:</strong> {selectedFollowUpDetails.lead.grade}
+                </div>
+              </div>
+            </div>
+
+            {/* Follow-up List */}
+            <div>
+              <h4 style={{
+                fontSize: '16px',
+                fontWeight: '600',
+                color: '#111827',
+                margin: '0 0 16px 0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <Clock size={16} />
+                Follow-up Schedule
+              </h4>
+
+              {selectedFollowUpDetails.followUps && selectedFollowUpDetails.followUps.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {selectedFollowUpDetails.followUps.map((followUp, index) => (
+                    <div 
+                      key={index}
+                      style={{
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        backgroundColor: index === 0 ? '#f0f9ff' : 'white'
+                      }}
+                    >
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '8px'
+                      }}>
+                        <div style={{
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          color: '#059669',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          <Calendar size={14} />
+                          {formatFullDate(followUp.follow_up_date)}
+                        </div>
+                        {index === 0 && (
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: '500',
+                            color: '#0369a1',
+                            backgroundColor: '#dbeafe',
+                            padding: '2px 6px',
+                            borderRadius: '4px'
+                          }}>
+                            Next
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div style={{
+                        fontSize: '13px',
+                        color: '#374151',
+                        lineHeight: '1.5'
+                      }}>
+                        {followUp.details || 'No details provided'}
+                      </div>
+                      
+                      <div style={{
+                        fontSize: '11px',
+                        color: '#6b7280',
+                        marginTop: '8px',
+                        fontStyle: 'italic'
+                      }}>
+                        Created: {new Date(followUp.created_at).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{
+                  textAlign: 'center',
+                  color: '#6b7280',
+                  fontSize: '14px',
+                  padding: '20px',
+                  fontStyle: 'italic'
+                }}>
+                  No follow-up details available
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog
