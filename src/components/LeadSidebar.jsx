@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import LeadStateProvider,{ useLeadState } from './LeadStateProvider';
 import InfoTab from './InfoTab';
+import ActionTab from './ActionTab';
 
 // Add debounce utility
 function debounce(func, wait) {
@@ -101,6 +102,18 @@ const LeadSidebar = ({
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
 
+  // Stage statuses for action buttons
+  const [stageStatuses, setStageStatuses] = useState({
+    stage2_status: '',
+    stage3_status: '',
+    stage4_status: '',
+    stage5_status: '',
+    stage6_status: '',
+    stage7_status: '',
+    stage8_status: '',
+    stage9_status: ''
+  });
+
   const [historyData, setHistoryData] = useState([]);
   const [manualAction, setManualAction] = useState('');
   const [manualDetails, setManualDetails] = useState('');
@@ -166,6 +179,53 @@ const LeadSidebar = ({
   const getStageCategoryForLead = (stageValue) => {
     const stageKey = getLeadStageKey(stageValue);
     return contextGetStageCategory(stageKey) || getCategoryFromStage?.(stageValue) || 'New';
+  };
+
+  // Handle status updates from action buttons
+  const handleStatusUpdate = async (stageField, newStatus) => {
+    setStageStatuses(prev => ({
+      ...prev,
+      [stageField]: newStatus
+    }));
+
+    try {
+      const { data, error } = await supabase
+        .from('Leads')
+        .update({ [stageField]: newStatus })
+        .eq('id', selectedLead.id);
+
+      if (error) throw error;
+      
+      // Use context instead of callback:
+      updateActionStatus(selectedLead.id, stageField, newStatus);
+      
+      // Log the WhatsApp message action in background
+      const stageNames = {
+        'stage2_status': 'Stage 2 - Connected',
+        'stage3_status': 'Stage 3 - Meeting Booked',
+        'stage4_status': 'Stage 4 - Meeting Done',
+        'stage5_status': 'Stage 5 - Proposal Sent',
+        'stage6_status': 'Stage 6 - Visit Booked',
+        'stage7_status': 'Stage 7 - Visit Done',
+        'stage8_status': 'Stage 8 - Registered',
+        'stage9_status': 'Stage 9 - Enrolled'
+      };
+      
+      // Don't wait for logging - do it in background
+      logWhatsAppMessage(selectedLead.id, stageField, stageNames[stageField]);
+      
+      // Only refresh history if user is viewing history tab
+      if (activeTab === 'history') {
+        fetchHistory();
+      }
+      
+    } catch (error) {
+      setStageStatuses(prev => ({
+        ...prev,
+        [stageField]: ''
+      }));
+      alert(`Failed to update status: ${error.message}`);
+    }
   };
 
   // Fetch custom fields for the selected lead
@@ -267,6 +327,18 @@ const LeadSidebar = ({
         visitLocation: selectedLead.visitLocation || '',
         registrationFees: selectedLead.registrationFees || '',
         enrolled: selectedLead.enrolled || ''
+      });
+
+      // Update stage statuses
+      setStageStatuses({
+        stage2_status: selectedLead.stage2_status || '',
+        stage3_status: selectedLead.stage3_status || '',
+        stage4_status: selectedLead.stage4_status || '',
+        stage5_status: selectedLead.stage5_status || '',
+        stage6_status: selectedLead.stage6_status || '',
+        stage7_status: selectedLead.stage7_status || '',
+        stage8_status: selectedLead.stage8_status || '',
+        stage9_status: selectedLead.stage9_status || ''
       });
       
       // Fetch custom fields when lead changes
@@ -684,6 +756,13 @@ const LeadSidebar = ({
                 {isMobile ? 'Info' : 'Info'}
               </button>
               <button 
+                onClick={() => setActiveTab('action')}
+                className={`lead-sidebar-tab-button ${activeTab === 'action' ? 'active' : ''}`}
+              >
+                <History size={isMobile ? 18 : 16} /> 
+                {isMobile ? 'Action' : 'Action'}
+              </button>
+              <button 
                 onClick={() => setActiveTab('followup')}
                 className={`lead-sidebar-tab-button ${activeTab === 'followup' ? 'active' : ''}`}
               >
@@ -711,6 +790,17 @@ const LeadSidebar = ({
               getFieldLabel={getFieldLabel}
               customFieldsData={customFieldsData}
               onCustomFieldChange={handleCustomFieldChange}
+            />
+          )}
+
+          {/* Action Tab Content */}
+          {activeTab === 'action' && (
+            <ActionTab
+              selectedLead={selectedLead}
+              sidebarFormData={sidebarFormData}
+              stageStatuses={stageStatuses}
+              onStatusUpdate={handleStatusUpdate}
+              getFieldLabel={getFieldLabel}
             />
           )}
 
