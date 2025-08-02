@@ -97,7 +97,8 @@ function App() {
         <Login onLogin={handleLogin} />
       ) : (
         <SettingsDataProvider>
-          <LeadStateProvider>
+          {/* ← UPDATED: Pass user prop to LeadStateProvider for role-based filtering */}
+          <LeadStateProvider user={user}>
             {/* Pass user data to components that need it */}
             <Routes>
               <Route 

@@ -13,13 +13,68 @@ const useLeadState = () => {
 };
 
 // LeadStateProvider component
-const LeadStateProvider = ({ children }) => {
+const LeadStateProvider = ({ children, user }) => { // ← NEW: Accept user prop
   const [selectedLead, setSelectedLead] = useState(null);
-  const [leadsData, setLeadsData] = useState([]);
+  const [leadsData, setLeadsDataInternal] = useState([]); // ← Rename internal state
+  const [allLeadsData, setAllLeadsData] = useState([]); // ← Store unfiltered data
+
+  // ← NEW: Role-based filtering function
+  const applyRoleBasedFilter = useCallback((leads) => {
+    if (!user) {
+      console.log('No user provided, returning empty array');
+      return [];
+    }
+
+    console.log('=== ROLE-BASED FILTERING ===');
+    console.log('User:', user);
+    console.log('User role:', user.role);
+    console.log('Total leads before filtering:', leads.length);
+
+    // Admin sees all leads
+    if (user.role === 'admin') {
+      console.log('Admin user - showing all leads');
+      return leads;
+    }
+
+    // Regular users see only their assigned leads
+    const filteredLeads = leads.filter(lead => {
+      const isAssigned = lead.counsellor === user.full_name;
+      if (!isAssigned) {
+        console.log(`Filtering out lead ${lead.id} - assigned to ${lead.counsellor}, user is ${user.full_name}`);
+      }
+      return isAssigned;
+    });
+
+    console.log(`Regular user - filtered to ${filteredLeads.length} leads assigned to ${user.full_name}`);
+    return filteredLeads;
+  }, [user]);
+
+  // ← NEW: Wrapper for setLeadsData that applies role-based filtering
+  const setLeadsData = useCallback((leads) => {
+    console.log('setLeadsData called with:', leads.length, 'leads');
+    
+    // Store all leads (unfiltered) for admin operations
+    setAllLeadsData(leads);
+    
+    // Apply role-based filtering and set filtered data
+    const filteredLeads = applyRoleBasedFilter(leads);
+    setLeadsDataInternal(filteredLeads);
+    
+    console.log('Final filtered leads count:', filteredLeads.length);
+  }, [applyRoleBasedFilter]);
 
   // Update a specific lead in the leadsData array
   const updateLeadInList = useCallback((leadId, updatedFields) => {
-    setLeadsData(prevLeads => 
+    // Update in both filtered and unfiltered data
+    setAllLeadsData(prevLeads => 
+      prevLeads.map(lead => 
+        lead.id === leadId 
+          ? { ...lead, ...updatedFields }
+          : lead
+      )
+    );
+
+    setLeadsDataInternal(prevLeads => 
       prevLeads.map(lead => 
         lead.id === leadId 
           ? { ...lead, ...updatedFields }
@@ -191,11 +246,13 @@ const LeadStateProvider = ({ children }) => {
   const value = {
     // State
     selectedLead,
-    leadsData,
+    leadsData, // ← This is now filtered data based on user role
+    allLeadsData, // ← NEW: Unfiltered data (for admin operations if needed)
+    user, // ← NEW: Expose user for components that need it
     
     // Setters
     setSelectedLead,
-    setLeadsData,
+    setLeadsData, // ← This now applies role-based filtering automatically
     
     // ← EXISTING: Update functions
     updateLead,

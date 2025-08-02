@@ -401,13 +401,16 @@ const FollowUpTable = ({ onLogout, user }) => {
     return days >= 3;
   };
 
-  // MAIN FETCH FUNCTION - FETCH LEADS WITH FOLLOW-UPS IN DATE RANGE
+  // ← UPDATED: MAIN FETCH FUNCTION WITH ROLE-BASED FILTERING
   const fetchFollowUpLeads = async () => {
     try {
       setLoading(true);
       setError(null);
       
+      console.log('=== FOLLOW-UP LEADS FETCH WITH ROLE-BASED FILTERING ===');
       console.log('Fetching follow-ups for date range:', dateRange);
+      console.log('User role:', user.role);
+      console.log('User name:', user.full_name);
       
       // Fetch follow-ups within the date range
       const { data: followUpsData, error: followUpsError } = await supabase
@@ -431,14 +434,26 @@ const FollowUpTable = ({ onLogout, user }) => {
       const leadIds = [...new Set(followUpsData.map(f => f.lead_id))];
       console.log('Unique lead IDs:', leadIds);
 
-      // Fetch leads data for these lead IDs
-      const { data: leadsResponse, error: leadsError } = await supabase
+      // ← NEW: Build the leads query with role-based filtering
+      let leadsQuery = supabase
         .from('Leads')
         .select('*')
-        .in('id', leadIds)
-        .order('id', { ascending: false });
+        .in('id', leadIds);
+
+      // ← NEW: Apply role-based filtering
+      if (user.role !== 'admin') {
+        console.log('Applying role-based filter for regular user');
+        leadsQuery = leadsQuery.eq('counsellor', user.full_name);
+      } else {
+        console.log('Admin user - showing all leads');
+      }
+
+      // Execute the query
+      const { data: leadsResponse, error: leadsError } = await leadsQuery.order('id', { ascending: false });
 
       if (leadsError) throw leadsError;
+
+      console.log('Role-filtered leads found:', leadsResponse.length);
 
       // Also fetch activity data
       const { data: activityResponse, error: activityError } = await supabase
@@ -473,7 +488,7 @@ const FollowUpTable = ({ onLogout, user }) => {
       });
       setLastActivityData(activityMap);
       
-      console.log('Follow-up leads loaded:', convertedData);
+      console.log('Role-filtered follow-up leads loaded:', convertedData);
       
     } catch (error) {
       console.error('Error fetching follow-up leads:', error);

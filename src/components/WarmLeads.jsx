@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { settingsService } from '../services/settingsService'; // ← NEW: Import for custom fields
 import { logStageChange } from '../utils/historyLogger';
 import AddLeadForm from './AddLeadForm';
 import LeftSidebar from './LeftSidebar';
 import LeadSidebar from './LeadSidebar';
 import DeleteConfirmationDialog from './DeleteConfirmationDialog';
-import MeToggle from './MeToggle';
-import { FilterButton, applyFilters } from './FilterDropdown';
+import FilterDropdown, { FilterButton, applyFilters } from './FilterDropdown';
 import LeadStateProvider,{ useLeadState } from './LeadStateProvider';
 import SettingsDataProvider, { useSettingsData } from '../contexts/SettingsDataProvider';
 import ImportLeadsModal from './ImportLeadsModal';
+import MobileHeaderDropdown from './MobileHeaderDropdown';
 import { 
   Search,
   Filter,
@@ -64,6 +65,9 @@ const WarmLeads = ({ onLogout, user }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   
+  const [isMobile, setIsMobile] = useState(false);
+
+
   // Search functionality states
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -82,8 +86,7 @@ const WarmLeads = ({ onLogout, user }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // ME FILTER STATE
-  const [showMyLeads, setShowMyLeads] = useState(false);
+  
 
   // ← UPDATED: Sidebar editing states with field_key support
   const [isEditingMode, setIsEditingMode] = useState(false);
@@ -96,6 +99,7 @@ const WarmLeads = ({ onLogout, user }) => {
     offer: '',
     email: '',
     phone: '',
+    secondPhone: '',
     occupation: '',
     location: '',
     currentSchool: '',
@@ -118,6 +122,7 @@ const WarmLeads = ({ onLogout, user }) => {
   const [counsellorFilters, setCounsellorFilters] = useState([]);
   const [stageFilters, setStageFilters] = useState([]);
   const [statusFilters, setStatusFilters] = useState([]);
+  const [alertFilter, setAlertFilter] = useState(false); // ← NEW: Alert filter state
 
   // ← UPDATED: Get dynamic stages with stage_key support
   const stages = settingsData.stages.map(stage => ({
@@ -147,137 +152,8 @@ const WarmLeads = ({ onLogout, user }) => {
     return stageValue;
   };
 
-  // DELETE FUNCTIONALITY - NEW FUNCTIONS
-  const handleIndividualCheckboxChange = (leadId, checked) => {
-    if (checked) {
-      setSelectedLeads(prev => [...prev, leadId]);
-    } else {
-      setSelectedLeads(prev => prev.filter(id => id !== leadId));
-      setSelectAll(false);
-    }
-  };
-
-  const handleSelectAllChange = (checked) => {
-    setSelectAll(checked);
-    if (checked) {
-      const allLeadIds = displayLeads.map(lead => lead.id);
-      setSelectedLeads(allLeadIds);
-    } else {
-      setSelectedLeads([]);
-    }
-  };
-
-  const handleDeleteClick = () => {
-    if (selectedLeads.length > 0) {
-      setShowDeleteDialog(true);
-    }
-  };
-
-  const handleDeleteConfirm = async () => {
-    setIsDeleting(true);
-    try {
-      const { error } = await supabase
-        .from('Leads')
-        .delete()
-        .in('id', selectedLeads);
-
-      if (error) {
-        throw error;
-      }
-
-      // Refresh the leads data
-      await fetchLeads();
-      
-      // Clear selections
-      setSelectedLeads([]);
-      setSelectAll(false);
-      setShowDeleteDialog(false);
-      
-    } catch (error) {
-      console.error('Error deleting leads:', error);
-      alert('Error deleting leads: ' + error.message);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleDeleteCancel = () => {
-    setShowDeleteDialog(false);
-  };
-
-  // Clear selections when leads data changes (after filters/search/me toggle)
-  useEffect(() => {
-    setSelectedLeads([]);
-    setSelectAll(false);
-  }, [searchTerm, counsellorFilters, stageFilters, statusFilters, showMyLeads]);
-
-  // ← UPDATED: Calculate stage counts using stage_key
-  const getStageCount = (stageName) => {
-    const stageKey = getStageKeyFromName(stageName);
-    return leadsData.filter(lead => {
-      const leadStageKey = getStageKeyForLead(lead.stage);
-      return leadStageKey === stageKey || lead.stage === stageName;
-    }).length;
-  };
-
-  // ← UPDATED: Get stage color using stage_key
-  const getStageColorFromSettings = (stageValue) => {
-    const stageKey = getStageKeyForLead(stageValue);
-    return getStageColor(stageKey);
-  };
-
-  // Get counsellor initials from first two words
-  const getCounsellorInitials = (fullName) => {
-    if (!fullName) return 'NA';
-    const words = fullName.trim().split(' ');
-    const firstTwoWords = words.slice(0, 2);
-    return firstTwoWords.map(word => word.charAt(0).toUpperCase()).join('');
-  };
-
-  
-  // Fetch last activity data for all leads - USING DATABASE VIEW (FASTEST)
-    const fetchLastActivityData = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('last_activity_by_lead')  // ← Use the database view
-          .select('*');
-
-        if (error) throw error;
-
-        // Simple processing - data is already grouped by database
-        const activityMap = {};
-        data.forEach(item => {
-          activityMap[item.record_id] = item.last_activity;
-        });
-
-        setLastActivityData(activityMap);
-      } catch (error) {
-        console.error('Error fetching last activity data:', error);
-      }
-    };
-
-  // Calculate days since last activity
-  const getDaysSinceLastActivity = (leadId) => {
-    const lastActivity = lastActivityData[leadId];
-    if (!lastActivity) {
-      return 0;
-    }
-    
-    const lastActivityDate = new Date(lastActivity);
-    const today = new Date();
-    const diffTime = today - lastActivityDate;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
-
-  // Check if lead needs alert (3+ days without activity)
-  const shouldShowAlert = (leadId) => {
-    const days = getDaysSinceLastActivity(leadId);
-    return days >= 3;
-  };
-
-  // ← UPDATED: Convert database record to UI format with field_key support
-  const convertDatabaseToUI = (dbRecord) => {
+  // ← NEW: Convert database record to UI format with custom fields support
+  const convertDatabaseToUIWithCustomFields = async (dbRecord) => {
     // Parse datetime fields
     let meetingDate = '';
     let meetingTime = '';
@@ -296,25 +172,27 @@ const WarmLeads = ({ onLogout, user }) => {
       visitTime = visitDateTime.toTimeString().slice(0, 5);
     }
 
-    // ← NEW: Handle stage value - could be stage name or stage_key
+    // Handle stage value - could be stage name or stage_key
     const stageValue = dbRecord.stage;
     const stageKey = getStageKeyForLead(stageValue);
     const displayName = getStageDisplayName(stageValue);
 
-    return {
+    // Base lead data
+    const baseLeadData = {
       id: dbRecord.id,
       parentsName: dbRecord.parents_name,
       kidsName: dbRecord.kids_name,
       phone: dbRecord.phone,
+      secondPhone: dbRecord.second_phone || '',
       location: dbRecord.location,
       grade: dbRecord.grade,
-      stage: stageKey, // ← Store stage_key internally
-      stageDisplayName: displayName, // ← Store display name for UI
+      stage: stageKey, // Store stage_key internally
+      stageDisplayName: displayName, // Store display name for UI
       score: dbRecord.score,
       category: dbRecord.category,
       counsellor: dbRecord.counsellor,
       offer: dbRecord.offer,
-      notes: dbRecord.notes || '', // ← Added notes field
+      notes: dbRecord.notes || '',
       email: dbRecord.email || '',
       occupation: dbRecord.occupation || '',
       source: dbRecord.source || settingsData.sources?.[0]?.name || 'Instagram',
@@ -346,49 +224,235 @@ const WarmLeads = ({ onLogout, user }) => {
         hour12: true
       }).replace(',', '')
     };
+
+    // ← NEW: Fetch and attach custom fields
+    try {
+      const customFields = await settingsService.getCustomFieldsForLead(dbRecord.id);
+      baseLeadData.customFields = customFields;
+    } catch (error) {
+      console.error('Error fetching custom fields for lead', dbRecord.id, error);
+      baseLeadData.customFields = {};
+    }
+
+    return baseLeadData;
   };
 
-  // Fetch leads from Supabase - USING DATABASE VIEW (FASTEST)
-    const fetchLeads = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Make both API calls in parallel using the fast view
-        const [leadsResponse, activityResponse] = await Promise.all([
-          supabase.from('Leads').select('*').order('id', { ascending: false }),
-          supabase.from('last_activity_by_lead').select('*')  // ← Use the view
-        ]);
-
-        if (leadsResponse.error) throw leadsResponse.error;
-        if (activityResponse.error) throw activityResponse.error;
-
-        // Process leads data
-        const convertedData = leadsResponse.data.map(convertDatabaseToUI);
-        setLeadsData(convertedData);
-        
-        // Process activity data (super fast now)
-        const activityMap = {};
-        activityResponse.data.forEach(item => {
-          activityMap[item.record_id] = item.last_activity;
-        });
-        setLastActivityData(activityMap);
-        
-      } catch (error) {
-        console.error('Error fetching leads:', error);
-        setError(error.message);
-      } finally {
-        setLoading(false);
-      }
+  // ← NEW: Setup sidebar form data with custom fields support
+  const setupSidebarFormDataWithCustomFields = (lead) => {
+    const baseFormData = {
+      parentsName: lead.parentsName || '',
+      kidsName: lead.kidsName || '',
+      grade: lead.grade || '',
+      source: lead.source || settingsData.sources?.[0]?.name || 'Instagram',
+      stage: lead.stage, // This is now stage_key
+      counsellor: lead.counsellor || '',
+      offer: lead.offer || 'Welcome Kit',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      secondPhone: lead.secondPhone || '',
+      occupation: lead.occupation || '',
+      location: lead.location || '',
+      currentSchool: lead.currentSchool || '',
+      meetingDate: lead.meetingDate || '',
+      meetingTime: lead.meetingTime || '',
+      meetingLink: lead.meetingLink || '',
+      visitDate: lead.visitDate || '',
+      visitTime: lead.visitTime || '',
+      visitLocation: lead.visitLocation || '',
+      registrationFees: lead.registrationFees || '',
+      enrolled: lead.enrolled || '',
+      notes: lead.notes || ''
     };
 
-  // Fetch leads on component mount
-      useEffect(() => {
-      console.time('Page load time');
-      fetchLeads().then(() => {
-        console.timeEnd('Page load time');
+    return baseFormData;
+  };
+
+  // DELETE FUNCTIONALITY - NEW FUNCTIONS
+  const handleIndividualCheckboxChange = (leadId, checked) => {
+    if (checked) {
+      setSelectedLeads(prev => [...prev, leadId]);
+    } else {
+      setSelectedLeads(prev => prev.filter(id => id !== leadId));
+      setSelectAll(false);
+    }
+  };
+
+  const handleSelectAllChange = (checked) => {
+    setSelectAll(checked);
+    if (checked) {
+      const allLeadIds = displayLeads.map(lead => lead.id);
+      setSelectedLeads(allLeadIds);
+    } else {
+      setSelectedLeads([]);
+    }
+  };
+
+  const handleDeleteClick = () => {
+    if (selectedLeads.length > 0) {
+      setShowDeleteDialog(true);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true);
+    try {
+      // ← NEW: Delete custom fields for selected leads first
+      for (const leadId of selectedLeads) {
+        try {
+          await settingsService.deleteAllCustomFieldsForLead(leadId);
+        } catch (error) {
+          console.error('Error deleting custom fields for lead', leadId, error);
+          // Continue with lead deletion even if custom fields deletion fails
+        }
+      }
+
+      // Delete the leads themselves
+      const { error } = await supabase
+        .from('Leads')
+        .delete()
+        .in('id', selectedLeads);
+
+      if (error) {
+        throw error;
+      }
+
+      // Refresh the leads data
+      await fetchLeads();
+      
+      // Clear selections
+      setSelectedLeads([]);
+      setSelectAll(false);
+      setShowDeleteDialog(false);
+      
+    } catch (error) {
+      console.error('Error deleting leads:', error);
+      alert('Error deleting leads: ' + error.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteDialog(false);
+  };
+
+  // ← UPDATED: Clear selections when leads data changes (after filters/search/me toggle)
+  useEffect(() => {
+    setSelectedLeads([]);
+    setSelectAll(false);
+  }, [searchTerm, counsellorFilters, stageFilters, statusFilters, alertFilter]); // ← NEW: Include alertFilter
+
+  // ← UPDATED: Calculate stage counts using stage_key for WARM LEADS ONLY
+  const getStageCount = (stageName) => {
+    const stageKey = getStageKeyFromName(stageName);
+    return leadsData.filter(lead => {
+      const leadStageKey = getStageKeyForLead(lead.stage);
+      const isWarmLead = lead.category === 'Warm';
+      return isWarmLead && (leadStageKey === stageKey || lead.stage === stageName);
+    }).length;
+  };
+
+  // ← UPDATED: Get stage color using stage_key
+  const getStageColorFromSettings = (stageValue) => {
+    const stageKey = getStageKeyForLead(stageValue);
+    return getStageColor(stageKey);
+  };
+
+  // Get counsellor initials from first two words
+  const getCounsellorInitials = (fullName) => {
+    if (!fullName) return 'NA';
+    const words = fullName.trim().split(' ');
+    const firstTwoWords = words.slice(0, 2);
+    return firstTwoWords.map(word => word.charAt(0).toUpperCase()).join('');
+  };
+
+  // Fetch last activity data for all leads - USING DATABASE VIEW (FASTEST)
+  const fetchLastActivityData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('last_activity_by_lead')  // ← Use the database view
+        .select('*');
+
+      if (error) throw error;
+
+      // Simple processing - data is already grouped by database
+      const activityMap = {};
+      data.forEach(item => {
+        activityMap[item.record_id] = item.last_activity;
       });
-    }, []);
+
+      setLastActivityData(activityMap);
+    } catch (error) {
+      console.error('Error fetching last activity data:', error);
+    }
+  };
+
+  // Calculate days since last activity
+  const getDaysSinceLastActivity = (leadId) => {
+    const lastActivity = lastActivityData[leadId];
+    if (!lastActivity) {
+      return 0;
+    }
+    
+    const lastActivityDate = new Date(lastActivity);
+    const today = new Date();
+    const diffTime = today - lastActivityDate;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  // Check if lead needs alert (3+ days without activity)
+  const shouldShowAlert = (leadId) => {
+    const days = getDaysSinceLastActivity(leadId);
+    return days >= 3;
+  };
+
+  // ← UPDATED: Fetch leads from Supabase with custom fields support
+  const fetchLeads = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Make both API calls in parallel using the fast view
+      const [leadsResponse, activityResponse] = await Promise.all([
+        supabase.from('Leads').select('*').order('id', { ascending: false }),
+        supabase.from('last_activity_by_lead').select('*')  // Use the view
+      ]);
+
+      if (leadsResponse.error) throw leadsResponse.error;
+      if (activityResponse.error) throw activityResponse.error;
+
+      // ← NEW: Process leads data with custom fields (this will be slower initially)
+      console.log('Converting leads data with custom fields...');
+      const convertedData = await Promise.all(
+        leadsResponse.data.map(convertDatabaseToUIWithCustomFields)
+      );
+      console.log('Leads data converted with custom fields');
+      
+      setLeadsData(convertedData);
+      
+      // Process activity data (super fast now)
+      const activityMap = {};
+      activityResponse.data.forEach(item => {
+        activityMap[item.record_id] = item.last_activity;
+      });
+      setLastActivityData(activityMap);
+      
+    } catch (error) {
+      console.error('Error fetching leads:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch leads on component mount
+  useEffect(() => {
+    console.time('Page load time');
+    fetchLeads().then(() => {
+      console.timeEnd('Page load time');
+    });
+  }, []);
 
   // Helper functions for styling
   const getStageClass = (stage) => {
@@ -422,29 +486,11 @@ const WarmLeads = ({ onLogout, user }) => {
   const openSidebar = (lead) => {
     console.log('Opening sidebar for lead:', lead);
     setSelectedLead(lead);
-    setSidebarFormData({
-      parentsName: lead.parentsName || '',
-      kidsName: lead.kidsName || '',
-      grade: lead.grade || '',
-      source: lead.source || settingsData.sources?.[0]?.name || 'Instagram',
-      stage: lead.stage, // ← This is now stage_key
-      counsellor: lead.counsellor || '',
-      offer: lead.offer || 'Welcome Kit',
-      email: lead.email || '',
-      phone: lead.phone || '',
-      occupation: lead.occupation || '',
-      location: lead.location || '',
-      currentSchool: lead.currentSchool || '',
-      meetingDate: lead.meetingDate || '',
-      meetingTime: lead.meetingTime || '',
-      meetingLink: lead.meetingLink || '',
-      visitDate: lead.visitDate || '',
-      visitTime: lead.visitTime || '',
-      visitLocation: lead.visitLocation || '',
-      registrationFees: lead.registrationFees || '',
-      enrolled: lead.enrolled || ''
-      
-    });
+    
+    // Use the new function to setup form data
+    const formData = setupSidebarFormDataWithCustomFields(lead);
+    setSidebarFormData(formData);
+    
     setShowSidebar(true);
     setIsEditingMode(false);
   };
@@ -577,6 +623,7 @@ const WarmLeads = ({ onLogout, user }) => {
         grade: sidebarFormData.grade,
         source: sidebarFormData.source,
         phone: formattedPhone,
+        second_phone: sidebarFormData.secondPhone,
         stage: stageKey, // ← Store stage_key
         score: getStageScore(stageKey),
         category: getStageCategory(stageKey),
@@ -631,7 +678,7 @@ const WarmLeads = ({ onLogout, user }) => {
       // Refresh activity data after any updates
       await fetchLastActivityData();
 
-      // Refresh the leads data
+      // ← UPDATED: Refresh the leads data (this will include custom fields)
       await fetchLeads();
 
       // Exit edit mode
@@ -728,16 +775,14 @@ const WarmLeads = ({ onLogout, user }) => {
     }
   };
 
-  
   // UPDATED: Handle form submission with history logging
-   // FIXED VERSION:
-const handleAddLead = async (action = 'add') => {
-  await fetchLeads(); // Refresh leads data (already includes activity data)
-  
-  // The key={selectedLead?.id} prop on LeadSidebar will automatically
-  // handle refreshing the sidebar when the lead data changes.
-  // No need for manual selectedLead updates here.
-};
+  const handleAddLead = async (action = 'add') => {
+    await fetchLeads(); // Refresh leads data (already includes activity data and custom fields)
+    
+    // The key={selectedLead?.id} prop on LeadSidebar will automatically
+    // handle refreshing the sidebar when the lead data changes.
+    // No need for manual selectedLead updates here.
+  };
 
   const handleShowAddForm = () => {
     setShowAddForm(true);
@@ -809,16 +854,12 @@ const handleAddLead = async (action = 'add') => {
     setShowSearch(false);
   };
 
-  // Determine which data to display
+  // ← UPDATED: Determine which data to display - FILTER FOR WARM LEADS ONLY
   const getDisplayLeads = () => {
-  let filtered = leadsData.filter(lead => lead.category === 'Warm');
-
-    // Apply "Me" filter first if enabled
-    if (showMyLeads) {
-      filtered = filtered.filter(lead => lead.counsellor === user.full_name);
-    }
+    // First filter for warm leads only
+    let filtered = leadsData.filter(lead => lead.category === 'Warm');
     
-    // Apply search next
+    // Apply search
     if (searchTerm.trim() !== '') {
       filtered = filtered.filter(lead => 
         lead.parentsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -834,11 +875,31 @@ const handleAddLead = async (action = 'add') => {
       );
     }
     
-    // Then apply filters
-    return applyFilters(filtered, counsellorFilters, stageFilters, statusFilters, getStageDisplayName, getStageKeyFromName);
+    // Apply filters
+    return applyFilters(filtered, counsellorFilters, stageFilters, statusFilters, alertFilter, getStageDisplayName, getStageKeyFromName, getDaysSinceLastActivity);
   };
 
   const displayLeads = getDisplayLeads();
+
+  // ← Get warm leads count for header
+  const warmLeadsCount = leadsData.filter(lead => lead.category === 'Warm').length;
+
+  // Format phone for mobile display (remove +91 prefix)
+  const formatPhoneForMobile = (phone) => {
+    if (!phone) return '';
+    return phone.replace('+91', '').trim();
+  };
+
+  // Check if screen is mobile (optional - for conditional rendering)
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Show loading if either leads or settings are loading
   if (loading || settingsLoading) {
@@ -861,7 +922,7 @@ const handleAddLead = async (action = 'add') => {
         activeSubmenuItem="warm"
         stages={stages}
         getStageCount={getStageCount}
-        stagesTitle="Stages"
+        stagesTitle="Warm Stages"
         stagesIcon={Play}
         onLogout={onLogout}
         user={user}
@@ -874,18 +935,10 @@ const handleAddLead = async (action = 'add') => {
         <div className="nova-header">
           <div className="header-left">
             <div className="header-title-row">
-              <h1>{showMyLeads ? 'My Warm Leads' : 'Warm Leads'}</h1>
-              <MeToggle 
-                showMyLeads={showMyLeads}
-                setShowMyLeads={setShowMyLeads}
-                user={user}
-                leadsData={leadsData.filter(lead => lead.category === 'Warm')}
-              />
+              <h1>Warm Leads</h1>
             </div>
             <span className="total-count">
-              Total Warm Leads {showMyLeads 
-                ? leadsData.filter(lead => lead.counsellor === user.full_name && lead.category === 'Warm').length 
-                : leadsData.filter(lead => lead.category === 'Warm').length}
+              Warm Leads {warmLeadsCount}
             </span>
             
             {/* DELETE BUTTON - Shows when leads are selected */}
@@ -926,62 +979,94 @@ const handleAddLead = async (action = 'add') => {
               </button>
             )}
           </div>
-          <div className="header-right">
-            <div className="search-container">
-              <Search size={16} className="search-icon" />
-              <input
-                type="text"
-                placeholder="Search leads..."
-                value={searchTerm}
-                onChange={handleSearchChange}
-                className="search-input"
-              />
-            </div>
-            <FilterButton
-              showFilter={showFilter}
-              setShowFilter={setShowFilter}
-              counsellorFilters={counsellorFilters}
-              stageFilters={stageFilters}
-              statusFilters={statusFilters}  
-              setCounsellorFilters={setCounsellorFilters}
-              setStageFilters={setStageFilters}
-              setStatusFilters={setStatusFilters}
-              settingsData={settingsData} 
-              getFieldLabel={getFieldLabel} // ← NEW
-              getStageKeyFromName={getStageKeyFromName} // ← NEW
-              getStageDisplayName={getStageDisplayName} // ← NEW
-  
-            />
-            <button 
-              className="import-leads-btn" 
-              onClick={handleShowImportModal}
-              title="Import Leads"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '40px',
-                height: '40px',
-                backgroundColor: '#10b981',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.backgroundColor = '#059669';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = '#10b981';
-              }}
-            >
-              <Plus size={20} />
-            </button>
-            <button className="add-lead-btn" onClick={handleShowAddForm}>
-              + Add Lead
-            </button>
-          </div>
+      <div className="header-right">
+  {/* Desktop View - Original Layout */}
+  <div className="desktop-header-actions">
+    <div className="search-container">
+      <Search size={16} className="search-icon" />
+      <input
+        type="text"
+        placeholder="Search warm leads..."
+        value={searchTerm}
+        onChange={handleSearchChange}
+        className="search-input"
+      />
+    </div>
+    {/* ← UPDATED: FilterButton with alert filter props */}
+    <FilterButton
+      showFilter={showFilter}
+      setShowFilter={setShowFilter}
+      counsellorFilters={counsellorFilters}
+      stageFilters={stageFilters}
+      statusFilters={statusFilters}
+      alertFilter={alertFilter} // ← NEW: Alert filter
+      setCounsellorFilters={setCounsellorFilters}
+      setStageFilters={setStageFilters}
+      setStatusFilters={setStatusFilters}
+      setAlertFilter={setAlertFilter} // ← NEW: Alert filter setter
+      settingsData={settingsData} 
+      getFieldLabel={getFieldLabel}
+      getStageKeyFromName={getStageKeyFromName}
+      getStageDisplayName={getStageDisplayName}
+    />
+    <button 
+      className="import-leads-btn" 
+      onClick={handleShowImportModal}
+      title="Import Leads"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '40px',
+        height: '40px',
+        backgroundColor: '#10b981',
+        color: 'white',
+        border: 'none',
+        borderRadius: '6px',
+        cursor: 'pointer',
+        transition: 'all 0.2s'
+      }}
+      onMouseEnter={(e) => {
+        e.target.style.backgroundColor = '#059669';
+      }}
+      onMouseLeave={(e) => {
+        e.target.style.backgroundColor = '#10b981';
+      }}
+    >
+      <Plus size={20} />
+    </button>
+    <button className="add-lead-btn" onClick={handleShowAddForm}>
+      + Add Lead
+    </button>
+  </div>
+
+  {/* Mobile View - Dropdown */}
+  <div className="mobile-header-actions">
+    {/* ← UPDATED: MobileHeaderDropdown with alert filter props */}
+    <MobileHeaderDropdown
+      searchTerm={searchTerm}
+      onSearchChange={handleSearchChange}
+      showFilter={showFilter}
+      setShowFilter={setShowFilter}
+      counsellorFilters={counsellorFilters}
+      stageFilters={stageFilters}
+      statusFilters={statusFilters}
+      alertFilter={alertFilter} // ← NEW: Alert filter
+      setCounsellorFilters={setCounsellorFilters}
+      setStageFilters={setStageFilters}
+      setStatusFilters={setStatusFilters}
+      setAlertFilter={setAlertFilter} // ← NEW: Alert filter setter
+      settingsData={settingsData}
+      getFieldLabel={getFieldLabel}
+      getStageKeyFromName={getStageKeyFromName}
+      getStageDisplayName={getStageDisplayName}
+      onShowImportModal={handleShowImportModal}
+      onShowAddForm={handleShowAddForm}
+      FilterButton={FilterButton}
+    />
+  </div>
+</div>
+
         </div>
 
         {/* Error Display */}
@@ -1005,12 +1090,12 @@ const handleAddLead = async (action = 'add') => {
                   />
                 </th>
                 <th>ID</th>
-                <th>{getFieldLabel('parentsName')}</th> {/* ← Dynamic field label */}
-                <th>{getFieldLabel('phone')}</th> {/* ← Dynamic field label */}
-                <th>{getFieldLabel('grade')}</th> {/* ← Dynamic field label */}
-                <th>{getFieldLabel('stage')}</th> {/* ← Dynamic field label */}
-                <th>Status</th>
-                <th>{getFieldLabel('counsellor')}</th> {/* ← Dynamic field label */}
+                <th>Parent</th> {/* Shortened for mobile */}
+                <th>Phone</th>
+                <th className="desktop-only">{getFieldLabel('grade')}</th> {/* Will be hidden on mobile */}
+                <th>Stage</th>
+                <th className="desktop-only">Status</th> {/* Will be hidden on mobile */}
+                <th className="desktop-only">{getFieldLabel('counsellor')}</th> {/* Will be hidden on mobile */}
                 <th>Alert</th>
               </tr>
             </thead>
@@ -1020,7 +1105,7 @@ const handleAddLead = async (action = 'add') => {
                   <tr 
                     key={lead.id} 
                     onClick={() => openSidebar(lead)} 
-                    className="table-row"
+                    className="table-row mobile-tap-row"
                   >
                     <td>
                       <input 
@@ -1042,7 +1127,7 @@ const handleAddLead = async (action = 'add') => {
                         <div className="kid-name">{lead.kidsName}</div>
                       </div>
                     </td>
-                    <td>{lead.phone?.replace('+91', '')}</td>
+                    <td>{formatPhoneForMobile(lead.phone)}</td>
                     <td>{lead.grade}</td>
                     <td>
                       <div className="stage-dropdown-container" style={{ position: 'relative', width: '100%' }}>
@@ -1163,12 +1248,10 @@ const handleAddLead = async (action = 'add') => {
               ) : !loading ? (
                 <tr>
                   <td colSpan="9" className="no-data">
-                    {showMyLeads 
-                      ? 'No warm leads assigned to you.' 
-                      : searchTerm 
-                        ? 'No results found for your search.' 
-                        : 'No warm leads available. Click + Add Lead to create your first lead!'}
-                  </td>
+                  {searchTerm 
+                    ? 'No warm leads found for your search.' 
+                    : 'No warm leads available. Warm leads will appear here when their status changes to "Warm".'}
+                </td>
                 </tr>
               ) : null}
             </tbody>

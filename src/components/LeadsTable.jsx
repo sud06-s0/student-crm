@@ -6,7 +6,6 @@ import AddLeadForm from './AddLeadForm';
 import LeftSidebar from './LeftSidebar';
 import LeadSidebar from './LeadSidebar';
 import DeleteConfirmationDialog from './DeleteConfirmationDialog';
-import MeToggle from './MeToggle';
 import FilterDropdown, { FilterButton, applyFilters } from './FilterDropdown';
 import LeadStateProvider,{ useLeadState } from './LeadStateProvider';
 import SettingsDataProvider, { useSettingsData } from '../contexts/SettingsDataProvider';
@@ -87,8 +86,7 @@ const LeadsTable = ({ onLogout, user }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // ME FILTER STATE
-  const [showMyLeads, setShowMyLeads] = useState(false);
+  
 
   // ← UPDATED: Sidebar editing states with field_key support
   const [isEditingMode, setIsEditingMode] = useState(false);
@@ -124,6 +122,7 @@ const LeadsTable = ({ onLogout, user }) => {
   const [counsellorFilters, setCounsellorFilters] = useState([]);
   const [stageFilters, setStageFilters] = useState([]);
   const [statusFilters, setStatusFilters] = useState([]);
+  const [alertFilter, setAlertFilter] = useState(false); // ← NEW: Alert filter state
 
   // ← UPDATED: Get dynamic stages with stage_key support
   const stages = settingsData.stages.map(stage => ({
@@ -337,11 +336,11 @@ const LeadsTable = ({ onLogout, user }) => {
     setShowDeleteDialog(false);
   };
 
-  // Clear selections when leads data changes (after filters/search/me toggle)
+  // ← UPDATED: Clear selections when leads data changes (after filters/search/me toggle)
   useEffect(() => {
     setSelectedLeads([]);
     setSelectAll(false);
-  }, [searchTerm, counsellorFilters, stageFilters, statusFilters, showMyLeads]);
+  }, [searchTerm, counsellorFilters, stageFilters, statusFilters, alertFilter]); // ← NEW: Include alertFilter
 
   // ← UPDATED: Calculate stage counts using stage_key
   const getStageCount = (stageName) => {
@@ -856,32 +855,27 @@ const LeadsTable = ({ onLogout, user }) => {
 
   // Determine which data to display
   const getDisplayLeads = () => {
-    let filtered = leadsData;
-    
-    // Apply "Me" filter first if enabled
-    if (showMyLeads) {
-      filtered = filtered.filter(lead => lead.counsellor === user.full_name);
-    }
-    
-    // Apply search next
-    if (searchTerm.trim() !== '') {
-      filtered = filtered.filter(lead => 
-        lead.parentsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.kidsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        getStageDisplayName(lead.stage).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.counsellor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (lead.occupation && lead.occupation.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (lead.location && lead.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (lead.currentSchool && lead.currentSchool.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (lead.source && lead.source.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-    }
-    
-    // Then apply filters
-    return applyFilters(filtered, counsellorFilters, stageFilters, statusFilters, getStageDisplayName, getStageKeyFromName);
-  };
+  let filtered = leadsData;
+  
+  // Apply search
+  if (searchTerm.trim() !== '') {
+    filtered = filtered.filter(lead => 
+      lead.parentsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lead.kidsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lead.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      getStageDisplayName(lead.stage).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lead.counsellor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (lead.occupation && lead.occupation.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (lead.location && lead.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (lead.currentSchool && lead.currentSchool.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (lead.source && lead.source.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }
+  
+  // Apply filters
+  return applyFilters(filtered, counsellorFilters, stageFilters, statusFilters, alertFilter, getStageDisplayName, getStageKeyFromName, getDaysSinceLastActivity);
+};
 
   const displayLeads = getDisplayLeads();
 
@@ -936,19 +930,11 @@ const LeadsTable = ({ onLogout, user }) => {
         <div className="nova-header">
           <div className="header-left">
             <div className="header-title-row">
-              <h1>{showMyLeads ? 'My Leads' : 'All Leads'}</h1>
-              <MeToggle 
-                showMyLeads={showMyLeads}
-                setShowMyLeads={setShowMyLeads}
-                user={user}
-                leadsData={leadsData}
-              />
+              <h1>All Leads</h1>
             </div>
             <span className="total-count">
-              Total Leads {showMyLeads 
-                ? leadsData.filter(lead => lead.counsellor === user.full_name).length 
-                : leadsData.length}
-            </span>
+            Total Leads {leadsData.length}
+          </span>
             
             {/* DELETE BUTTON - Shows when leads are selected */}
             {selectedLeads.length > 0 && (
@@ -1001,15 +987,18 @@ const LeadsTable = ({ onLogout, user }) => {
         className="search-input"
       />
     </div>
+    {/* ← UPDATED: FilterButton with alert filter props */}
     <FilterButton
       showFilter={showFilter}
       setShowFilter={setShowFilter}
       counsellorFilters={counsellorFilters}
       stageFilters={stageFilters}
-      statusFilters={statusFilters}  
+      statusFilters={statusFilters}
+      alertFilter={alertFilter} // ← NEW: Alert filter
       setCounsellorFilters={setCounsellorFilters}
       setStageFilters={setStageFilters}
       setStatusFilters={setStatusFilters}
+      setAlertFilter={setAlertFilter} // ← NEW: Alert filter setter
       settingsData={settingsData} 
       getFieldLabel={getFieldLabel}
       getStageKeyFromName={getStageKeyFromName}
@@ -1048,6 +1037,7 @@ const LeadsTable = ({ onLogout, user }) => {
 
   {/* Mobile View - Dropdown */}
   <div className="mobile-header-actions">
+    {/* ← UPDATED: MobileHeaderDropdown with alert filter props */}
     <MobileHeaderDropdown
       searchTerm={searchTerm}
       onSearchChange={handleSearchChange}
@@ -1056,9 +1046,11 @@ const LeadsTable = ({ onLogout, user }) => {
       counsellorFilters={counsellorFilters}
       stageFilters={stageFilters}
       statusFilters={statusFilters}
+      alertFilter={alertFilter} // ← NEW: Alert filter
       setCounsellorFilters={setCounsellorFilters}
       setStageFilters={setStageFilters}
       setStatusFilters={setStatusFilters}
+      setAlertFilter={setAlertFilter} // ← NEW: Alert filter setter
       settingsData={settingsData}
       getFieldLabel={getFieldLabel}
       getStageKeyFromName={getStageKeyFromName}
@@ -1251,12 +1243,10 @@ const LeadsTable = ({ onLogout, user }) => {
               ) : !loading ? (
                 <tr>
                   <td colSpan="9" className="no-data">
-                    {showMyLeads 
-                      ? 'No leads assigned to you.' 
-                      : searchTerm 
-                        ? 'No results found for your search.' 
-                        : 'No leads available. Click + Add Lead to create your first lead!'}
-                  </td>
+                  {searchTerm 
+                    ? 'No results found for your search.' 
+                    : 'No leads available. Click + Add Lead to create your first lead!'}
+                </td>
                 </tr>
               ) : null}
             </tbody>

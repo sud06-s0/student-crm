@@ -32,7 +32,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     loading: settingsLoading 
   } = useSettingsData();
 
-  // ALL STATE HOOKS FIRST
+  // ← OPTION 2: Direct data fetching - completely independent of LeadStateProvider
   const [rawLeadsData, setRawLeadsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
@@ -46,7 +46,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [currentBarIndex, setCurrentBarIndex] = useState(0);
 
-  // ← COPIED FROM LEADSIDEBAR: Get dynamic stages with stage_key support
+  // ← Get dynamic stages with stage_key support
   const stages = useMemo(() => {
     return settingsData.stages.map(stage => ({
       value: stage.stage_key || stage.name,
@@ -69,7 +69,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // ← COPIED EXACTLY FROM LEADSIDEBAR: Stage key conversion functions
+  // ← Stage key conversion functions
   const getLeadStageKey = (leadStageValue) => {
     // If the lead already has a stage_key, return it
     if (stageKeyToDataMapping[leadStageValue]) {
@@ -91,7 +91,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     return leadStageValue;
   };
 
-  // ← COPIED FROM LEADSIDEBAR: Convert database record to UI format with stage_key support
+  // ← Convert database record to UI format with stage_key support
   const convertDatabaseToUI = (dbRecord) => {
     let meetingDate = '';
     let meetingTime = '';
@@ -110,7 +110,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
       visitTime = visitDateTime.toTimeString().slice(0, 5);
     }
 
-    // ← COPIED: Handle stage value with current settings context
+    // ← Handle stage value with current settings context
     const stageValue = dbRecord.stage;
     const stageKey = getLeadStageKey(stageValue);
     const displayName = getLeadStageDisplayName(stageValue);
@@ -162,9 +162,9 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     };
   };
 
-  // ← NEW: Process leads data with current settings - recomputed when settings change
+  // ← Process leads data with current settings - recomputed when settings change
   const leadsData = useMemo(() => {
-    console.log('=== REPROCESSING LEADS DATA WITH CURRENT SETTINGS ===');
+    console.log('=== PROCESSING COUNSELLOR PERFORMANCE LEADS DATA ===');
     console.log('Raw leads count:', rawLeadsData.length);
     console.log('Settings stages:', settingsData.stages.length);
     
@@ -177,10 +177,12 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     return processedData;
   }, [rawLeadsData, settingsData, stageKeyToDataMapping, getLeadStageKey, getLeadStageDisplayName]);
 
-  // Fetch leads function - only fetches raw data
+  // ← OPTION 2: Direct data fetching - independent of context
   const fetchLeads = async () => {
     try {
       setLoading(true);
+      console.log('=== FETCHING ALL LEADS FOR COUNSELLOR PERFORMANCE ===');
+      
       const { data, error } = await supabase
         .from('Leads')
         .select('*')
@@ -188,17 +190,16 @@ const CounsellorPerformance = ({ onLogout, user }) => {
 
       if (error) throw error;
 
-      console.log('=== FETCHED RAW LEADS DATA ===');
-      console.log('Raw data count:', data.length);
+      console.log('Fetched leads count:', data.length);
       setRawLeadsData(data);
     } catch (error) {
-      console.error('Error fetching leads:', error);
+      console.error('Error fetching leads for counsellor performance:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // ← Only fetch raw data on mount
+  // ← Fetch data on component mount
   useEffect(() => {
     fetchLeads();
   }, []);
@@ -206,7 +207,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
   // Get current date for max date validation
   const currentDate = new Date().toISOString().split('T')[0];
 
-  // ← NEW: Get all available stage keys and names dynamically from settings
+  // ← Get all available stage keys and names dynamically from settings
   const availableStages = useMemo(() => {
     console.log('=== AVAILABLE STAGES FROM SETTINGS ===');
     console.log('Settings stages:', settingsData.stages);
@@ -223,7 +224,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     return stageList;
   }, [settingsData.stages]);
 
-  // ← NEW: Filter to only the 4 specific stages we want to track
+  // ← Filter to only the 4 specific stages we want to track
   const targetStageKeys = ['meetingDone', 'visitDone', 'registered', 'admission'];
   const performanceStages = useMemo(() => {
     const filtered = availableStages.filter(stage => targetStageKeys.includes(stage.key));
@@ -233,7 +234,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     return filtered;
   }, [availableStages]);
 
-  // ← NEW: Set default selected metric to admission
+  // ← Set default selected metric to admission
   useEffect(() => {
     if (performanceStages.length > 0 && !selectedMetric) {
       setSelectedMetric('admission');
@@ -265,7 +266,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     });
   }, [leadsData, dateRange]);
 
-  // ← NEW: Calculate counsellor performance using the 4 specific stages with proper stage keys
+  // ← Calculate counsellor performance using the 4 specific stages with proper stage keys
   const counsellorData = useMemo(() => {
     const filteredLeads = getFilteredLeadsByDate;
     
@@ -281,7 +282,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
           totalLeads: 0
         };
         
-        // ← NEW: Initialize counters for only the 4 performance stages
+        // ← Initialize counters for only the 4 performance stages
         performanceStages.forEach(stage => {
           acc[counsellor][stage.key] = 0;
         });
@@ -289,12 +290,12 @@ const CounsellorPerformance = ({ onLogout, user }) => {
       
       acc[counsellor].totalLeads++;
       
-      // ← Use EXACT same stage_key logic as LeadSidebar
+      // ← Use stage_key logic
       const leadStageKey = getLeadStageKey(lead.stage);
       
       console.log(`Lead ${lead.id} - Stage Key: ${leadStageKey}, Display: ${lead.stageDisplayName}`);
       
-      // ← NEW: Check only the 4 performance stages
+      // ← Check only the 4 performance stages
       performanceStages.forEach(stage => {
         if (leadStageKey === stage.key) {
           acc[counsellor][stage.key]++;
@@ -307,7 +308,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
 
     console.log('Final counsellor stats:', counsellorStats);
 
-    // ← NEW: Calculate conversion rates based on admission stage specifically
+    // ← Calculate conversion rates based on admission stage specifically
     return Object.entries(counsellorStats).map(([name, stats]) => ({
       name,
       ...stats,
@@ -325,7 +326,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     return counsellorData[0];
   }, [counsellorData]);
 
-  // UPDATED: Prepare bar chart data with mobile support
+  // Prepare bar chart data with mobile support
   const barChartData = useMemo(() => {
     const fullData = counsellorData.map(counsellor => ({
       name: counsellor.name.split(' ')[0],
@@ -362,7 +363,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     }
   }, [counsellorData.length, currentBarIndex]);
 
-  // ← UPDATED: Count function for sidebar using stage_key (EXACTLY like LeadSidebar)
+  // ← Count function for sidebar using stage_key
   const getStageCount = (stageName) => {
     const stageKey = getStageKeyFromName(stageName);
     return leadsData.filter(lead => {
@@ -371,7 +372,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
     }).length;
   };
 
-  // ← NEW: Get stage name for display from stage key
+  // ← Get stage name for display from stage key
   const getStageDisplayName = (stageKey) => {
     const stage = performanceStages.find(s => s.key === stageKey);
     return stage ? stage.name : stageKey;
@@ -550,7 +551,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
                     </div>
                     
                     <div className="counsellor-metrics">
-                      {/* ← NEW: Show only the 4 performance stages */}
+                      {/* ← Show only the 4 performance stages */}
                       {performanceStages.map((stage, stageIndex) => (
                         <div key={stage.key} className="counsellor-metric">
                           <div className="counsellor-metric-icon">
@@ -585,7 +586,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
 
           {/* Charts Section */}
           <div className="counsellor-charts-section">
-            {/* Success Rate Chart - UPDATED WITH MOBILE SUPPORT */}
+            {/* Success Rate Chart - WITH MOBILE SUPPORT */}
             <div className="counsellor-chart-container">
               <h3 className="counsellor-chart-title">
                 Success Rate by {getFieldLabel('counsellor')}
@@ -597,7 +598,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
                   onChange={(e) => setSelectedMetric(e.target.value)}
                   className="counsellor-metric-dropdown"
                 >
-                  {/* ← NEW: Dynamic options based on the 4 performance stages */}
+                  {/* ← Dynamic options based on the 4 performance stages */}
                   {performanceStages.map(stage => (
                     <option key={stage.key} value={stage.key}>
                       {stage.name}
@@ -719,7 +720,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
                   </div>
                   
                   <div className="counsellor-top-performer-stats">
-                    {/* ← NEW: Show admission count and conversion rate */}
+                    {/* ← Show admission count and conversion rate */}
                     <div className="counsellor-top-stat">
                       <div className="counsellor-top-stat-icon">
                         <img 

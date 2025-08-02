@@ -1,31 +1,33 @@
 // FilterDropdown.jsx - Reusable Component with Two-Level Dropdown
 import React, { useState } from 'react';
-import { X, Filter, ChevronDown, ChevronRight } from 'lucide-react';
+import { X, Filter, ChevronDown, ChevronRight, AlertCircle } from 'lucide-react';
 
 const FilterDropdown = ({ 
   isOpen, 
   onClose, 
   counsellorFilters, 
   stageFilters, 
-  statusFilters = [], // New status filter
+  statusFilters = [], // Status filter
+  alertFilter = false, // NEW: Alert filter
   setCounsellorFilters, 
   setStageFilters, 
-  setStatusFilters, // New status filter setter
+  setStatusFilters, // Status filter setter
+  setAlertFilter, // NEW: Alert filter setter
   onClearAll,
-  settingsData, // ← Receive settings data
-  getFieldLabel, // ← NEW: Receive getFieldLabel function
-  getStageKeyFromName, // ← NEW: Stage conversion function
-  getStageDisplayName // ← NEW: Stage conversion function
+  settingsData, // Receive settings data
+  getFieldLabel, // NEW: Receive getFieldLabel function
+  getStageKeyFromName, // NEW: Stage conversion function
+  getStageDisplayName // NEW: Stage conversion function
 }) => {
   const [expandedSection, setExpandedSection] = useState(null);
 
-  // ← UPDATED: Get dynamic counsellors from settings
+  // Get dynamic counsellors from settings
   const counsellors = settingsData?.counsellors?.map(counsellor => counsellor.name) || ['Assign Counsellor'];
 
-  // ← UPDATED: Get dynamic stages from settings (display names for UI)
+  // Get dynamic stages from settings (display names for UI)
   const stages = settingsData?.stages?.map(stage => stage.name) || ['New Lead'];
 
-  // ← UPDATED: Get dynamic statuses from settings (unique stage statuses)
+  // Get dynamic statuses from settings (unique stage statuses)
   const statuses = [...new Set(settingsData?.stages?.map(stage => stage.status).filter(Boolean))] || ['New'];
 
   const handleCounsellorChange = (counsellor) => {
@@ -36,7 +38,7 @@ const FilterDropdown = ({
     }
   };
 
-  // ← UPDATED: Handle stage filtering with stage_key conversion
+  // Handle stage filtering with stage_key conversion
   const handleStageChange = (stageName) => {
     if (stageFilters.includes(stageName)) {
       setStageFilters(stageFilters.filter(s => s !== stageName));
@@ -53,6 +55,11 @@ const FilterDropdown = ({
     }
   };
 
+  // NEW: Handle alert filter change
+  const handleAlertChange = () => {
+    setAlertFilter(!alertFilter);
+  };
+
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
   };
@@ -62,6 +69,7 @@ const FilterDropdown = ({
       case 'counsellor': return counsellorFilters.length;
       case 'stage': return stageFilters.length;
       case 'status': return statusFilters.length;
+      case 'alert': return alertFilter ? 1 : 0; // NEW: Alert filter count
       default: return 0;
     }
   };
@@ -127,7 +135,7 @@ const FilterDropdown = ({
         {/* Filter Content */}
         <div style={{ padding: '16px' }}>
           
-          {/* ← UPDATED: Counsellor Filter Section with dynamic label */}
+          {/* Counsellor Filter Section with dynamic label */}
           <div style={{ marginBottom: '12px' }}>
             <div 
               onClick={() => toggleSection('counsellor')}
@@ -190,7 +198,7 @@ const FilterDropdown = ({
             )}
           </div>
 
-          {/* ← UPDATED: Stage Filter Section with dynamic label */}
+          {/* Stage Filter Section with dynamic label */}
           <div style={{ marginBottom: '12px' }}>
             <div 
               onClick={() => toggleSection('stage')}
@@ -253,8 +261,8 @@ const FilterDropdown = ({
             )}
           </div>
 
-          {/* Status Filter Section (no changes needed - already good) */}
-          <div style={{ marginBottom: '20px' }}>
+          {/* Status Filter Section */}
+          <div style={{ marginBottom: '12px' }}>
             <div 
               onClick={() => toggleSection('status')}
               style={{
@@ -314,6 +322,67 @@ const FilterDropdown = ({
             )}
           </div>
 
+          {/* NEW: Alert Filter Section */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{
+              padding: '8px 0',
+              borderBottom: '1px solid #f3f4f6'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontSize: '14px', fontWeight: '600' }}>Alert</span>
+                {getFilterCount('alert') > 0 && (
+                  <span style={{
+                    marginLeft: '8px',
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    borderRadius: '10px',
+                    padding: '2px 6px',
+                    fontSize: '11px',
+                    fontWeight: '600'
+                  }}>
+                    ON
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            <div style={{ paddingTop: '12px' }}>
+              <label 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  padding: '8px 12px',
+                  backgroundColor: alertFilter ? '#fef2f2' : 'transparent',
+                  borderRadius: '6px',
+                  border: alertFilter ? '1px solid #fecaca' : '1px solid transparent',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={alertFilter}
+                  onChange={handleAlertChange}
+                  style={{ marginRight: '8px' }}
+                />
+                <AlertCircle size={16} style={{ marginRight: '8px', color: '#ef4444' }} />
+                <span>Show only leads with alerts (3+ days)</span>
+              </label>
+              {alertFilter && (
+                <div style={{
+                  marginTop: '8px',
+                  fontSize: '12px',
+                  color: '#6b7280',
+                  fontStyle: 'italic',
+                  paddingLeft: '12px'
+                }}>
+                  Sorted by highest alert days first
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Clear All Button */}
           <button
             onClick={onClearAll}
@@ -339,14 +408,14 @@ const FilterDropdown = ({
           </button>
 
           {/* Active Filters Count */}
-          {(counsellorFilters.length > 0 || stageFilters.length > 0 || statusFilters.length > 0) && (
+          {(counsellorFilters.length > 0 || stageFilters.length > 0 || statusFilters.length > 0 || alertFilter) && (
             <div style={{ 
               marginTop: '12px', 
               fontSize: '12px', 
               color: '#6b7280',
               textAlign: 'center'
             }}>
-              {counsellorFilters.length + stageFilters.length + statusFilters.length} filter(s) active
+              {counsellorFilters.length + stageFilters.length + statusFilters.length + (alertFilter ? 1 : 0)} filter(s) active
             </div>
           )}
         </div>
@@ -355,19 +424,19 @@ const FilterDropdown = ({
   );
 };
 
-// ← UPDATED: Filter logic utility function with stage_key support
-export const applyFilters = (leads, counsellorFilters, stageFilters, statusFilters = [], getStageDisplayName, getStageKeyFromName) => {
-  return leads.filter(lead => {
+// UPDATED: Filter logic utility function with alert filter support
+export const applyFilters = (leads, counsellorFilters, stageFilters, statusFilters = [], alertFilter = false, getStageDisplayName, getStageKeyFromName, getDaysSinceLastActivity) => {
+  let filteredLeads = leads.filter(lead => {
     // If no filters selected, show all leads
-    if (counsellorFilters.length === 0 && stageFilters.length === 0 && statusFilters.length === 0) {
+    if (counsellorFilters.length === 0 && stageFilters.length === 0 && statusFilters.length === 0 && !alertFilter) {
       return true;
     }
 
-    // ← UPDATED: Check counsellor filter (field_key aware)
+    // Check counsellor filter (field_key aware)
     const counsellorMatch = counsellorFilters.length === 0 || 
                            counsellorFilters.includes(lead.counsellor);
 
-    // ← UPDATED: Check stage filter with stage_key conversion
+    // Check stage filter with stage_key conversion
     let stageMatch = false;
     if (stageFilters.length === 0) {
       stageMatch = true;
@@ -384,37 +453,51 @@ export const applyFilters = (leads, counsellorFilters, stageFilters, statusFilte
       }
       
       stageMatch = stageFilters.includes(leadStageName);
-      
-      console.log('=== STAGE FILTER DEBUG ===');
-      console.log('Lead stage value:', lead.stage);
-      console.log('Lead stage display name:', leadStageName);
-      console.log('Stage filters:', stageFilters);
-      console.log('Stage match:', stageMatch);
     }
 
     // Check status filter
     const statusMatch = statusFilters.length === 0 ||
                        statusFilters.includes(lead.category);
 
+    // NEW: Check alert filter
+    let alertMatch = true;
+    if (alertFilter && getDaysSinceLastActivity) {
+      const daysSince = getDaysSinceLastActivity(lead.id);
+      alertMatch = daysSince >= 3; // Only show leads with 3+ days since last activity
+    }
+
     // Lead must match all filters (AND logic)
-    return counsellorMatch && stageMatch && statusMatch;
+    return counsellorMatch && stageMatch && statusMatch && alertMatch;
   });
+
+  // NEW: If alert filter is active, sort by days since last activity (descending)
+  if (alertFilter && getDaysSinceLastActivity) {
+    filteredLeads = filteredLeads.sort((a, b) => {
+      const aDays = getDaysSinceLastActivity(a.id);
+      const bDays = getDaysSinceLastActivity(b.id);
+      return bDays - aDays; // Descending order (highest days first)
+    });
+  }
+
+  return filteredLeads;
 };
 
-// ← UPDATED: FilterButton component with field_key and stage_key support
+// UPDATED: FilterButton component with alert filter support
 export const FilterButton = ({ 
   showFilter, 
   setShowFilter, 
   counsellorFilters, 
   stageFilters, 
   statusFilters = [],
+  alertFilter = false, // NEW: Alert filter
   setCounsellorFilters, 
   setStageFilters,
   setStatusFilters,
-  settingsData, // ← Receive settings data
-  getFieldLabel, // ← NEW: Receive getFieldLabel function
-  getStageKeyFromName, // ← NEW: Stage conversion function
-  getStageDisplayName // ← NEW: Stage conversion function
+  setAlertFilter, // NEW: Alert filter setter
+  settingsData, // Receive settings data
+  getFieldLabel, // NEW: Receive getFieldLabel function
+  getStageKeyFromName, // NEW: Stage conversion function
+  getStageDisplayName // NEW: Stage conversion function
 }) => (
   <div style={{ position: 'relative' }}>
     <button 
@@ -425,7 +508,7 @@ export const FilterButton = ({
       <Filter size={16} />
       Filter
       {/* Active indicator */}
-      {(counsellorFilters.length > 0 || stageFilters.length > 0 || statusFilters.length > 0) && (
+      {(counsellorFilters.length > 0 || stageFilters.length > 0 || statusFilters.length > 0 || alertFilter) && (
         <span style={{
           position: 'absolute',
           top: '-2px',
@@ -444,17 +527,20 @@ export const FilterButton = ({
       counsellorFilters={counsellorFilters}
       stageFilters={stageFilters}
       statusFilters={statusFilters}
+      alertFilter={alertFilter} // NEW: Pass alert filter
       setCounsellorFilters={setCounsellorFilters}
       setStageFilters={setStageFilters}
       setStatusFilters={setStatusFilters}
+      setAlertFilter={setAlertFilter} // NEW: Pass alert filter setter
       settingsData={settingsData}
-      getFieldLabel={getFieldLabel} // ← NEW: Pass getFieldLabel
-      getStageKeyFromName={getStageKeyFromName} // ← NEW: Pass stage conversion
-      getStageDisplayName={getStageDisplayName} // ← NEW: Pass stage conversion
+      getFieldLabel={getFieldLabel} // NEW: Pass getFieldLabel
+      getStageKeyFromName={getStageKeyFromName} // NEW: Pass stage conversion
+      getStageDisplayName={getStageDisplayName} // NEW: Pass stage conversion
       onClearAll={() => {
         setCounsellorFilters([]);
         setStageFilters([]);
         setStatusFilters([]);
+        setAlertFilter(false); // NEW: Clear alert filter
       }}
     />
   </div>
