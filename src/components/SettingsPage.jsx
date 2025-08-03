@@ -108,14 +108,20 @@ const SettingsPage = ({ onLogout, user }) => {
     setShowStageEditModal(true);
   };
 
+  // ← UPDATED: Handle stage update with leads synchronization
   const handleUpdateStage = async () => {
     try {
+      // Step 1: Update leads with new stage name (if name changed)
+      await settingsService.updateStageWithLeads(editingStage.id, editingStage.name);
+      
+      // Step 2: Update stage in settings
       await settingsService.updateItem(editingStage.id, editingStage.name, {
         color: editingStage.color,
         status: editingStage.status,
         score: 20,
         category: 'New'
       });
+      
       await loadSettings();
       setShowStageEditModal(false);
       alert('Stage updated successfully!');
@@ -196,6 +202,7 @@ const SettingsPage = ({ onLogout, user }) => {
     setShowGradeModal(true);
   };
 
+  // ← UPDATED: Handle grade submit with leads synchronization
   const handleGradeSubmit = async () => {
     if (!gradeModalData.name.trim()) {
       alert('Grade name is required');
@@ -204,9 +211,11 @@ const SettingsPage = ({ onLogout, user }) => {
 
     try {
       if (gradeModalData.isEditing) {
-        await settingsService.updateItem(gradeModalData.id, gradeModalData.name);
+        // Update grade with leads synchronization
+        await settingsService.updateGradeWithLeads(gradeModalData.id, gradeModalData.name);
         alert('Grade updated successfully!');
       } else {
+        // Create new grade
         await settingsService.createItem('grades', gradeModalData.name);
         alert('Grade added successfully!');
       }
@@ -219,12 +228,13 @@ const SettingsPage = ({ onLogout, user }) => {
     }
   };
 
+  // ← UPDATED: Remove grade with leads synchronization
   const removeGrade = async (gradeId) => {
-    if (window.confirm('Are you sure you want to delete this grade?')) {
+    if (window.confirm('Are you sure you want to delete this grade? All leads with this grade will be changed to "NA".')) {
       try {
-        await settingsService.deleteItem(gradeId);
+        await settingsService.deleteGradeWithLeads(gradeId);
         await loadSettings();
-        alert('Grade deleted successfully!');
+        alert('Grade deleted successfully! All leads with this grade have been changed to "NA".');
       } catch (error) {
         console.error('Error deleting grade:', error);
         alert('Error deleting grade: ' + error.message);
@@ -251,6 +261,7 @@ const SettingsPage = ({ onLogout, user }) => {
     setShowSourceModal(true);
   };
 
+  // ← UPDATED: Handle source submit with leads synchronization
   const handleSourceSubmit = async () => {
     if (!sourceModalData.name.trim()) {
       alert('Source name is required');
@@ -259,9 +270,11 @@ const SettingsPage = ({ onLogout, user }) => {
 
     try {
       if (sourceModalData.isEditing) {
-        await settingsService.updateItem(sourceModalData.id, sourceModalData.name);
+        // Update source with leads synchronization
+        await settingsService.updateSourceWithLeads(sourceModalData.id, sourceModalData.name);
         alert('Source updated successfully!');
       } else {
+        // Create new source
         await settingsService.createItem('sources', sourceModalData.name);
         alert('Source added successfully!');
       }
@@ -274,12 +287,13 @@ const SettingsPage = ({ onLogout, user }) => {
     }
   };
 
+  // ← UPDATED: Remove source with leads synchronization
   const removeSource = async (sourceId) => {
-    if (window.confirm('Are you sure you want to delete this source?')) {
+    if (window.confirm('Are you sure you want to delete this source? All leads with this source will be changed to "NA".')) {
       try {
-        await settingsService.deleteItem(sourceId);
+        await settingsService.deleteSourceWithLeads(sourceId);
         await loadSettings();
-        alert('Source deleted successfully!');
+        alert('Source deleted successfully! All leads with this source have been changed to "NA".');
       } catch (error) {
         console.error('Error deleting source:', error);
         alert('Error deleting source: ' + error.message);

@@ -329,6 +329,217 @@ export const settingsService = {
     return counsellor;
   },
 
+  // ← NEW: Update leads when source name changes
+  async updateSourceWithLeads(sourceId, newName) {
+    try {
+      // Step 1: Get current source name
+      const { data: source, error: sourceError } = await supabase
+        .from('settings')
+        .select('name')
+        .eq('id', sourceId)
+        .single();
+
+      if (sourceError) throw sourceError;
+
+      const oldSourceName = source.name;
+
+      // Step 2: Update source name
+      const { error: updateError } = await supabase
+        .from('settings')
+        .update({ name: newName })
+        .eq('id', sourceId);
+
+      if (updateError) throw updateError;
+
+      // Step 3: Update all leads with old source name to new source name
+      if (oldSourceName !== newName) {
+        console.log(`Updating leads from source "${oldSourceName}" to "${newName}"`);
+        const { error: leadsUpdateError } = await supabase
+          .from('Leads')
+          .update({ source: newName })
+          .eq('source', oldSourceName);
+
+        if (leadsUpdateError) {
+          console.error('Error updating leads with new source name:', leadsUpdateError);
+          throw leadsUpdateError;
+        }
+
+        console.log(`Successfully updated leads from "${oldSourceName}" to "${newName}"`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating source with leads:', error);
+      throw error;
+    }
+  },
+
+  // ← NEW: Delete source and update leads to "NA"
+  async deleteSourceWithLeads(sourceId) {
+    try {
+      // Step 1: Get source name
+      const { data: source, error: sourceError } = await supabase
+        .from('settings')
+        .select('name')
+        .eq('id', sourceId)
+        .single();
+
+      if (sourceError) throw sourceError;
+
+      const sourceName = source.name;
+
+      // Step 2: Update all leads with this source to "NA"
+      console.log(`Updating leads with source "${sourceName}" to "NA"`);
+      const { error: leadsUpdateError } = await supabase
+        .from('Leads')
+        .update({ source: 'NA' })
+        .eq('source', sourceName);
+
+      if (leadsUpdateError) {
+        console.error('Error updating leads:', leadsUpdateError);
+        throw leadsUpdateError;
+      }
+
+      // Step 3: Delete the source
+      const { error: deleteError } = await supabase
+        .from('settings')
+        .delete()
+        .eq('id', sourceId);
+
+      if (deleteError) throw deleteError;
+
+      console.log(`Successfully updated ${sourceName}'s leads to "NA" and deleted source`);
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting source with leads:', error);
+      throw error;
+    }
+  },
+
+  // ← NEW: Update leads when grade name changes
+  async updateGradeWithLeads(gradeId, newName) {
+    try {
+      // Step 1: Get current grade name
+      const { data: grade, error: gradeError } = await supabase
+        .from('settings')
+        .select('name')
+        .eq('id', gradeId)
+        .single();
+
+      if (gradeError) throw gradeError;
+
+      const oldGradeName = grade.name;
+
+      // Step 2: Update grade name
+      const { error: updateError } = await supabase
+        .from('settings')
+        .update({ name: newName })
+        .eq('id', gradeId);
+
+      if (updateError) throw updateError;
+
+      // Step 3: Update all leads with old grade name to new grade name
+      if (oldGradeName !== newName) {
+        console.log(`Updating leads from grade "${oldGradeName}" to "${newName}"`);
+        const { error: leadsUpdateError } = await supabase
+          .from('Leads')
+          .update({ grade: newName })
+          .eq('grade', oldGradeName);
+
+        if (leadsUpdateError) {
+          console.error('Error updating leads with new grade name:', leadsUpdateError);
+          throw leadsUpdateError;
+        }
+
+        console.log(`Successfully updated leads from "${oldGradeName}" to "${newName}"`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating grade with leads:', error);
+      throw error;
+    }
+  },
+
+  // ← NEW: Delete grade and update leads to "NA"
+  async deleteGradeWithLeads(gradeId) {
+    try {
+      // Step 1: Get grade name
+      const { data: grade, error: gradeError } = await supabase
+        .from('settings')
+        .select('name')
+        .eq('id', gradeId)
+        .single();
+
+      if (gradeError) throw gradeError;
+
+      const gradeName = grade.name;
+
+      // Step 2: Update all leads with this grade to "NA"
+      console.log(`Updating leads with grade "${gradeName}" to "NA"`);
+      const { error: leadsUpdateError } = await supabase
+        .from('Leads')
+        .update({ grade: 'NA' })
+        .eq('grade', gradeName);
+
+      if (leadsUpdateError) {
+        console.error('Error updating leads:', leadsUpdateError);
+        throw leadsUpdateError;
+      }
+
+      // Step 3: Delete the grade
+      const { error: deleteError } = await supabase
+        .from('settings')
+        .delete()
+        .eq('id', gradeId);
+
+      if (deleteError) throw deleteError;
+
+      console.log(`Successfully updated ${gradeName}'s leads to "NA" and deleted grade`);
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting grade with leads:', error);
+      throw error;
+    }
+  },
+
+  // ← NEW: Update leads when stage name changes
+  async updateStageWithLeads(stageId, newName) {
+    try {
+      // Step 1: Get current stage name
+      const { data: stage, error: stageError } = await supabase
+        .from('settings')
+        .select('name')
+        .eq('id', stageId)
+        .single();
+
+      if (stageError) throw stageError;
+
+      const oldStageName = stage.name;
+
+      // Step 2: Update all leads with old stage name to new stage name
+      if (oldStageName !== newName) {
+        console.log(`Updating leads from stage "${oldStageName}" to "${newName}"`);
+        const { error: leadsUpdateError } = await supabase
+          .from('Leads')
+          .update({ stage: newName })
+          .eq('stage', oldStageName);
+
+        if (leadsUpdateError) {
+          console.error('Error updating leads with new stage name:', leadsUpdateError);
+          throw leadsUpdateError;
+        }
+
+        console.log(`Successfully updated leads from "${oldStageName}" to "${newName}"`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating stage with leads:', error);
+      throw error;
+    }
+  },
+
   // ← Custom Fields Operations
   async getCustomFieldsForLead(leadId) {
     try {

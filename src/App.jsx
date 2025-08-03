@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import LeadStateProvider,{ useLeadState } from './components/LeadStateProvider';
 import LeadsTable from './components/LeadsTable';
 import WarmLeads from './components/WarmLeads';
@@ -14,9 +14,13 @@ import SettingsDataProvider from './contexts/SettingsDataProvider';
 import FollowUpTable from './components/FollowUpTable';
 import { authService } from './services/authService';
 
-function App() {
+// Wrapper component to handle navigation within Router context
+function AppContent() {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     // Check if user is already logged in on app start
@@ -43,45 +47,74 @@ function App() {
       if (event === 'SIGNED_IN' && session) {
         const currentUser = await authService.getCurrentUser();
         setUser(currentUser);
+        setIsLoggingOut(false);
       } else if (event === 'SIGNED_OUT') {
+        console.log('Auth state: SIGNED_OUT detected');
         setUser(null);
+        setIsLoggingOut(false);
+        // Navigate to root/login when signed out
+        if (location.pathname !== '/') {
+          navigate('/', { replace: true });
+        }
       }
     });
 
     return () => {
       subscription?.unsubscribe();
     };
-  }, []);
+  }, [navigate, location.pathname]);
 
   const handleLogin = (userData) => {
     console.log('handleLogin called with userData:', userData);
     setUser(userData);
+    // Navigate to default page after login
+    navigate('/all-leads', { replace: true });
   };
 
   const handleLogout = async () => {
     console.log('handleLogout called, logging out user');
+    setIsLoggingOut(true);
+    
     try {
+      console.log('Starting logout process...');
       await authService.logout();
+      console.log('AuthService logout completed');
+      
+      // Clear user state immediately
       setUser(null);
-      console.log('Logout complete, user state cleared');
+      
+      // Navigate to root/login page immediately
+      navigate('/', { replace: true });
+      
+      console.log('Logout complete, navigated to login');
     } catch (error) {
       console.error('Logout error:', error);
-      // Even if logout fails, clear the user state
+      // Even if logout fails, clear the user state and navigate
       setUser(null);
+      navigate('/', { replace: true });
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
-  // Show loading spinner while checking authentication
-  if (isLoading) {
+  // Show loading spinner while checking authentication or logging out
+  if (isLoading || isLoggingOut) {
     return (
       <div style={{ 
         display: 'flex', 
         justifyContent: 'center', 
         alignItems: 'center', 
         height: '100vh',
-        fontSize: '18px'
+        fontSize: '18px',
+        flexDirection: 'column',
+        gap: '10px'
       }}>
-        <div>Loading...</div>
+        <div>{isLoading ? 'Loading...' : 'Logging out...'}</div>
+        {isLoggingOut && (
+          <div style={{ fontSize: '14px', color: '#666' }}>
+            Please wait while we securely log you out...
+          </div>
+        )}
       </div>
     );
   }
@@ -89,7 +122,7 @@ function App() {
   console.log('App rendering, user:', user);
 
   return (
-    <Router>
+    <>
       {/* 🔍 DEBUG COMPONENT - Shows user info when logged in */}
       {/*<AccessDebug user={user} />*/}
       
@@ -158,11 +191,26 @@ function App() {
                   element={<Navigate to="/all-leads" replace />} 
                 />
               )}
+
+              {/* Catch all route - redirect to all-leads if user is logged in */}
+              <Route 
+                path="*" 
+                element={<Navigate to="/all-leads" replace />} 
+              />
                        
             </Routes>
           </LeadStateProvider>
         </SettingsDataProvider> 
       )}
+    </>
+  );
+}
+
+// Main App component with Router wrapper
+function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }

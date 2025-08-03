@@ -170,26 +170,56 @@ const authService = {
     }
   },
 
-  // Reset password
+  // Reset password - SECURE VERSION with email validation and DEBUG logging
   async resetPassword(email) {
     try {
-      console.log('Sending password reset email to:', email);
+      console.log('🔐 SECURE PASSWORD RESET - Processing request for:', email);
       
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      // 🔒 SECURITY: First check if email exists in our users table
+      console.log('🔍 Step 1: Checking if email exists in users table...');
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, email, is_active, auth_id')
+        .eq('email', email.toLowerCase().trim())
+        .eq('is_active', true)
+        .single()
+
+      console.log('📊 Database query result:', { userData, userError });
+
+      // 🔒 SECURITY: Always return the same success message 
+      // Don't reveal whether email exists or not
+      const successMessage = 'If this email address exists in our system, you will receive a password reset link shortly.';
+
+      if (userError || !userData) {
+        console.log('❌ Email not found in database or account inactive:', email);
+        console.log('🛡️ SECURITY: NOT sending reset email - returning generic message');
+        // Don't throw error - return success message to prevent email enumeration
+        return { message: successMessage }
+      }
+
+      console.log('✅ Valid email found in database:', userData.email);
+      console.log('🔍 Step 2: Sending reset email via Supabase Auth...');
+
+      // Only send reset email if user exists and is active
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`
       })
 
-      if (error) {
-        console.error('Password reset error:', error);
-        throw error
+      if (resetError) {
+        console.error('❌ Supabase password reset error:', resetError);
+        console.log('🛡️ SECURITY: Reset failed but returning generic message');
+        // Log the actual error but still return generic message
+        return { message: successMessage }
       }
 
-      console.log('Password reset email sent');
-      return { message: 'Password reset email sent' }
+      console.log('✅ Password reset email sent successfully to existing user');
+      return { message: successMessage }
 
     } catch (error) {
-      console.error('Reset password error:', error);
-      throw error
+      console.error('💥 Reset password error:', error);
+      console.log('🛡️ SECURITY: Error occurred but returning generic message');
+      // Even on error, return generic success message for security
+      return { message: 'If this email address exists in our system, you will receive a password reset link shortly.' }
     }
   },
 

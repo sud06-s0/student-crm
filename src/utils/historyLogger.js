@@ -196,9 +196,9 @@ export const logVisitUpdated = async (leadId, changes) => {
 };
 
 /**
- * Log contact information updates
+ * ← UPDATED: Log contact information updates (added secondPhone support)
  * @param {number} leadId - The ID of the lead
- * @param {string} field - Field that was updated (e.g., 'email', 'phone')
+ * @param {string} field - Field that was updated (e.g., 'email', 'phone', 'secondPhone')
  * @param {string} oldValue - Previous value
  * @param {string} newValue - New value
  * @returns {Promise<void>}
@@ -207,14 +207,24 @@ export const logContactInfoUpdated = async (leadId, field, oldValue, newValue) =
   const fieldLabels = {
     email: 'Email',
     phone: 'Phone',
+    secondPhone: 'Second Phone', // ← NEW: Added secondPhone support
     occupation: 'Occupation',
     location: 'Location',
     source: 'Source',
-    currentSchool: 'Current School',
-    notes: 'Notes'
+    currentSchool: 'Current School'    
   };
   
   const label = fieldLabels[field] || field;
+  
+  // ← NEW: Special formatting for phone fields
+  if (field === 'phone' || field === 'secondPhone') {
+    const oldFormatted = oldValue ? (oldValue.startsWith('+91') ? oldValue : `+91${oldValue}`) : 'Not set';
+    const newFormatted = newValue ? (newValue.startsWith('+91') ? newValue : `+91${newValue}`) : 'Not set';
+    const description = `${label} updated from "${oldFormatted}" to "${newFormatted}"`;
+    await logAction(leadId, 'Contact Info Updated', description);
+    return;
+  }
+  
   const description = `${label} updated from "${oldValue || 'Not set'}" to "${newValue || 'Not set'}"`;
   await logAction(leadId, 'Contact Info Updated', description);
 };
@@ -263,7 +273,7 @@ export const logCounsellorChange = async (leadId, oldCounsellor, newCounsellor) 
 };
 
 /**
- * ← NEW: Log custom field changes
+ * Log custom field changes
  * @param {number} leadId - The ID of the lead
  * @param {string} fieldName - Custom field display name
  * @param {string} oldValue - Previous value
@@ -299,7 +309,7 @@ export const logManualEntry = async (leadId, actionType, details) => {
 };
 
 /**
- * ← UPDATED: Generate a comprehensive change description for multiple field updates (with custom fields support)
+ * ← UPDATED: Generate a comprehensive change description for multiple field updates (added secondPhone support)
  * @param {object} changes - Object containing field changes (should use display names for stages)
  * @param {function} getFieldLabel - Function to get field labels (optional)
  * @returns {string} Formatted change description
@@ -307,6 +317,8 @@ export const logManualEntry = async (leadId, actionType, details) => {
 export const generateChangeDescription = (changes, getFieldLabel = null) => {
   const fieldLabels = {
     email: 'Email',
+    phone: 'Phone',
+    secondPhone: 'Second Phone', // ← NEW: Added secondPhone support
     occupation: 'Occupation',
     location: 'Location',
     currentSchool: 'Current School',
@@ -322,15 +334,13 @@ export const generateChangeDescription = (changes, getFieldLabel = null) => {
     stage: 'Stage',
     counsellor: 'Counsellor',
     source: 'Source',
-    phone: 'Phone',
-    grade: 'Grade',
-    notes: 'Notes'
+    grade: 'Grade'    
   };
 
   const changeDescriptions = Object.entries(changes).map(([field, { oldValue, newValue }]) => {
     let label;
     
-    // ← NEW: Handle custom fields (those starting with "custom_")
+    // Handle custom fields (those starting with "custom_")
     if (field.startsWith('custom_')) {
       // Remove "custom_" prefix to get the field display name
       label = field.replace('custom_', '');
@@ -346,8 +356,8 @@ export const generateChangeDescription = (changes, getFieldLabel = null) => {
       return `${label}: "${oldFormatted}" → "${newFormatted}"`;
     }
     
-    // Handle phone formatting
-    if (field === 'phone') {
+    // ← UPDATED: Handle both phone and secondPhone formatting
+    if (field === 'phone' || field === 'secondPhone') {
       const oldFormatted = oldValue ? (oldValue.startsWith('+91') ? oldValue : `+91${oldValue}`) : 'Not set';
       const newFormatted = newValue ? (newValue.startsWith('+91') ? newValue : `+91${newValue}`) : 'Not set';
       return `${label}: "${oldFormatted}" → "${newFormatted}"`;
@@ -406,7 +416,7 @@ export const logFormSubmission = async (leadId, formType, leadData) => {
 };
 
 /**
- * ← UPDATED: Helper function to detect and log specific types of changes (with custom fields support)
+ * ← UPDATED: Helper function to detect and log specific types of changes (added secondPhone support)
  * @param {number} leadId - The ID of the lead
  * @param {object} oldData - Original data (should contain display names for stages)
  * @param {object} newData - New data (should contain display names for stages)
@@ -475,15 +485,15 @@ export const logSpecificChanges = async (leadId, oldData, newData) => {
     await logAdmissionStatusChange(leadId, 'enrolled', oldData.enrolled, newData.enrolled);
   }
   
-  // Log contact info changes (including notes)
-  const contactFields = ['email', 'phone', 'occupation', 'location', 'source', 'currentSchool', 'notes'];
+  // ← UPDATED: Log contact info changes (added secondPhone support)
+  const contactFields = ['email', 'phone', 'secondPhone', 'occupation', 'location', 'source', 'currentSchool', 'notes'];
   for (const field of contactFields) {
     if (oldData[field] !== newData[field]) {
       await logContactInfoUpdated(leadId, field, oldData[field], newData[field]);
     }
   }
   
-  // ← NEW: Log custom field changes
+  // Log custom field changes
   // Look for fields that start with "custom_" and log them as custom field changes
   const customFieldChanges = Object.keys(newData).filter(key => key.startsWith('custom_'));
   for (const customField of customFieldChanges) {
@@ -527,7 +537,7 @@ export default {
   logAdmissionStatusChange,
   logOfferChange,
   logCounsellorChange,
-  logCustomFieldChange, // ← NEW: Export custom field logging
+  logCustomFieldChange,
   logWhatsAppMessage,
   logManualEntry,
   logFormSubmission,

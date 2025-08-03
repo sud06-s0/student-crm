@@ -39,12 +39,19 @@ const Login = ({ onLogin }) => {
     setIsLoading(true);
     
     try {
-      await authService.resetPassword(email);
-      alert('Password reset email sent! Check your inbox.');
+      console.log('Sending password reset request...');
+      const result = await authService.resetPassword(email);
+      
+      // 🔧 FIX: Use the message returned by authService instead of hardcoded text
+      console.log('Reset password result:', result);
+      alert(result.message); // This will show the generic security message
+      
       setShowForgotPassword(false);
     } catch (error) {
       console.error('Password reset failed:', error.message);
-      alert('Password reset failed: ' + error.message);
+      
+      // 🔧 FIX: Show generic message even on error for security
+      alert('If this email address exists in our system, you will receive a password reset link shortly.');
     } finally {
       setIsLoading(false);
     }

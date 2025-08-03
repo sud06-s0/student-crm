@@ -424,16 +424,19 @@ const LeadSidebar = ({
       
       // Compare each standard field and track changes
       Object.keys(sidebarFormData).forEach(field => {
-        const oldValue = originalFormData[field];
-        const newValue = sidebarFormData[field];
-        
-        if (oldValue !== newValue) {
-          changes[field] = {
-            oldValue,
-            newValue
-          };
-        }
-      });
+          // Skip notes field from change tracking
+          if (field === 'notes') return;
+          
+          const oldValue = originalFormData[field];
+          const newValue = sidebarFormData[field];
+          
+          if (oldValue !== newValue) {
+            changes[field] = {
+              oldValue,
+              newValue
+            };
+          }
+        });
 
       // Compare custom fields and track changes
       Object.keys(customFieldsData).forEach(fieldKey => {
