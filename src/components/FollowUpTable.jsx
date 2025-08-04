@@ -1094,7 +1094,7 @@ const FollowUpTable = ({ onLogout, user }) => {
         )}
 
         {/* Follow-ups Table */}
-        <div className="nova-table-container">
+        <div className="nova-table-container nova-followup-table">
           <table className="nova-table">
             <thead>
               <tr>

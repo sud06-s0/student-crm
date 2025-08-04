@@ -541,7 +541,7 @@
 }
 
 .nova-sidebar {
-  position: fixed;
+  position: fixed!important;
   top: 0;
   left: 0;
   width: 240px;
@@ -778,7 +778,7 @@
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   /* Keep current width by inheriting from parent */
   width: inherit;
-  left: inherit;
+  left: 250px;
   padding: 16px 24px; 
 }
 
@@ -906,7 +906,8 @@
 
 /* Table container should allow overflow for dropdowns */
 .nova-table-container {
-  margin-top:105px;
+  margin-top:95px;
+  margin-left:230px;
   background: white;
   border-radius: 8px;
   overflow: visible;
@@ -3297,6 +3298,9 @@
   }
   
   .nova-header {
+    position:fixed;
+    top:0;
+    left:0px;
     display: flex !important;
     flex-direction: row !important;
     align-items: flex-start !important;
@@ -3304,7 +3308,7 @@
     padding: 12px 0;
     gap: 12px;
     min-height: auto;
-    width: 370px;
+    width: 100%;
   }
   
   .header-left {
@@ -3314,7 +3318,7 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
-    padding-left: 35px;
+    padding-left: 75px;
   }
   
   .header-right {
@@ -3383,6 +3387,7 @@
     -webkit-overflow-scrolling: touch;
     margin: 85px 0 0 -16px; /* Extend to screen edges */
     padding: 0 16px;
+    width:fit-content;
   }
   
   .nova-table {
@@ -4454,6 +4459,8 @@
   .lead-sidebar-section-content {
     padding: 16px;
   }
+
+  
 }
 
 /* Desktop-only elements */
@@ -4469,3 +4476,13 @@
   }
 }
 
+.nova-followup-table{
+  margin-top:135px;
+  margin-left:225px;
+}
+@media(max-width:768px){
+  .nova-followup-table{
+  margin-top:135px;
+  margin-left:0!important;
+}
+}
