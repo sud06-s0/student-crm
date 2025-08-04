@@ -363,7 +363,7 @@ const OverviewDashboard = () => {
     <div className="dashboard-overview">
       {/* Overview Header */}
       <div className="dashboard-header">
-        <h2 className="dashboard-title">Overview</h2>
+        <h2 className="dashboard-title">Dashboard Overview</h2>
       </div>
 
       {/* Date Filter Section */}

@@ -43,10 +43,6 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
-  
-
- 
-
   // ← NEW: Helper functions for stage_key conversion
   const getStageKeyForLead = (stageValue) => {
     // If it's already a stage_key, return it
@@ -109,9 +105,22 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
     [settingsData.counsellors]
   );
 
-  // ← UPDATED: Reset form when modal opens with stage_key support
+  // ← UPDATED: Reset form when modal opens with stage_key support and mobile scroll fixes
   useEffect(() => {
     if (isOpen && !settingsLoading) {
+      // Lock body scroll on mobile
+      document.body.classList.add('modal-open');
+      
+      // Set CSS custom property for iOS viewport height fix
+      const setViewportHeight = () => {
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+      };
+      
+      setViewportHeight();
+      window.addEventListener('resize', setViewportHeight);
+      window.addEventListener('orientationchange', setViewportHeight);
+      
       const defaultStageKey = stages[0]?.value || '';
       const defaultData = {
         id: 0,
@@ -139,6 +148,16 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
       
       setFormData(defaultData);
       setErrors({});
+      
+      // Cleanup function
+      return () => {
+        document.body.classList.remove('modal-open');
+        window.removeEventListener('resize', setViewportHeight);
+        window.removeEventListener('orientationchange', setViewportHeight);
+      };
+    } else if (!isOpen) {
+      // Remove body scroll lock when modal closes
+      document.body.classList.remove('modal-open');
     }
   }, [isOpen, settingsLoading, settingsData.grades, settingsData.sources, stages]);
 
@@ -218,13 +237,9 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
       newErrors.parentsName = `${getFieldLabel('parentsName')} is required`;
     }
 
-   
-
     if (!formData.kidsName.trim()) {
       newErrors.kidsName = `${getFieldLabel('kidsName')} is required`;
     }
-
-    
 
     if (!formData.phone.trim()) {
       newErrors.phone = `${getFieldLabel('phone')} is required`;
@@ -251,76 +266,83 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // ← UPDATED: Handle close with body scroll unlock
+  const handleClose = () => {
+    document.body.classList.remove('modal-open');
+    onClose();
+  };
+
   // REPLACE THE ENTIRE handleSubmit FUNCTION WITH:
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  if (!validateForm()) {
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    // Convert form data to database format
-    const dbData = convertFormToDatabase(formData);
-
-    // INSERT new lead
-    const { data, error } = await supabase
-      .from('Leads')
-      .insert([dbData])
-      .select();
-
-    if (error) {
-      throw error;
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
     }
 
-    const newLeadId = data[0].id;
+    setLoading(true);
 
-    // Log the new lead creation with stage display name
-    const stageDisplayName = getStageDisplayName(formData.stage);
-    const logFormData = {
-      ...formData,
-      stage: stageDisplayName
-    };
-    await logLeadCreated(newLeadId, logFormData);
+    try {
+      // Convert form data to database format
+      const dbData = convertFormToDatabase(formData);
 
-    console.log('✅ New lead created:', data);
+      // INSERT new lead
+      const { data, error } = await supabase
+        .from('Leads')
+        .insert([dbData])
+        .select();
 
-    alert('✅ New lead added successfully!');
+      if (error) {
+        throw error;
+      }
 
-    // Call onSubmit to refresh parent data
-    onSubmit();
-    onClose();
+      const newLeadId = data[0].id;
 
-    // Reset form
-    const defaultStageKey = stages[0]?.value || '';
-    setFormData({
-      id: 0,
-      parentsName: '',
-      kidsName: '',
-      location: '',
-      phone: '',
-      secondPhone: '', // ← NEW: Reset secondary phone
-      email: '',
-      grade: settingsData.grades[0]?.name || 'LKG',
-      notes: '',
-      stage: defaultStageKey,
-      category: 'New',
-      counsellor: 'Assign Counsellor',
-      score: 20,
-      source: settingsData.sources[0]?.name || 'Instagram',
-      occupation: '',
-      createdTime: ''
-    });
+      // Log the new lead creation with stage display name
+      const stageDisplayName = getStageDisplayName(formData.stage);
+      const logFormData = {
+        ...formData,
+        stage: stageDisplayName
+      };
+      await logLeadCreated(newLeadId, logFormData);
 
-  } catch (error) {
-    console.error('❌ Database error:', error);
-    alert('❌ Error saving lead: ' + error.message);
-  } finally {
-    setLoading(false);
-  }
-};
+      console.log('✅ New lead created:', data);
+
+      alert('✅ New lead added successfully!');
+
+      // Call onSubmit to refresh parent data
+      onSubmit();
+      document.body.classList.remove('modal-open');
+      onClose();
+
+      // Reset form
+      const defaultStageKey = stages[0]?.value || '';
+      setFormData({
+        id: 0,
+        parentsName: '',
+        kidsName: '',
+        location: '',
+        phone: '',
+        secondPhone: '', // ← NEW: Reset secondary phone
+        email: '',
+        grade: settingsData.grades[0]?.name || 'LKG',
+        notes: '',
+        stage: defaultStageKey,
+        category: 'New',
+        counsellor: 'Assign Counsellor',
+        score: 20,
+        source: settingsData.sources[0]?.name || 'Instagram',
+        occupation: '',
+        createdTime: ''
+      });
+
+    } catch (error) {
+      console.error('❌ Database error:', error);
+      alert('❌ Error saving lead: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Don't render if not open or settings are still loading
   if (!isOpen || settingsLoading) return null;
@@ -328,14 +350,14 @@ const handleSubmit = async (e) => {
   return (
     <>
       {/* Modal Overlay */}
-      <div className="modal-overlay" onClick={onClose}></div>
+      <div className="modal-overlay" onClick={handleClose}></div>
       
       {/* Modal */}
       <div className="modal-dialog">
         <div className="modal-content">
           <div className="modal-header">
             <h5 className="modal-title">Add New Lead</h5>
-            <button type="button" className="close-modal-btn" onClick={onClose}>×</button>
+            <button type="button" className="close-modal-btn" onClick={handleClose}>×</button>
           </div>
           
           <form onSubmit={handleSubmit}>
@@ -533,8 +555,6 @@ const handleSubmit = async (e) => {
           </form>
         </div>
       </div>
-
-      
     </>
   );
 };
