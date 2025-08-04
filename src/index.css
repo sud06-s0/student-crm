@@ -1644,6 +1644,7 @@
 
 /* Dashboard Overview Main Container */
 .dashboard-overview {
+  margin-left:230px;
   padding: 20px;
   background-color: #f8f9fa;
   border-bottom: 1px solid #e5e7eb;
@@ -2006,6 +2007,7 @@
 
 @media (max-width: 768px) {
   .dashboard-overview {
+    margin-left:0!important;
     padding: 15px;
   }
   
@@ -2031,6 +2033,7 @@
   
   .dashboard-title {
     font-size: 20px;
+    padding-left: 25px;
   }
   
   .dashboard-chart-container {
@@ -4476,13 +4479,359 @@
   }
 }
 
+/*Follow Up Table CSS*/
+
 .nova-followup-table{
   margin-top:135px;
   margin-left:225px;
 }
 @media(max-width:768px){
   .nova-followup-table{
-  margin-top:135px;
+  margin-top:175px;
   margin-left:0!important;
 }
+
+.date-range-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+}
+
+/* FollowUpTable Specific Styles */
+
+/* Date Range Container */
+.date-range-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.date-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-input-group label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  min-width: fit-content;
+}
+
+.date-input-group input[type="date"] {
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+}
+
+/* Delete Button */
+.delete-selected-btn {
+  margin-left: 16px;
+  padding: 8px 12px;
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.delete-selected-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Follow-up Table Specific */
+.nova-followup-table .follow-up-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nova-followup-table .follow-up-date {
+  font-size: 12px;
+  font-weight: 600;
+  color: #059669;
+}
+
+/* View Details Button */
+.view-details-btn {
+  background: #676767;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.view-details-btn:hover {
+  background: #676767;
+  transform: translateY(-1px);
+}
+
+/* Stage Dropdown */
+.stage-dropdown-container {
+  position: relative;
+  width: 100%;
+}
+
+.stage-dropdown-trigger {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: max-content;
+  min-width: 140px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,0.1);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.stage-dropdown-trigger span {
+  font-weight: 600;
+}
+
+.stage-dropdown-trigger .chevron {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+  margin-left: 8px;
+}
+
+.stage-dropdown-trigger .chevron.open {
+  transform: rotate(180deg);
+}
+
+.stage-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 70px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  max-height: 380px;
+  overflow-y: auto;
+  margin-top: 2px;
+  min-width: 150px;
+  width: max-content;
+}
+
+.stage-dropdown-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  background-color: white;
+  color: #333;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #f3f4f6;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.stage-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.stage-dropdown-item:hover {
+  background-color: #f8f9fa;
+  transform: translateX(2px);
+}
+
+.stage-dropdown-item .stage-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.15);
+  flex-shrink: 0;
+}
+
+.stage-dropdown-item .stage-name {
+  flex: 1;
+}
+
+/* Popup Overlay */
+.popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+/* Popup Content */
+.popup-content {
+  background-color: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  position: relative;
+}
+
+/* Popup Header */
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.popup-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.popup-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: #6b7280;
+  transition: all 0.2s ease;
+}
+
+.popup-close-btn:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+/* Lead Info Section */
+.lead-info-section {
+  background-color: #f8fafc;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.lead-info-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 8px 0;
+}
+
+.lead-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 13px;
+}
+
+/* Follow-up Schedule Section */
+.followup-schedule-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.followup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.followup-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  background-color: white;
+}
+
+.followup-item.next {
+  background-color: #f0f9ff;
+}
+
+.followup-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.followup-date {
+  font-size: 14px;
+  font-weight: 600;
+  color: #059669;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.followup-next-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: #0369a1;
+  background-color: #dbeafe;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.followup-details {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.followup-created {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+/* No Follow-ups Message */
+.no-followups-message {
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+  padding: 20px;
+  font-style: italic;
 }

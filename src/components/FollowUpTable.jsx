@@ -938,64 +938,22 @@ const FollowUpTable = ({ onLogout, user }) => {
             </div>
             
             {/* DATE RANGE PICKER */}
-            <div className="date-range-container" style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              marginTop: '8px',
-              marginBottom: '8px'
-            }}>
-              <div className="date-input-group" style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <label style={{ 
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  minWidth: 'fit-content'
-                }}>
-                  From:
-                </label>
+            <div className="date-range-container">
+              <div className="date-input-group">
+                <label>From:</label>
                 <input
                   type="date"
                   value={dateRange.startDate}
                   onChange={(e) => handleDateRangeChange('startDate', e.target.value)}
-                  style={{
-                    padding: '6px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    background: 'white'
-                  }}
                 />
               </div>
               
-              <div className="date-input-group" style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <label style={{ 
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  minWidth: 'fit-content'
-                }}>
-                  To:
-                </label>
+              <div className="date-input-group">
+                <label>To:</label>
                 <input
                   type="date"
                   value={dateRange.endDate}
                   onChange={(e) => handleDateRangeChange('endDate', e.target.value)}
-                  style={{
-                    padding: '6px 12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    background: 'white'
-                  }}
                 />
               </div>
             </div>
@@ -1010,22 +968,6 @@ const FollowUpTable = ({ onLogout, user }) => {
                 className="delete-selected-btn" 
                 onClick={handleDeleteClick}
                 disabled={isDeleting}
-                style={{
-                  marginLeft: '16px',
-                  padding: '8px 12px',
-                  background: '#dc2626',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: isDeleting ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  opacity: isDeleting ? 0.6 : 1,
-                  transition: 'all 0.2s'
-                }}
               >
                 <Trash2 size={16} />
                 Delete {selectedLeads.length} Selected
@@ -1148,94 +1090,36 @@ const FollowUpTable = ({ onLogout, user }) => {
                     <td>{formatPhoneForMobile(lead.phone)}</td>
                     <td className="desktop-only">{lead.grade}</td>
                     <td>
-                      <div className="stage-dropdown-container" style={{ position: 'relative', width: '100%' }}>
+                      <div className="stage-dropdown-container">
                         <div 
                           className="stage-badge stage-dropdown-trigger" 
                           style={{ 
                             backgroundColor: getStageColorFromSettings(lead.stage), 
-                            color: '#333',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            width: 'max-content',
-                            minWidth: '140px',
-                            padding: '6px 8px',
-                            borderRadius: '4px',
-                            border: '1px solid rgba(0,0,0,0.1)',
-                            fontWeight: '600',
-                            fontSize: '12px'
+                            color: '#333'
                           }}
                           onClick={(e) => handleStageDropdownToggle(e, lead.id)}
                         >
-                          <span style={{ fontWeight: '600' }}>{getStageDisplayName(lead.stage)}</span>
+                          <span>{getStageDisplayName(lead.stage)}</span>
                           <ChevronDown 
                             size={14} 
-                            style={{ 
-                              flexShrink: 0,
-                              transition: 'transform 0.2s ease',
-                              transform: stageDropdownOpen === lead.id ? 'rotate(180deg)' : 'rotate(0deg)',
-                              marginLeft: '8px'
-                            }} 
+                            className={`chevron ${stageDropdownOpen === lead.id ? 'open' : ''}`}
                           />
                         </div>
                         
                         {/* Dynamic Stage Dropdown */}
                         {stageDropdownOpen === lead.id && (
-                          <div className="stage-dropdown-menu" style={{
-                            position: 'absolute',
-                            top: '100%',
-                            left: 70,
-                            background: 'white',
-                            border: '1px solid #e5e7eb',
-                            borderRadius: '6px',
-                            boxShadow: '0 8px 25px rgba(0, 0, 0, 0.15)',
-                            zIndex: 1000,
-                            maxHeight: '380px',
-                            overflowY: 'auto',
-                            marginTop: '2px',
-                            minWidth: '150px',
-                            width: 'max-content'
-                          }}>
+                          <div className="stage-dropdown-menu">
                             {stages.map((stage, index) => (
                               <div
                                 key={stage.value}
                                 className="stage-dropdown-item"
-                                style={{
-                                  padding: '8px 12px',
-                                  cursor: 'pointer',
-                                  backgroundColor: 'white',
-                                  color: '#333',
-                                  fontSize: '12px',
-                                  fontWeight: '600',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
-                                  borderBottom: index < stages.length - 1 ? '1px solid #f3f4f6' : 'none',
-                                  transition: 'all 0.15s ease',
-                                  whiteSpace: 'nowrap'
-                                }}
                                 onClick={(e) => handleStageChangeFromDropdown(e, lead.id, stage.value)}
-                                onMouseEnter={(e) => {
-                                  e.target.style.backgroundColor = '#f8f9fa';
-                                  e.target.style.transform = 'translateX(2px)';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.target.style.backgroundColor = 'white';
-                                  e.target.style.transform = 'translateX(0px)';
-                                }}
                               >
                                 <span 
-                                  style={{
-                                    width: '8px',
-                                    height: '8px',
-                                    borderRadius: '50%',
-                                    backgroundColor: stage.color,
-                                    border: '1px solid rgba(0,0,0,0.15)',
-                                    flexShrink: 0
-                                  }}
+                                  className="stage-color-dot"
+                                  style={{ backgroundColor: stage.color }}
                                 ></span>
-                                <span style={{ flex: 1 }}>{stage.label}</span>
+                                <span className="stage-name">{stage.label}</span>
                               </div>
                             ))}
                           </div>
@@ -1254,16 +1138,8 @@ const FollowUpTable = ({ onLogout, user }) => {
                       </div>
                     </td>
                     <td>
-                      <div className="follow-up-info" style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '2px'
-                      }}>
-                        <div className="follow-up-date" style={{
-                          fontSize: '12px',
-                          fontWeight: '600',
-                          color: '#059669'
-                        }}>
+                      <div className="follow-up-info">
+                        <div className="follow-up-date">
                           {formatDateForDisplay(lead.nextFollowUpDate)}
                         </div>
                       </div>
@@ -1272,28 +1148,6 @@ const FollowUpTable = ({ onLogout, user }) => {
                       <button
                         className="view-details-btn"
                         onClick={(e) => handleViewDetails(e, lead)}
-                        style={{
-                          background: '#676767',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          padding: '6px 8px',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          transition: 'all 0.2s ease',
-                          fontWeight: '500'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.target.style.background = '#676767';
-                          e.target.style.transform = 'translateY(-1px)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.background = '#676767';
-                          e.target.style.transform = 'translateY(0px)';
-                        }}
                       >
                         <Eye size={14} />
                         View
@@ -1340,104 +1194,23 @@ const FollowUpTable = ({ onLogout, user }) => {
 
       {/* Follow-up Details Popup */}
       {showDetailsPopup && selectedFollowUpDetails && (
-        <div 
-          className="popup-overlay"
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            padding: '20px'
-          }}
-          onClick={closeDetailsPopup}
-        >
-          <div 
-            className="popup-content"
-            style={{
-              backgroundColor: 'white',
-              borderRadius: '12px',
-              padding: '24px',
-              maxWidth: '500px',
-              width: '100%',
-              maxHeight: '80vh',
-              overflowY: 'auto',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-              position: 'relative'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="popup-overlay" onClick={closeDetailsPopup}>
+          <div className="popup-content" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '20px',
-              paddingBottom: '16px',
-              borderBottom: '1px solid #e5e7eb'
-            }}>
-              <h3 style={{
-                fontSize: '18px',
-                fontWeight: '600',
-                color: '#111827',
-                margin: 0,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
+            <div className="popup-header">
+              <h3 className="popup-title">
                 <CalendarDays size={20} />
                 Follow-up Details
               </h3>
-              <button
-                onClick={closeDetailsPopup}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '4px',
-                  borderRadius: '4px',
-                  color: '#6b7280',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = '#f3f4f6';
-                  e.target.style.color = '#374151';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = 'transparent';
-                  e.target.style.color = '#6b7280';
-                }}
-              >
+              <button className="popup-close-btn" onClick={closeDetailsPopup}>
                 <X size={20} />
               </button>
             </div>
 
             {/* Lead Info */}
-            <div style={{
-              backgroundColor: '#f8fafc',
-              padding: '16px',
-              borderRadius: '8px',
-              marginBottom: '20px'
-            }}>
-              <h4 style={{
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#374151',
-                margin: '0 0 8px 0'
-              }}>
-                Lead Information
-              </h4>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '8px',
-                fontSize: '13px'
-              }}>
+            <div className="lead-info-section">
+              <h4 className="lead-info-title">Lead Information</h4>
+              <div className="lead-info-grid">
                 <div>
                   <strong>Parent:</strong> {selectedFollowUpDetails.lead.parentsName}
                 </div>
@@ -1455,76 +1228,33 @@ const FollowUpTable = ({ onLogout, user }) => {
 
             {/* Follow-up List */}
             <div>
-              <h4 style={{
-                fontSize: '16px',
-                fontWeight: '600',
-                color: '#111827',
-                margin: '0 0 16px 0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
+              <h4 className="followup-schedule-title">
                 <Clock size={16} />
                 Follow-up Schedule
               </h4>
 
               {selectedFollowUpDetails.followUps && selectedFollowUpDetails.followUps.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="followup-list">
                   {selectedFollowUpDetails.followUps.map((followUp, index) => (
                     <div 
                       key={index}
-                      style={{
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '8px',
-                        padding: '16px',
-                        backgroundColor: index === 0 ? '#f0f9ff' : 'white'
-                      }}
+                      className={`followup-item ${index === 0 ? 'next' : ''}`}
                     >
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: '8px'
-                      }}>
-                        <div style={{
-                          fontSize: '14px',
-                          fontWeight: '600',
-                          color: '#059669',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}>
+                      <div className="followup-item-header">
+                        <div className="followup-date">
                           <Calendar size={14} />
                           {formatFullDate(followUp.follow_up_date)}
                         </div>
                         {index === 0 && (
-                          <span style={{
-                            fontSize: '11px',
-                            fontWeight: '500',
-                            color: '#0369a1',
-                            backgroundColor: '#dbeafe',
-                            padding: '2px 6px',
-                            borderRadius: '4px'
-                          }}>
-                            Next
-                          </span>
+                          <span className="followup-next-badge">Next</span>
                         )}
                       </div>
                       
-                      <div style={{
-                        fontSize: '13px',
-                        color: '#374151',
-                        lineHeight: '1.5'
-                      }}>
+                      <div className="followup-details">
                         {followUp.details || 'No details provided'}
                       </div>
                       
-                      <div style={{
-                        fontSize: '11px',
-                        color: '#6b7280',
-                        marginTop: '8px',
-                        fontStyle: 'italic'
-                      }}>
+                      <div className="followup-created">
                         Created: {new Date(followUp.created_at).toLocaleDateString('en-GB', {
                           day: '2-digit',
                           month: 'short',
@@ -1537,13 +1267,7 @@ const FollowUpTable = ({ onLogout, user }) => {
                   ))}
                 </div>
               ) : (
-                <div style={{
-                  textAlign: 'center',
-                  color: '#6b7280',
-                  fontSize: '14px',
-                  padding: '20px',
-                  fontStyle: 'italic'
-                }}>
+                <div className="no-followups-message">
                   No follow-up details available
                 </div>
               )}
