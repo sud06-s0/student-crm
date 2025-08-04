@@ -1,14 +1,9 @@
-// MobileHeaderDropdown.jsx
+// MobileHeaderDropdown.jsx - Fixed version
 import React, { useState, useEffect } from 'react';
-import { 
-  Search,
-  Filter,
-  Plus,
-  MoreVertical,
-  X
-} from 'lucide-react';
+import { Search, Filter, Plus, MoreVertical, X } from 'lucide-react';
+import FilterDropdown from './FilterDropdown';
 
-const MobileHeaderDropdown = ({ 
+const MobileHeaderDropdown = ({
   searchTerm,
   onSearchChange,
   showFilter,
@@ -16,16 +11,17 @@ const MobileHeaderDropdown = ({
   counsellorFilters,
   stageFilters,
   statusFilters,
+  alertFilter, // ← Added missing prop
   setCounsellorFilters,
   setStageFilters,
   setStatusFilters,
+  setAlertFilter, // ← Added missing prop
   settingsData,
   getFieldLabel,
   getStageKeyFromName,
   getStageDisplayName,
   onShowImportModal,
-  onShowAddForm,
-  FilterButton
+  onShowAddForm
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -55,6 +51,19 @@ const MobileHeaderDropdown = ({
     setShowFilter(!showFilter);
     setIsDropdownOpen(false); // Close the dropdown when opening filter
   };
+
+  const handleClearAllFilters = () => {
+    setCounsellorFilters([]);
+    setStageFilters([]);
+    setStatusFilters([]);
+    setAlertFilter(false);
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = counsellorFilters.length > 0 || 
+                          stageFilters.length > 0 || 
+                          statusFilters.length > 0 || 
+                          alertFilter;
 
   return (
     <div className="mobile-header-dropdown" style={{ position: 'relative' }}>
@@ -161,7 +170,7 @@ const MobileHeaderDropdown = ({
             }}>
               Filters
               {/* Show active filter count */}
-              {(counsellorFilters.length > 0 || stageFilters.length > 0 || statusFilters.length > 0) && (
+              {hasActiveFilters && (
                 <span style={{
                   marginLeft: '8px',
                   backgroundColor: '#3b82f6',
@@ -171,7 +180,7 @@ const MobileHeaderDropdown = ({
                   fontSize: '11px',
                   fontWeight: '600'
                 }}>
-                  {counsellorFilters.length + stageFilters.length + statusFilters.length}
+                  {counsellorFilters.length + stageFilters.length + statusFilters.length + (alertFilter ? 1 : 0)}
                 </span>
               )}
             </label>
@@ -276,6 +285,35 @@ const MobileHeaderDropdown = ({
               Add Lead
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Filter Dropdown - Rendered separately, positioned relative to the dropdown container */}
+      {showFilter && (
+        <div style={{ 
+          position: 'absolute',
+          top: '100%',
+          right: 0,
+          zIndex: 1003,
+          marginTop: '8px'
+        }}>
+          <FilterDropdown
+            isOpen={showFilter}
+            onClose={() => setShowFilter(false)}
+            counsellorFilters={counsellorFilters}
+            stageFilters={stageFilters}
+            statusFilters={statusFilters}
+            alertFilter={alertFilter}
+            setCounsellorFilters={setCounsellorFilters}
+            setStageFilters={setStageFilters}
+            setStatusFilters={setStatusFilters}
+            setAlertFilter={setAlertFilter}
+            onClearAll={handleClearAllFilters}
+            settingsData={settingsData}
+            getFieldLabel={getFieldLabel}
+            getStageKeyFromName={getStageKeyFromName}
+            getStageDisplayName={getStageDisplayName}
+          />
         </div>
       )}
     </div>
