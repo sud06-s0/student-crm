@@ -4835,3 +4835,11 @@
   padding: 20px;
   font-style: italic;
 }
+
+/*settings css */
+@media(max-width:768px) {
+  .settings-two-column-row
+{
+  flex-direction: column;
+}
+}
