@@ -10,6 +10,57 @@ const supabase = createClient(
   }
 );
 
+// CORRECTED: Get settings data from unified settings table
+async function getSettingsData() {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('*')
+    .order('sort_order');
+    
+  if (error) throw error;
+  
+  // Group by type exactly like main application
+  const grouped = {
+    stages: [],
+    grades: [],
+    counsellors: [],
+    sources: [],
+    form_fields: [],
+    school: {}
+  };
+  
+  data?.forEach(item => {
+    if (item.type === 'school') {
+      grouped.school = item.value || {};
+    } else if (grouped[item.type]) {
+      const itemData = {
+        id: item.id,
+        name: item.name,
+        field_key: item.field_key,
+        stage_key: item.stage_key,
+        is_active: item.is_active, 
+        sort_order: item.sort_order,
+        ...(item.value || {})
+      };
+      
+      // For counsellors, extract user_id from value field for compatibility
+      if (item.type === 'counsellors' && item.value && item.value.user_id) {
+        itemData.user_id = item.value.user_id;
+      }
+      
+      grouped[item.type].push(itemData);
+    }
+  });
+  
+  return grouped;
+}
+
+// Helper function to get field label from settings
+function getFieldLabel(fieldKey, formFields) {
+  const field = formFields.find(f => f.field_key === fieldKey);
+  return field?.name || fieldKey; // Use 'name' not 'label'
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -26,37 +77,19 @@ export default async function handler(req, res) {
   try {
     console.log('=== API OPTIONS REQUEST ===');
 
-    const [stagesRes, sourcesRes, gradesRes, counsellorsRes, formFieldsRes] = await Promise.all([
-      supabase.from('stages').select('*').order('id'),
-      supabase.from('sources').select('*').order('id'),
-      supabase.from('grades').select('*').order('id'),
-      supabase.from('counsellors').select('*').order('id'),
-      supabase.from('form_fields').select('*').order('id')
-    ]);
-
-    const errors = [stagesRes.error, sourcesRes.error, gradesRes.error, counsellorsRes.error, formFieldsRes.error].filter(Boolean);
-    if (errors.length > 0) {
-      console.error('Database errors:', errors);
-      throw new Error(`Database errors: ${errors.map(e => e.message).join(', ')}`);
-    }
-
-    const settingsData = {
-      stages: stagesRes.data || [],
-      sources: sourcesRes.data || [],
-      grades: gradesRes.data || [],
-      counsellors: counsellorsRes.data || [],
-      formFields: formFieldsRes.data || []
-    };
+    // CORRECTED: Use unified settings table
+    const settingsData = await getSettingsData();
 
     console.log('Settings data loaded:', {
       stages: settingsData.stages.length,
       sources: settingsData.sources.length,
       grades: settingsData.grades.length,
       counsellors: settingsData.counsellors.length,
-      formFields: settingsData.formFields.length
+      formFields: settingsData.form_fields.length
     });
 
-    const offerField = settingsData.formFields.find(field => 
+    // Get offers from form fields using proper field_key lookup
+    const offerField = settingsData.form_fields.find(field => 
       field.field_key === 'offer' || field.name === 'Offer'
     );
     const offers = offerField?.dropdown_options?.length > 0 
@@ -65,38 +98,46 @@ export default async function handler(req, res) {
 
     const options = {
       requiredFields: ['parentsName', 'kidsName', 'phone'],
-      optionalFields: ['location', 'secondPhone', 'email', 'occupation', 'notes'],
+      optionalFields: ['location', 'secondPhone', 'email', 'occupation', 'notes', 'currentSchool'],
       
       dropdownOptions: {
-        grades: settingsData.grades.map(grade => ({
-          value: grade.name,
-          label: grade.name,
-          id: grade.id
-        })),
+        grades: settingsData.grades
+          .filter(grade => grade.is_active)
+          .map(grade => ({
+            value: grade.name,
+            label: grade.name,
+            id: grade.id
+          })),
         
-        sources: settingsData.sources.map(source => ({
-          value: source.name,
-          label: source.name,
-          id: source.id
-        })),
+        sources: settingsData.sources
+          .filter(source => source.is_active)
+          .map(source => ({
+            value: source.name,
+            label: source.name,
+            id: source.id
+          })),
         
-        stages: settingsData.stages.map(stage => ({
-          value: stage.name,
-          label: stage.name,
-          stageKey: stage.stage_key || stage.name,
-          color: stage.color || '#B3D7FF',
-          score: stage.score || 20,
-          category: stage.category || 'New',
-          id: stage.id
-        })),
+        stages: settingsData.stages
+          .filter(stage => stage.is_active)
+          .map(stage => ({
+            value: stage.name,
+            label: stage.name,
+            stageKey: stage.stage_key || stage.name,
+            color: stage.color || '#B3D7FF',
+            score: stage.score || 20,
+            category: stage.status || 'New', // Use 'status' field
+            id: stage.id
+          })),
         
         counsellors: [
           { value: 'Assign Counsellor', label: 'Assign Counsellor' },
-          ...settingsData.counsellors.map(counsellor => ({
-            value: counsellor.name,
-            label: counsellor.name,
-            id: counsellor.id
-          }))
+          ...settingsData.counsellors
+            .filter(counsellor => counsellor.is_active)
+            .map(counsellor => ({
+              value: counsellor.name,
+              label: counsellor.name,
+              id: counsellor.id
+            }))
         ],
         
         offers: offers.map(offer => ({
@@ -106,19 +147,20 @@ export default async function handler(req, res) {
       },
 
       fieldLabels: {
-        parentsName: settingsData.formFields.find(f => f.field_key === 'parentsName')?.label || 'Parent Name',
-        kidsName: settingsData.formFields.find(f => f.field_key === 'kidsName')?.label || 'Kid Name',
-        phone: settingsData.formFields.find(f => f.field_key === 'phone')?.label || 'Phone',
-        secondPhone: settingsData.formFields.find(f => f.field_key === 'secondPhone')?.label || 'Secondary Phone',
-        email: settingsData.formFields.find(f => f.field_key === 'email')?.label || 'Email',
-        location: settingsData.formFields.find(f => f.field_key === 'location')?.label || 'Location',
-        grade: settingsData.formFields.find(f => f.field_key === 'grade')?.label || 'Grade',
-        source: settingsData.formFields.find(f => f.field_key === 'source')?.label || 'Source',
-        stage: settingsData.formFields.find(f => f.field_key === 'stage')?.label || 'Stage',
-        counsellor: settingsData.formFields.find(f => f.field_key === 'counsellor')?.label || 'Counsellor',
-        offer: settingsData.formFields.find(f => f.field_key === 'offer')?.label || 'Offer',
-        occupation: settingsData.formFields.find(f => f.field_key === 'occupation')?.label || 'Occupation',
-        notes: settingsData.formFields.find(f => f.field_key === 'notes')?.label || 'Notes'
+        parentsName: getFieldLabel('parentsName', settingsData.form_fields) || 'Parent Name',
+        kidsName: getFieldLabel('kidsName', settingsData.form_fields) || 'Kid Name',
+        phone: getFieldLabel('phone', settingsData.form_fields) || 'Phone',
+        secondPhone: getFieldLabel('secondPhone', settingsData.form_fields) || 'Secondary Phone',
+        email: getFieldLabel('email', settingsData.form_fields) || 'Email',
+        location: getFieldLabel('location', settingsData.form_fields) || 'Location',
+        grade: getFieldLabel('grade', settingsData.form_fields) || 'Grade',
+        source: getFieldLabel('source', settingsData.form_fields) || 'Source',
+        stage: getFieldLabel('stage', settingsData.form_fields) || 'Stage',
+        counsellor: getFieldLabel('counsellor', settingsData.form_fields) || 'Counsellor',
+        offer: getFieldLabel('offer', settingsData.form_fields) || 'Offer',
+        occupation: getFieldLabel('occupation', settingsData.form_fields) || 'Occupation',
+        notes: getFieldLabel('notes', settingsData.form_fields) || 'Notes',
+        currentSchool: getFieldLabel('currentSchool', settingsData.form_fields) || 'Current School'
       },
 
       validationRules: {
@@ -155,9 +197,9 @@ export default async function handler(req, res) {
       },
 
       defaultValues: {
-        grade: settingsData.grades[0]?.name || 'LKG',
-        source: settingsData.sources[0]?.name || 'Instagram',
-        stage: settingsData.stages[0]?.name || 'New Lead',
+        grade: settingsData.grades.find(g => g.is_active)?.name || 'LKG',
+        source: settingsData.sources.find(s => s.is_active)?.name || 'Instagram',
+        stage: settingsData.stages.find(s => s.is_active)?.name || 'New Lead',
         counsellor: 'Assign Counsellor',
         offer: 'No offer',
         category: 'New',

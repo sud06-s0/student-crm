@@ -10,7 +10,52 @@ const supabase = createClient(
   }
 );
 
-// Helper functions (copied from your leadHelpers.js)
+// CORRECTED: Get settings data from unified settings table
+async function getSettingsData() {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('*')
+    .order('sort_order');
+    
+  if (error) throw error;
+  
+  // Group by type exactly like main application
+  const grouped = {
+    stages: [],
+    grades: [],
+    counsellors: [],
+    sources: [],
+    form_fields: [],
+    school: {}
+  };
+  
+  data?.forEach(item => {
+    if (item.type === 'school') {
+      grouped.school = item.value || {};
+    } else if (grouped[item.type]) {
+      const itemData = {
+        id: item.id,
+        name: item.name,
+        field_key: item.field_key,
+        stage_key: item.stage_key,
+        is_active: item.is_active, 
+        sort_order: item.sort_order,
+        ...(item.value || {})
+      };
+      
+      // For counsellors, extract user_id from value field for compatibility
+      if (item.type === 'counsellors' && item.value && item.value.user_id) {
+        itemData.user_id = item.value.user_id;
+      }
+      
+      grouped[item.type].push(itemData);
+    }
+  });
+  
+  return grouped;
+}
+
+// Helper functions (corrected to match main app)
 function getStageKeyFromName(stageName, stages) {
   const stage = stages.find(s => s.name === stageName);
   return stage?.stage_key || stage?.name || stageName;
@@ -20,7 +65,7 @@ function getStageInfo(stageKey, stages) {
   const stage = stages.find(s => s.stage_key === stageKey || s.name === stageKey);
   return {
     score: stage?.score || 20,
-    category: stage?.category || 'New',
+    category: stage?.status || 'New', // Use 'status' field like main app
     color: stage?.color || '#B3D7FF'
   };
 }
@@ -59,28 +104,36 @@ function validateLeadData(data, settingsData) {
   }
 
   if (data.grade) {
-    const validGrades = settingsData.grades.map(g => g.name);
+    const validGrades = settingsData.grades
+      .filter(g => g.is_active)
+      .map(g => g.name);
     if (!validGrades.includes(data.grade)) {
       errors.grade = `Invalid grade. Valid options: ${validGrades.join(', ')}`;
     }
   }
 
   if (data.source) {
-    const validSources = settingsData.sources.map(s => s.name);
+    const validSources = settingsData.sources
+      .filter(s => s.is_active)
+      .map(s => s.name);
     if (!validSources.includes(data.source)) {
       errors.source = `Invalid source. Valid options: ${validSources.join(', ')}`;
     }
   }
 
   if (data.counsellor && data.counsellor !== 'Assign Counsellor') {
-    const validCounsellors = settingsData.counsellors.map(c => c.name);
+    const validCounsellors = settingsData.counsellors
+      .filter(c => c.is_active)
+      .map(c => c.name);
     if (!validCounsellors.includes(data.counsellor)) {
       errors.counsellor = `Invalid counsellor. Valid options: ${validCounsellors.join(', ')}`;
     }
   }
 
   if (data.stage) {
-    const validStages = settingsData.stages.map(s => s.name);
+    const validStages = settingsData.stages
+      .filter(s => s.is_active)
+      .map(s => s.name);
     if (!validStages.includes(data.stage)) {
       errors.stage = `Invalid stage. Valid options: ${validStages.join(', ')}`;
     }
@@ -93,7 +146,10 @@ function validateLeadData(data, settingsData) {
 function convertAPIToDatabase(apiData, settingsData) {
   console.log('Converting API data to database format:', apiData);
   
-  const stageKey = getStageKeyFromName(apiData.stage || settingsData.stages[0]?.name, settingsData.stages);
+  const stageKey = getStageKeyFromName(
+    apiData.stage || settingsData.stages.find(s => s.is_active)?.name, 
+    settingsData.stages
+  );
   const stageInfo = getStageInfo(stageKey, settingsData.stages);
   
   console.log('Stage conversion:', {
@@ -115,15 +171,16 @@ function convertAPIToDatabase(apiData, settingsData) {
     second_phone: formatPhone(apiData.secondPhone),
     email: apiData.email || '',
     location: apiData.location || '',
-    grade: apiData.grade || settingsData.grades[0]?.name || 'LKG',
-    stage: stageKey,
+    grade: apiData.grade || settingsData.grades.find(g => g.is_active)?.name || 'LKG',
+    stage: stageKey, // Store stage_key in database
     score: stageInfo.score,
     category: stageInfo.category,
     counsellor: apiData.counsellor || 'Assign Counsellor',
     offer: apiData.offer || 'No offer',
     notes: apiData.notes || '',
-    source: apiData.source || settingsData.sources[0]?.name || 'Instagram',
+    source: apiData.source || settingsData.sources.find(s => s.is_active)?.name || 'Instagram',
     occupation: apiData.occupation || '',
+    current_school: apiData.currentSchool || '',
     updated_at: new Date().toISOString()
   };
 
@@ -188,21 +245,8 @@ export default async function handler(req, res) {
     console.log('=== API LEAD CREATION REQUEST ===');
     console.log('Request body:', req.body);
 
-    const [stagesRes, sourcesRes, gradesRes, counsellorsRes, formFieldsRes] = await Promise.all([
-      supabase.from('stages').select('*').order('id'),
-      supabase.from('sources').select('*').order('id'),
-      supabase.from('grades').select('*').order('id'),
-      supabase.from('counsellors').select('*').order('id'),
-      supabase.from('form_fields').select('*').order('id')
-    ]);
-
-    const settingsData = {
-      stages: stagesRes.data || [],
-      sources: sourcesRes.data || [],
-      grades: gradesRes.data || [],
-      counsellors: counsellorsRes.data || [],
-      formFields: formFieldsRes.data || []
-    };
+    // CORRECTED: Use unified settings table
+    const settingsData = await getSettingsData();
 
     console.log('Settings data loaded for validation');
 
@@ -268,7 +312,7 @@ export default async function handler(req, res) {
     try {
       const logFormData = {
         ...req.body,
-        stage: req.body.stage || settingsData.stages[0]?.name
+        stage: req.body.stage || settingsData.stages.find(s => s.is_active)?.name
       };
       await logLeadCreated(newLead.id, logFormData);
       console.log('Lead creation logged successfully');

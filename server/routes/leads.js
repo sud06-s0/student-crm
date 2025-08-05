@@ -1,4 +1,4 @@
-// server/routes/leads.js
+// server/routes/leads.js - CORRECTED VERSION
 const express = require('express');
 const router = express.Router();
 const leadsController = require('../controllers/leadsController.js');
@@ -15,7 +15,8 @@ router.get('/test', (req, res) => {
     message: 'Leads API is working perfectly!', 
     timestamp: new Date().toISOString(),
     method: req.method,
-    path: req.path
+    path: req.path,
+    settingsSource: 'Unified settings table'
   });
 });
 
@@ -55,7 +56,8 @@ router.get('/', (req, res) => {
       test: 'GET /api/leads/test',
       options: 'GET /api/leads/options',
       create: 'POST /api/leads/create'
-    }
+    },
+    dataSource: 'Unified settings table from Supabase'
   });
 });
 

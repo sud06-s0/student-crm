@@ -1,8 +1,8 @@
-// server/utils/historyLogger.js
+// server/utils/historyLogger.js - CORRECTED VERSION
 const { supabase } = require('../config/supabase');
 
-// Log lead creation
-const logLeadCreated = async (leadId, formData) => {
+// History logging function - matches main application pattern
+async function logLeadCreated(leadId, formData) {
   try {
     console.log('Logging lead creation for ID:', leadId);
     
@@ -37,23 +37,23 @@ const logLeadCreated = async (leadId, formData) => {
     }
   } catch (error) {
     console.error('Error in logLeadCreated:', error);
-    throw error; // Re-throw so calling function knows it failed
+    throw error;
   }
-};
+}
 
-// Log stage change (if needed in future)
-const logStageChange = async (leadId, oldStage, newStage, source = 'API') => {
+// Additional history logging functions for completeness
+async function logStageChange(leadId, oldStage, newStage, changedBy = 'API') {
   try {
     console.log('Logging stage change for ID:', leadId);
     
     const historyData = {
       record_id: leadId,
       action: 'Stage Changed',
-      details: `Stage changed from "${oldStage}" to "${newStage}" via ${source}`,
+      details: `Stage changed from "${oldStage}" to "${newStage}" via ${changedBy}`,
       additional_info: {
-        oldStage: oldStage,
-        newStage: newStage,
-        source: source,
+        old_stage: oldStage,
+        new_stage: newStage,
+        changed_by: changedBy,
         changed_via: 'API',
         timestamp: new Date().toISOString()
       },
@@ -75,22 +75,19 @@ const logStageChange = async (leadId, oldStage, newStage, source = 'API') => {
     console.error('Error in logStageChange:', error);
     throw error;
   }
-};
+}
 
-// Log field update (if needed in future)
-const logFieldUpdate = async (leadId, fieldName, oldValue, newValue, source = 'API') => {
+async function logLeadUpdated(leadId, updatedFields, updatedBy = 'API') {
   try {
-    console.log('Logging field update for ID:', leadId);
+    console.log('Logging lead update for ID:', leadId);
     
     const historyData = {
       record_id: leadId,
-      action: 'Field Updated',
-      details: `${fieldName} changed from "${oldValue}" to "${newValue}" via ${source}`,
+      action: 'Lead Updated',
+      details: `Lead information updated via ${updatedBy}`,
       additional_info: {
-        fieldName: fieldName,
-        oldValue: oldValue,
-        newValue: newValue,
-        source: source,
+        updated_fields: updatedFields,
+        updated_by: updatedBy,
         updated_via: 'API',
         timestamp: new Date().toISOString()
       },
@@ -103,87 +100,19 @@ const logFieldUpdate = async (leadId, fieldName, oldValue, newValue, source = 'A
       .select();
 
     if (error) {
-      console.error('Error logging field update:', error);
+      console.error('Error logging lead update:', error);
       throw error;
     } else {
-      console.log('Field update logged successfully for ID:', leadId);
+      console.log('Lead update logged successfully for ID:', leadId);
     }
   } catch (error) {
-    console.error('Error in logFieldUpdate:', error);
+    console.error('Error in logLeadUpdated:', error);
     throw error;
   }
-};
-
-// Log API activity (general purpose)
-const logApiActivity = async (leadId, action, details, additionalInfo = {}) => {
-  try {
-    console.log('Logging API activity for ID:', leadId);
-    
-    const historyData = {
-      record_id: leadId,
-      action: action,
-      details: details,
-      additional_info: {
-        ...additionalInfo,
-        logged_via: 'API',
-        timestamp: new Date().toISOString()
-      },
-      timestamp: new Date().toISOString()
-    };
-
-    const { data, error } = await supabase
-      .from('History')
-      .insert([historyData])
-      .select();
-
-    if (error) {
-      console.error('Error logging API activity:', error);
-      throw error;
-    } else {
-      console.log('API activity logged successfully for ID:', leadId);
-    }
-  } catch (error) {
-    console.error('Error in logApiActivity:', error);
-    throw error;
-  }
-};
-
-// Test history logging function
-const testHistoryLog = async () => {
-  try {
-    const testData = {
-      record_id: 0, // Test record
-      action: 'API Test',
-      details: 'Testing history logging functionality',
-      additional_info: {
-        test: true,
-        timestamp: new Date().toISOString()
-      },
-      timestamp: new Date().toISOString()
-    };
-
-    const { data, error } = await supabase
-      .from('History')
-      .insert([testData])
-      .select();
-
-    if (error) {
-      console.error('History logging test failed:', error);
-      return false;
-    } else {
-      console.log('History logging test successful:', data);
-      return true;
-    }
-  } catch (error) {
-    console.error('Error in testHistoryLog:', error);
-    return false;
-  }
-};
+}
 
 module.exports = {
   logLeadCreated,
   logStageChange,
-  logFieldUpdate,
-  logApiActivity,
-  testHistoryLog
+  logLeadUpdated
 };
