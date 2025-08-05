@@ -188,7 +188,7 @@ function convertAPIToDatabase(apiData, settingsData) {
   return dbData;
 }
 
-// History logging function (copied from your historyLogger.js)
+// History logging function
 async function logLeadCreated(leadId, formData) {
   try {
     console.log('Logging lead creation for ID:', leadId);
@@ -265,37 +265,9 @@ export default async function handler(req, res) {
 
     const dbData = convertAPIToDatabase(req.body, settingsData);
 
-    if (req.body.checkDuplicate !== false) {
-      console.log('Checking for duplicate phone:', dbData.phone);
-      
-      const { data: existingLead, error: duplicateError } = await supabase
-        .from('Leads')
-        .select('id, parents_name, kids_name')
-        .eq('phone', dbData.phone)
-        .maybeSingle();
-
-      if (duplicateError) {
-        console.error('Error checking duplicate:', duplicateError);
-      }
-
-      if (existingLead) {
-        console.log('Duplicate phone found:', existingLead);
-        return res.status(409).json({
-          success: false,
-          error: 'Duplicate phone number',
-          details: {
-            existingLead: {
-              id: existingLead.id,
-              parentsName: existingLead.parents_name,
-              kidsName: existingLead.kids_name
-            }
-          }
-        });
-      }
-    }
-
     console.log('Inserting new lead into database...');
 
+    // Insert new lead into database - REMOVED duplicate check
     const { data: newLead, error: insertError } = await supabase
       .from('Leads')
       .insert([dbData])
