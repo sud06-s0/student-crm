@@ -4,6 +4,7 @@ import { useSettingsData } from '../contexts/SettingsDataProvider';
 import { 
   logLeadCreated
 } from '../utils/historyLogger';
+import Stage1ActionButton from './Stage1ActionButton'; // ← ADD: Import the API component
 
 const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
   // ← UPDATED: Use settings data context with stage_key support
@@ -42,6 +43,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
 
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [newlyCreatedLead, setNewlyCreatedLead] = useState(null); // ← ADD: Track newly created lead for API call
 
   // ← NEW: Helper functions for stage_key conversion
   const getStageKeyForLead = (stageValue) => {
@@ -135,7 +137,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
         stage: defaultStageKey, // ← Store stage_key
         category: 'New',
         offer: 'No offer',
-        counsellor: 'Assign Counsellour',
+        counsellor: 'Assign Counsellor',
         score: 20,
         source: settingsData.sources[0]?.name || 'Instagram',
         occupation: '',
@@ -148,6 +150,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
       
       setFormData(defaultData);
       setErrors({});
+      setNewlyCreatedLead(null); // ← ADD: Reset API trigger
       
       // Cleanup function
       return () => {
@@ -257,8 +260,8 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
       newErrors.email = 'Please enter a valid email address';
     }
 
-    // Counsellor Assign Check
-    if (formData.counsellor === 'Assign Counsellor') {
+    // Counsellor validation - must select a counsellor
+    if (!formData.counsellor || formData.counsellor === 'Assign Counsellor') {
       newErrors.counsellor = `Please select a ${getFieldLabel('counsellor').toLowerCase()}`;
     }
 
@@ -269,10 +272,53 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
   // ← UPDATED: Handle close with body scroll unlock
   const handleClose = () => {
     document.body.classList.remove('modal-open');
+    setNewlyCreatedLead(null); // ← ADD: Reset API trigger on close
     onClose();
   };
 
-  // REPLACE THE ENTIRE handleSubmit FUNCTION WITH:
+  // ← ADD: Handle API call completion
+  const handleApiComplete = (success, error) => {
+    console.log('🟢 API call completed:', { success, error });
+    if (!success && error) {
+      console.warn('⚠️ API call failed, but lead was still created:', error);
+      // You could show a warning to the user here if needed
+    }
+    
+    // Reset the API trigger regardless of success/failure
+    setNewlyCreatedLead(null);
+    setLoading(false); // ← MOVED: Stop loading after API call completes
+
+    // ← MOVED: Now close form and refresh data AFTER API call completes
+    alert('✅ New lead added successfully!');
+    
+    // Call onSubmit to refresh parent data
+    onSubmit();
+    document.body.classList.remove('modal-open');
+    onClose();
+
+    // Reset form
+    const defaultStageKey = stages[0]?.value || '';
+    setFormData({
+      id: 0,
+      parentsName: '',
+      kidsName: '',
+      location: '',
+      phone: '',
+      secondPhone: '', // ← NEW: Reset secondary phone
+      email: '',
+      grade: settingsData.grades[0]?.name || 'LKG',
+      notes: '',
+      stage: defaultStageKey,
+      category: 'New',
+      counsellor: 'Assign Counsellor',
+      score: 20,
+      source: settingsData.sources[0]?.name || 'Instagram',
+      occupation: '',
+      createdTime: ''
+    });
+  };
+
+  // ← UPDATED: Handle submit with API call trigger
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -308,40 +354,26 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
 
       console.log('✅ New lead created:', data);
 
-      alert('✅ New lead added successfully!');
+      // ← ADD: Prepare data for API call and trigger it
+      const leadDataForApi = {
+        phone: `+91${formData.phone}`,
+        parentsName: formData.parentsName,
+        kidsName: formData.kidsName,
+        grade: formData.grade
+      };
 
-      // Call onSubmit to refresh parent data
-      onSubmit();
-      document.body.classList.remove('modal-open');
-      onClose();
+      console.log('🚀 Triggering API call with lead data:', leadDataForApi);
+      setNewlyCreatedLead(leadDataForApi);
 
-      // Reset form
-      const defaultStageKey = stages[0]?.value || '';
-      setFormData({
-        id: 0,
-        parentsName: '',
-        kidsName: '',
-        location: '',
-        phone: '',
-        secondPhone: '', // ← NEW: Reset secondary phone
-        email: '',
-        grade: settingsData.grades[0]?.name || 'LKG',
-        notes: '',
-        stage: defaultStageKey,
-        category: 'New',
-        counsellor: 'Assign Counsellor',
-        score: 20,
-        source: settingsData.sources[0]?.name || 'Instagram',
-        occupation: '',
-        createdTime: ''
-      });
+      // ← REMOVED: Don't close form immediately - wait for API call to complete
+      // The form will close in handleApiComplete after API call finishes
 
     } catch (error) {
       console.error('❌ Database error:', error);
       alert('❌ Error saving lead: ' + error.message);
-    } finally {
-      setLoading(false);
+      setLoading(false); // ← MOVED: Only stop loading on error
     }
+    // ← REMOVED: finally block - loading will be stopped in handleApiComplete on success
   };
 
   // Don't render if not open or settings are still loading
@@ -349,6 +381,15 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
 
   return (
     <>
+      {/* ← ADD: API Call Component - Hidden but triggers when newlyCreatedLead is set */}
+      {newlyCreatedLead && (
+        <Stage1ActionButton
+          leadData={newlyCreatedLead}
+          onComplete={handleApiComplete}
+          getFieldLabel={getFieldLabel}
+        />
+      )}
+
       {/* Modal Overlay */}
       <div className="modal-overlay" onClick={handleClose}></div>
       
@@ -516,9 +557,9 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
                   </select>
                 </div>
 
-                {/* ← UPDATED: Counsellor with dynamic field label */}
+                {/* ← UPDATED: Counsellor with dynamic field label and required indicator */}
                 <div className="col-md-6 mb-3">
-                  <label className="form-label">{getFieldLabel('counsellor')}</label>
+                  <label className="form-label">{getFieldLabel('counsellor')} *</label>
                   <select
                     className={`form-select ${errors.counsellor ? 'is-invalid' : ''}`}
                     name="counsellor"
@@ -527,8 +568,15 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
                     disabled={loading}
                   >
                     {counsellors.map(counsellor => (
-                      <option key={counsellor} value={counsellor}>
-                        {counsellor}
+                      <option 
+                        key={counsellor} 
+                        value={counsellor}
+                        style={{ 
+                          color: counsellor === 'Assign Counsellor' ? '#999' : 'inherit',
+                          fontStyle: counsellor === 'Assign Counsellor' ? 'italic' : 'normal'
+                        }}
+                      >
+                        {counsellor === 'Assign Counsellor' ? '-- Select a Counsellor --' : counsellor}
                       </option>
                     ))}
                   </select>
@@ -545,7 +593,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
               >
                 {loading ? (
                   <>
-                    <span>⏳ Adding...</span>
+                    <span>⏳ Adding & Sending Welcome Message...</span>
                   </>
                 ) : (
                   <span>Add Lead</span>
