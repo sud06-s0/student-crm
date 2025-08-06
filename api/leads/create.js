@@ -1,7 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { triggerStage1API } from '../utils/stage1ApiHelper'; // ← FIXED: Now this import will work
 
-// ← FIXED: Use proper environment variables for server-side
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY,
@@ -12,91 +10,47 @@ const supabase = createClient(
   }
 );
 
-// CORRECTED: Get settings data from unified settings table
-async function getSettingsData() {
+const triggerStage1API = async (leadData) => {
   try {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('*')
-      .order('sort_order');
-      
-    if (error) throw error;
-    
-    // Group by type exactly like main application
-    const grouped = {
-      stages: [],
-      grades: [],
-      counsellors: [],
-      sources: [],
-      form_fields: [],
-      school: {}
-    };
-    
-    data?.forEach(item => {
-      if (item.type === 'school') {
-        grouped.school = item.value || {};
-      } else if (grouped[item.type]) {
-        const itemData = {
-          id: item.id,
-          name: item.name,
-          field_key: item.field_key,
-          stage_key: item.stage_key,
-          is_active: item.is_active, 
-          sort_order: item.sort_order,
-          ...(item.value || {})
-        };
-        
-        // For counsellors, extract user_id from value field for compatibility
-        if (item.type === 'counsellors' && item.value && item.value.user_id) {
-          itemData.user_id = item.value.user_id;
-        }
-        
-        grouped[item.type].push(itemData);
-      }
+    if (!leadData.phone || !leadData.parentsName || !leadData.kidsName || !leadData.grade) {
+      return { success: false, error: 'Missing required parameters' };
+    }
+
+    const cleanPhone = leadData.phone.replace(/^\+91/, '').replace(/\D/g, '');
+
+    const response = await fetch('https://backend.aisensy.com/campaign/t1/api/v2', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        apiKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4MGYyOGY2ZTBjYzg1MGMwMmMzNGJiOCIsIm5hbWUiOiJXRUJVWlogRGlnaXRhbCBQcml2YXRlIExpbWl0ZWQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjgwZjI4ZjZlMGNjODUwYzAyYzM0YmIzIiwiYWN0aXZlUGxhbiI6IkZSRUVfRk9SRVZFUiIsImlhdCI6MTc0NTgyMzk5MH0.pJi8qbYf3joYbNm5zSs4gJKFlBFsCS6apvkBkw4Qdxs',
+        campaignName: 'welcome-school',
+        destination: cleanPhone,
+        userName: leadData.parentsName,
+        templateParams: [leadData.parentsName, leadData.kidsName, leadData.grade]
+      })
     });
-    
-    console.log('Settings data loaded:', {
-      stages: grouped.stages.length,
-      grades: grouped.grades.length,
-      counsellors: grouped.counsellors.length,
-      sources: grouped.sources.length
-    });
-    
-    return grouped;
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { success: false, error: `API call failed: ${response.status} - ${errorText}` };
+    }
+
+    const result = await response.json();
+    return { success: true, data: result };
+
   } catch (error) {
-    console.error('Error loading settings data:', error);
-    throw error;
+    return { success: false, error: error.message };
   }
-}
+};
 
-// Helper functions (corrected to match main app)
-function getStageKeyFromName(stageName, stages) {
-  const stage = stages.find(s => s.name === stageName);
-  return stage?.stage_key || stage?.name || stageName;
-}
-
-function getStageInfo(stageKey, stages) {
-  const stage = stages.find(s => s.stage_key === stageKey || s.name === stageKey);
-  return {
-    score: stage?.score || 20,
-    category: stage?.status || 'New', // Use 'status' field like main app
-    color: stage?.color || '#B3D7FF'
-  };
-}
-
-function validateLeadData(data, settingsData) {
+function validateLeadData(data) {
   const errors = {};
 
-  console.log('Validating lead data:', data);
-
-  if (!data.parentsName?.trim()) {
-    errors.parentsName = 'Parent name is required';
-  }
-
-  if (!data.kidsName?.trim()) {
-    errors.kidsName = 'Kid name is required';
-  }
-
+  if (!data.parentsName?.trim()) errors.parentsName = 'Parent name is required';
+  if (!data.kidsName?.trim()) errors.kidsName = 'Kid name is required';
+  
   if (!data.phone?.trim()) {
     errors.phone = 'Phone number is required';
   } else {
@@ -117,134 +71,39 @@ function validateLeadData(data, settingsData) {
     errors.email = 'Please enter a valid email address';
   }
 
-  if (data.grade) {
-    const validGrades = settingsData.grades
-      .filter(g => g.is_active !== false) // Allow undefined is_active (default true)
-      .map(g => g.name);
-    if (validGrades.length > 0 && !validGrades.includes(data.grade)) {
-      errors.grade = `Invalid grade. Valid options: ${validGrades.join(', ')}`;
-    }
-  }
-
-  if (data.source) {
-    const validSources = settingsData.sources
-      .filter(s => s.is_active !== false)
-      .map(s => s.name);
-    if (validSources.length > 0 && !validSources.includes(data.source)) {
-      errors.source = `Invalid source. Valid options: ${validSources.join(', ')}`;
-    }
-  }
-
-  // ← FIXED: Counsellor validation logic
-  if (data.counsellor && data.counsellor !== 'Assign Counsellor') {
-    const validCounsellors = settingsData.counsellors
-      .filter(c => c.is_active !== false)
-      .map(c => c.name);
-    if (validCounsellors.length > 0 && !validCounsellors.includes(data.counsellor)) {
-      errors.counsellor = `Invalid counsellor. Valid options: ${validCounsellors.join(', ')}`;
-    }
-  }
-
-  if (data.stage) {
-    const validStages = settingsData.stages
-      .filter(s => s.is_active !== false)
-      .map(s => s.name);
-    if (validStages.length > 0 && !validStages.includes(data.stage)) {
-      errors.stage = `Invalid stage. Valid options: ${validStages.join(', ')}`;
-    }
-  }
-
-  console.log('Validation errors:', errors);
   return errors;
 }
 
-function convertAPIToDatabase(apiData, settingsData) {
-  console.log('Converting API data to database format:', apiData);
-  
-  const stageKey = getStageKeyFromName(
-    apiData.stage || settingsData.stages.find(s => s.is_active !== false)?.name, 
-    settingsData.stages
-  );
-  const stageInfo = getStageInfo(stageKey, settingsData.stages);
-  
-  console.log('Stage conversion:', {
-    originalStage: apiData.stage,
-    stageKey: stageKey,
-    stageInfo: stageInfo
-  });
-  
+function convertToDatabase(data) {
   const formatPhone = (phone) => {
     if (!phone) return '';
     const digits = phone.replace(/\D/g, '');
     return digits ? `+91${digits}` : '';
   };
 
-  const dbData = {
-    parents_name: apiData.parentsName || '',
-    kids_name: apiData.kidsName || '',
-    phone: formatPhone(apiData.phone),
-    second_phone: formatPhone(apiData.secondPhone),
-    email: apiData.email || '',
-    location: apiData.location || '',
-    grade: apiData.grade || settingsData.grades.find(g => g.is_active !== false)?.name || 'LKG',
-    stage: stageKey, // Store stage_key in database
-    score: stageInfo.score,
-    category: stageInfo.category,
-    counsellor: apiData.counsellor === 'Assign Counsellor' ? 'Assign Counsellor' : (apiData.counsellor || 'Assign Counsellor'),
-    offer: apiData.offer || 'No offer',
-    notes: apiData.notes || '',
-    source: apiData.source || settingsData.sources.find(s => s.is_active !== false)?.name || 'Instagram',
-    occupation: apiData.occupation || '',
-    current_school: apiData.currentSchool || '',
-    updated_at: new Date().toISOString()
+  return {
+    parents_name: data.parentsName || '',
+    kids_name: data.kidsName || '',
+    phone: formatPhone(data.phone),
+    second_phone: formatPhone(data.secondPhone),
+    email: data.email || '',
+    location: data.location || '',
+    grade: data.grade || 'LKG',
+    stage: data.stage || 'initial',
+    score: 20,
+    category: 'New',
+    counsellor: 'Assign Counsellor',
+    offer: data.offer || 'No offer',
+    notes: data.notes || '',
+    source: data.source || 'API',
+    occupation: data.occupation || '',
+    current_school: data.currentSchool || '',
+    updated_at: new Date().toISOString(),
+    created_at: new Date().toISOString()
   };
-
-  console.log('Converted database data:', dbData);
-  return dbData;
-}
-
-// History logging function
-async function logLeadCreated(leadId, formData) {
-  try {
-    console.log('Logging lead creation for ID:', leadId);
-    
-    const historyData = {
-      record_id: leadId,
-      action: 'Lead Created',
-      details: `New lead created via API - ${formData.parentsName} (${formData.kidsName}) - ${formData.phone}`,
-      additional_info: {
-        source: 'API',
-        stage: formData.stage,
-        grade: formData.grade,
-        counsellor: formData.counsellor,
-        created_via: 'API',
-        api_version: '1.0',
-        timestamp: new Date().toISOString()
-      },
-      timestamp: new Date().toISOString()
-    };
-
-    console.log('History data to insert:', historyData);
-
-    const { data, error } = await supabase
-      .from('History')
-      .insert([historyData])
-      .select();
-
-    if (error) {
-      console.error('Error logging lead creation:', error);
-      throw error;
-    } else {
-      console.log('Lead creation logged successfully for ID:', leadId, 'History record:', data);
-    }
-  } catch (error) {
-    console.error('Error in logLeadCreated:', error);
-    // Don't throw - just log the error
-  }
 }
 
 export default async function handler(req, res) {
-  // ← FIXED: Add proper CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -258,22 +117,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log('=== API LEAD CREATION REQUEST ===');
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('API Lead Creation Request:', req.body);
 
-    // Check if required environment variables exist
-    if (!process.env.SUPABASE_URL && !process.env.VITE_SUPABASE_URL) {
-      throw new Error('Missing SUPABASE_URL environment variable');
-    }
-
-    // CORRECTED: Use unified settings table
-    const settingsData = await getSettingsData();
-    console.log('Settings data loaded for validation');
-
-    const validationErrors = validateLeadData(req.body, settingsData);
+    const validationErrors = validateLeadData(req.body);
     
     if (Object.keys(validationErrors).length > 0) {
-      console.log('❌ Validation failed:', validationErrors);
       return res.status(400).json({
         success: false,
         error: 'Validation failed',
@@ -281,12 +129,8 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log('✅ Validation passed, converting data...');
-    const dbData = convertAPIToDatabase(req.body, settingsData);
+    const dbData = convertToDatabase(req.body);
 
-    console.log('📝 Inserting new lead into database...');
-
-    // Insert new lead into database
     const { data: newLead, error: insertError } = await supabase
       .from('Leads')
       .insert([dbData])
@@ -294,14 +138,16 @@ export default async function handler(req, res) {
       .single();
 
     if (insertError) {
-      console.error('❌ Database insert error:', insertError);
-      throw insertError;
+      console.error('Database insert error:', insertError);
+      return res.status(500).json({
+        success: false,
+        error: 'Database error',
+        details: insertError.message
+      });
     }
 
-    console.log('✅ New lead created successfully with ID:', newLead.id);
+    console.log('Lead created successfully:', newLead.id);
 
-    // ★ NEW: Trigger Stage 1 API Call
-    console.log('🚀 Triggering Stage 1 API call...');
     const stage1Result = await triggerStage1API({
       phone: newLead.phone,
       parentsName: newLead.parents_name,
@@ -309,23 +155,22 @@ export default async function handler(req, res) {
       grade: newLead.grade
     });
 
-    if (stage1Result.success) {
-      console.log('✅ Stage 1 API call successful');
-    } else {
-      console.log('⚠️ Stage 1 API call failed, but continuing with lead creation:', stage1Result.error);
-      // Don't fail the entire request if Stage 1 API fails
-    }
-
-    // Log lead creation
     try {
-      const logFormData = {
-        ...req.body,
-        stage: req.body.stage || settingsData.stages.find(s => s.is_active !== false)?.name
+      const historyData = {
+        record_id: newLead.id,
+        action: 'Lead Created',
+        details: `New lead created via API - ${newLead.parents_name} (${newLead.kids_name}) - ${newLead.phone}`,
+        additional_info: {
+          source: 'API',
+          created_via: 'API Endpoint',
+          timestamp: new Date().toISOString()
+        },
+        timestamp: new Date().toISOString()
       };
-      await logLeadCreated(newLead.id, logFormData);
-      console.log('✅ Lead creation logged successfully');
-    } catch (logError) {
-      console.error('⚠️ Error logging lead creation (non-critical):', logError);
+
+      await supabase.from('History').insert([historyData]);
+    } catch (historyError) {
+      console.log('History logging failed (non-critical):', historyError);
     }
 
     return res.status(201).json({
@@ -339,22 +184,23 @@ export default async function handler(req, res) {
         stage: newLead.stage,
         category: newLead.category,
         score: newLead.score,
+        counsellor: newLead.counsellor,
         createdAt: newLead.created_at,
-        // ★ NEW: Include Stage 1 API status
         stage1ApiCall: {
           success: stage1Result.success,
-          message: stage1Result.success ? 'Welcome message sent successfully' : `Failed to send welcome message: ${stage1Result.error}`
+          message: stage1Result.success ? 
+            'Welcome message sent successfully' : 
+            `Welcome message failed: ${stage1Result.error}`
         }
       }
     });
 
   } catch (error) {
-    console.error('❌ API Error:', error);
+    console.error('API Error:', error);
     return res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      message: error.message
     });
   }
 }
