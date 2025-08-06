@@ -89,7 +89,7 @@ function convertToDatabase(data) {
     email: data.email || '',
     location: data.location || '',
     grade: data.grade || 'LKG',
-    stage: data.stage || 'initial',
+    stage: data.stage || 'New Lead',
     score: 20,
     category: 'New',
     counsellor: 'Assign Counsellor',
