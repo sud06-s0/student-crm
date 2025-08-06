@@ -1,6 +1,4 @@
 // utils/stage1ApiHelper.js
-// Extract the API logic from Stage1ActionButton component for reuse
-
 export const triggerStage1API = async (leadData) => {
   try {
     console.log('🟡 Triggering Stage 1 API for:', {
@@ -16,7 +14,7 @@ export const triggerStage1API = async (leadData) => {
       return { success: false, error: 'Missing required parameters' };
     }
 
-    // Clean phone number (remove +91 if present)
+    // Clean phone number - remove +91 if present since API expects just the number
     const cleanPhone = leadData.phone.replace(/^\+91/, '').replace(/\D/g, '');
 
     const response = await fetch('https://backend.aisensy.com/campaign/t1/api/v2', {
@@ -27,7 +25,7 @@ export const triggerStage1API = async (leadData) => {
       body: JSON.stringify({
         apiKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4MGYyOGY2ZTBjYzg1MGMwMmMzNGJiOCIsIm5hbWUiOiJXRUJVWlogRGlnaXRhbCBQcml2YXRlIExpbWl0ZWQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjgwZjI4ZjZlMGNjODUwYzAyYzM0YmIzIiwiYWN0aXZlUGxhbiI6IkZSRUVfRk9SRVZFUiIsImlhdCI6MTc0NTgyMzk5MH0.pJi8qbYf3joYbNm5zSs4gJKFlBFsCS6apvkBkw4Qdxs',
         campaignName: 'welcome-school',
-        destination: cleanPhone,
+        destination: cleanPhone, // API expects without +91 prefix
         userName: leadData.parentsName,
         templateParams: [leadData.parentsName, leadData.kidsName, leadData.grade]
       })
