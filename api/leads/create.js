@@ -70,6 +70,9 @@ function getStageInfo(stageKey, stages) {
   };
 }
 
+// *** Import Stage 1 API logic from existing component ***
+import { triggerStage1API } from '../utils/stage1ApiHelper'; // You'll need to extract this function
+
 function validateLeadData(data, settingsData) {
   const errors = {};
 
@@ -267,7 +270,7 @@ export default async function handler(req, res) {
 
     console.log('Inserting new lead into database...');
 
-    // Insert new lead into database - REMOVED duplicate check
+    // Insert new lead into database
     const { data: newLead, error: insertError } = await supabase
       .from('Leads')
       .insert([dbData])
@@ -281,6 +284,23 @@ export default async function handler(req, res) {
 
     console.log('New lead created successfully:', newLead.id);
 
+    // *** NEW: Trigger Stage 1 API Call ***
+    console.log('🟡 Triggering Stage 1 API call...');
+    const stage1Result = await triggerStage1API({
+      phone: newLead.phone,
+      parentsName: newLead.parents_name,
+      kidsName: newLead.kids_name,
+      grade: newLead.grade
+    });
+
+    if (stage1Result.success) {
+      console.log('🟢 Stage 1 API call successful');
+    } else {
+      console.log('🟡 Stage 1 API call failed, but continuing with lead creation:', stage1Result.error);
+      // Don't fail the entire request if Stage 1 API fails
+    }
+
+    // Log lead creation
     try {
       const logFormData = {
         ...req.body,
@@ -303,7 +323,12 @@ export default async function handler(req, res) {
         stage: newLead.stage,
         category: newLead.category,
         score: newLead.score,
-        createdAt: newLead.created_at
+        createdAt: newLead.created_at,
+        // *** NEW: Include Stage 1 API status ***
+        stage1ApiCall: {
+          success: stage1Result.success,
+          message: stage1Result.success ? 'Welcome message sent' : `Failed: ${stage1Result.error}`
+        }
       }
     });
 
