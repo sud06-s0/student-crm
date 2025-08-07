@@ -1,5 +1,34 @@
 import { createClient } from '@supabase/supabase-js';
 import { TABLE_NAMES } from '../config/tableNames';
+import { authenticateRequest } from './auth';
+
+// Authentication function
+function authenticateRequest(req) {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    return { authenticated: false, error: 'Missing or invalid authorization header' };
+  }
+
+  try {
+    // Extract base64 encoded credentials
+    const base64Credentials = authHeader.split(' ')[1];
+    const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
+    const [username, password] = credentials.split(':');
+
+    // Define your API credentials (store these in environment variables)
+    const API_USERNAME = process.env.API_USERNAME || 'your_api_user';
+    const API_PASSWORD = process.env.API_PASSWORD || 'your_secure_password';
+
+    if (username === API_USERNAME && password === API_PASSWORD) {
+      return { authenticated: true };
+    } else {
+      return { authenticated: false, error: 'Invalid credentials' };
+    }
+  } catch (error) {
+    return { authenticated: false, error: 'Invalid authorization format' };
+  }
+}
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -65,7 +94,7 @@ function getFieldLabel(fieldKey, formFields) {
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -75,8 +104,18 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Authenticate request
+  const authResult = authenticateRequest(req);
+  if (!authResult.authenticated) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized',
+      message: authResult.error
+    });
+  }
+
   try {
-    console.log('=== API OPTIONS REQUEST ===');
+    console.log('=== Authenticated API OPTIONS REQUEST ===');
 
     // CORRECTED: Use unified settings table
     const settingsData = await getSettingsData();
