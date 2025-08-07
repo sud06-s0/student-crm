@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSettingsData } from '../contexts/SettingsDataProvider';
 import { supabase } from '../lib/supabase';
 import { settingsService } from '../services/settingsService';
+import { TABLE_NAMES } from '../config/tableNames';
 import { 
   logAction,
   logMeetingScheduled,
@@ -190,7 +191,7 @@ const LeadSidebar = ({
 
     try {
       const { data, error } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .update({ [stageField]: newStatus })
         .eq('id', selectedLead.id);
 
@@ -261,7 +262,7 @@ const LeadSidebar = ({
     
     try {
       const { data, error } = await supabase
-        .from('follow_ups')
+        .from(TABLE_NAMES.FOLLOW_UPS)
         .select('*')
         .eq('lead_id', selectedLead.id)
         .order('follow_up_date', { ascending: false });
@@ -282,7 +283,7 @@ const LeadSidebar = ({
 
     try {
       const { error } = await supabase
-        .from('follow_ups')
+        .from(TABLE_NAMES.FOLLOW_UPS)
         .insert({
           lead_id: selectedLead.id,
           follow_up_date: followUpDate,
@@ -352,7 +353,7 @@ const LeadSidebar = ({
     
     try {
       const { data, error } = await supabase
-        .from('logs')
+        .from(TABLE_NAMES.LOGS)
         .select('*')
         .eq('record_id', selectedLead.id.toString())
         .order('action_timestamp', { ascending: false })

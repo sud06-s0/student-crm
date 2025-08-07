@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { supabase } from '../lib/supabase';
 import { useSettingsData } from '../contexts/SettingsDataProvider';
+import { TABLE_NAMES } from '../config/tableNames';
 
 const OverviewDashboard = () => {
   const { 
@@ -149,7 +150,7 @@ const OverviewDashboard = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .select('*')
         .order('id', { ascending: true });
 

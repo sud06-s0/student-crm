@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { TABLE_NAMES } from '../config/tableNames';
 
 // Create the context
 const LeadStateContext = createContext();
@@ -51,7 +52,7 @@ const LeadStateProvider = ({ children, user }) => { // ← NEW: Accept user prop
 
   // ← NEW: Wrapper for setLeadsData that applies role-based filtering
   const setLeadsData = useCallback((leads) => {
-    console.log('setLeadsData called with:', leads.length, 'leads');
+    console.log('setLeadsData called with:', leads.length, TABLE_NAMES.LEADS);
     
     // Store all leads (unfiltered) for admin operations
     setAllLeadsData(leads);

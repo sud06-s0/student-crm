@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { TABLE_NAMES } from '../config/tableNames';
 import { supabase } from '../lib/supabase';
 import { useSettingsData } from '../contexts/SettingsDataProvider';
 import { 
@@ -334,7 +335,7 @@ const AddLeadForm = ({ isOpen, onClose, onSubmit, existingLeads = [] }) => {
 
       // INSERT new lead
       const { data, error } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .insert([dbData])
         .select();
 

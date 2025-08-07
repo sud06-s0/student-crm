@@ -1,5 +1,6 @@
 // utils/historyLogger.js
 import { supabase } from '../lib/supabase';
+import { TABLE_NAMES } from '../config/tableNames';
 
 /**
  * IMPORTANT NOTE: Stage_key Migration
@@ -24,12 +25,12 @@ import { supabase } from '../lib/supabase';
 export const logAction = async (leadId, mainAction, description) => {
   try {
     const { error } = await supabase
-      .from('logs')
+      .from(TABLE_NAMES.LOGS)
       .insert([
         {
           main_action: mainAction,
           description: description,
-          table_name: 'Leads',
+          table_name: TABLE_NAMES.LEADS,
           record_id: leadId.toString(),
           action_timestamp: new Date().toISOString()
         }

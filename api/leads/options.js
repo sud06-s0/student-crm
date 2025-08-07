@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { TABLE_NAMES } from '../config/tableNames';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -13,7 +14,7 @@ const supabase = createClient(
 // CORRECTED: Get settings data from unified settings table
 async function getSettingsData() {
   const { data, error } = await supabase
-    .from('settings')
+    .from(TABLE_NAMES.SETTINGS)
     .select('*')
     .order('sort_order');
     

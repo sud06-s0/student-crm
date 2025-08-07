@@ -9,6 +9,7 @@ import FilterDropdown, { FilterButton, applyFilters } from './FilterDropdown';
 import LeadStateProvider, { useLeadState } from './LeadStateProvider';
 import SettingsDataProvider, { useSettingsData } from '../contexts/SettingsDataProvider';
 import MobileHeaderDropdown from './MobileHeaderDropdown';
+import { TABLE_NAMES } from '../config/tableNames';
 import { 
   Search,
   Filter,
@@ -306,7 +307,7 @@ const FollowUpTable = ({ onLogout, user }) => {
 
       // Delete the leads themselves
       const { error } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .delete()
         .in('id', selectedLeads);
 
@@ -384,7 +385,7 @@ const FollowUpTable = ({ onLogout, user }) => {
   const fetchLastActivityData = async () => {
     try {
       const { data, error } = await supabase
-        .from('last_activity_by_lead')
+        .from(TABLE_NAMES.LAST_ACTIVITY_BY_LEAD)
         .select('*');
 
       if (error) throw error;
@@ -413,7 +414,7 @@ const FollowUpTable = ({ onLogout, user }) => {
       
       // Fetch follow-ups within the date range
       const { data: followUpsData, error: followUpsError } = await supabase
-        .from('follow_ups')
+        .from(TABLE_NAMES.FOLLOW_UPS)
         .select('lead_id, follow_up_date, details, created_at')
         .gte('follow_up_date', dateRange.startDate)
         .lte('follow_up_date', dateRange.endDate)
@@ -435,7 +436,7 @@ const FollowUpTable = ({ onLogout, user }) => {
 
       // ← NEW: Build the leads query with role-based filtering
       let leadsQuery = supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .select('*')
         .in('id', leadIds);
 
@@ -456,7 +457,7 @@ const FollowUpTable = ({ onLogout, user }) => {
 
       // Also fetch activity data
       const { data: activityResponse, error: activityError } = await supabase
-        .from('last_activity_by_lead')
+        .from(TABLE_NAMES.LAST_ACTIVITY_BY_LEAD)
         .select('*');
 
       if (activityError) throw activityError;
@@ -604,7 +605,7 @@ const FollowUpTable = ({ onLogout, user }) => {
       }
 
       const { error } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .update(updateData)
         .eq('id', leadId);
 
@@ -700,7 +701,7 @@ const FollowUpTable = ({ onLogout, user }) => {
       }
 
       const { error } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .update(updateData)
         .eq('id', selectedLead.id);
 
@@ -761,7 +762,7 @@ const FollowUpTable = ({ onLogout, user }) => {
       }
 
       const { error } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .update(updateData)
         .eq('id', leadId);
 

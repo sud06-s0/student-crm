@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { supabase } from '../lib/supabase';
+import { TABLE_NAMES } from '../config/tableNames';
 import { useSettingsData } from '../contexts/SettingsDataProvider';
 import { 
   GraduationCap, 
@@ -184,7 +185,7 @@ const CounsellorPerformance = ({ onLogout, user }) => {
       console.log('=== FETCHING ALL LEADS FOR COUNSELLOR PERFORMANCE ===');
       
       const { data, error } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .select('*')
         .order('id', { ascending: true });
 

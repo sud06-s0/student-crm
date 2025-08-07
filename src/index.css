@@ -2410,7 +2410,8 @@
 
 /* Settings Container */
 .settings-container {
-  width: 100%;
+  width:auto;
+  margin-left:230px;
   padding: 24px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: #f8fafc;
@@ -4841,5 +4842,10 @@
   .settings-two-column-row
 {
   flex-direction: column;
+}
+
+.settings-container{
+  width:100%;
+  margin-left:0;
 }
 }

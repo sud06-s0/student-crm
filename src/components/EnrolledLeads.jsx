@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { settingsService } from '../services/settingsService'; // ← NEW: Import for custom fields
 import { logStageChange } from '../utils/historyLogger';
+import { TABLE_NAMES } from '../config/tableNames';
 import AddLeadForm from './AddLeadForm';
 import LeftSidebar from './LeftSidebar';
 import LeadSidebar from './LeadSidebar';
@@ -308,7 +309,7 @@ const EnrolledLeads = ({ onLogout, user }) => {
 
       // Delete the leads themselves
       const { error } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .delete()
         .in('id', selectedLeads);
 
@@ -370,7 +371,7 @@ const EnrolledLeads = ({ onLogout, user }) => {
   const fetchLastActivityData = async () => {
     try {
       const { data, error } = await supabase
-        .from('last_activity_by_lead')  // ← Use the database view
+        .from(TABLE_NAMES.LAST_ACTIVITY_BY_LEAD)  // ← Use the database view
         .select('*');
 
       if (error) throw error;
@@ -415,8 +416,8 @@ const EnrolledLeads = ({ onLogout, user }) => {
       
       // Make both API calls in parallel using the fast view
       const [leadsResponse, activityResponse] = await Promise.all([
-        supabase.from('Leads').select('*').order('id', { ascending: false }),
-        supabase.from('last_activity_by_lead').select('*')  // Use the view
+        supabase.from(TABLE_NAMES.LEADS).select('*').order('id', { ascending: false }),
+        supabase.from(TABLE_NAMES.LAST_ACTIVITY_BY_LEAD).select('*')  // Use the view
       ]);
 
       if (leadsResponse.error) throw leadsResponse.error;
@@ -554,7 +555,7 @@ const EnrolledLeads = ({ onLogout, user }) => {
 
       // Update in database
       const { error } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .update(updateData)
         .eq('id', leadId);
 
@@ -665,7 +666,7 @@ const EnrolledLeads = ({ onLogout, user }) => {
 
       // Update in database
       const { error } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .update(updateData)
         .eq('id', selectedLead.id);
 
@@ -740,7 +741,7 @@ const EnrolledLeads = ({ onLogout, user }) => {
 
       // Update in database
       const { error } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .update(updateData)
         .eq('id', leadId);
 

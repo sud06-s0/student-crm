@@ -1,4 +1,5 @@
-import { supabase } from '../lib/supabase'
+import { supabase } from '../lib/supabase';
+import { TABLE_NAMES } from '../config/tableNames';
 
 const authService = {
   // Login with email and password
@@ -22,7 +23,7 @@ const authService = {
 
       // Get user data from your custom users table
       const { data: userData, error: userError } = await supabase
-        .from('users')
+        .from(TABLE_NAMES.USERS)
         .select('id, email, full_name, role, is_active, phone, profile_image_url, created_at')
         .eq('auth_id', authData.user.id)
         .eq('is_active', true)
@@ -39,7 +40,7 @@ const authService = {
 
       // Update last login
       await supabase
-        .from('users')
+        .from(TABLE_NAMES.USERS)
         .update({ 
           last_login: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -88,7 +89,7 @@ const authService = {
 
       // Get user data from custom table
       const { data: userData, error: userError } = await supabase
-        .from('users')
+        .from(TABLE_NAMES.USERS)
         .select('id, email, full_name, role, is_active, phone, profile_image_url, created_at, last_login')
         .eq('auth_id', user.id)
         .eq('is_active', true)
@@ -136,7 +137,7 @@ const authService = {
 
       // Create user record in custom table
       const { data: newUser, error: userError } = await supabase
-        .from('users')
+        .from(TABLE_NAMES.USERS)
         .insert([{
           auth_id: authData.user.id,
           email: email,
@@ -178,7 +179,7 @@ const authService = {
       // 🔒 SECURITY: First check if email exists in our users table
       console.log('🔍 Step 1: Checking if email exists in users table...');
       const { data: userData, error: userError } = await supabase
-        .from('users')
+        .from(TABLE_NAMES.USERS)
         .select('id, email, is_active, auth_id')
         .eq('email', email.toLowerCase().trim())
         .eq('is_active', true)
@@ -252,7 +253,7 @@ const authService = {
       console.log('Updating user profile:', userId);
       
       const { data, error } = await supabase
-        .from('users')
+        .from(TABLE_NAMES.USERS)
         .update({
           ...updates,
           updated_at: new Date().toISOString()

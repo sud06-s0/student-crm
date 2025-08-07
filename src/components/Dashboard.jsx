@@ -4,6 +4,7 @@ import { useSettingsData } from '../contexts/SettingsDataProvider'; // ← UPDAT
 import OverviewDashboard from './OverviewDashboard';
 import LeftSidebar from './LeftSidebar';
 import { Play, Loader2 } from 'lucide-react';
+import { TABLE_NAMES } from '../config/tableNames';
 
 const Dashboard = ({ onLogout, user }) => {
   // ← UPDATED: Use settings data context with stage_key support
@@ -131,7 +132,7 @@ const Dashboard = ({ onLogout, user }) => {
       setError(null);
       
       const { data, error } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .select('*')
         .order('id', { ascending: true });
 

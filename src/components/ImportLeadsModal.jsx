@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { TABLE_NAMES } from '../config/tableNames';
 import { useSettingsData } from '../contexts/SettingsDataProvider';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -126,7 +127,7 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
     return 'new_lead';
   };
 
-  // Process single row with fallbacks
+  // Process single row with fallbacks - UPDATED with Second Phone
   const processRow = (row, existingPhones) => {
     // Normalize headers (case insensitive)
     const normalizedRow = {};
@@ -136,21 +137,26 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
     });
 
     // Extract data with fallbacks
-    let parentsName = normalizedRow['parents name'] || normalizedRow['parent name'] || normalizedRow['parentsname'] || '';
-    let kidsName = normalizedRow['kids name'] || normalizedRow['kid name'] || normalizedRow['child name'] || normalizedRow['kidsname'] || '';
-    let phone = normalizedRow['phone'] || normalizedRow['mobile'] || normalizedRow['number'] || '';
-    let email = normalizedRow['email'] || normalizedRow['email address'] || '';
-    let location = normalizedRow['location'] || normalizedRow['address'] || normalizedRow['city'] || '';
-    let grade = normalizedRow['grade'] || normalizedRow['class'] || normalizedRow['standard'] || '';
-    let source = normalizedRow['source'] || normalizedRow['lead source'] || '';
-    let counsellor = normalizedRow['counsellor'] || normalizedRow['counselor'] || normalizedRow['assigned to'] || '';
-    let occupation = normalizedRow['occupation'] || normalizedRow['job'] || normalizedRow['profession'] || '';
+    let parentsName = normalizedRow['parents name'] || normalizedRow['parent name'] || normalizedRow['parentsname'] || normalizedRow['father name'] || normalizedRow['mother name'] || '';
+    let kidsName = normalizedRow['kids name'] || normalizedRow['kid name'] || normalizedRow['child name'] || normalizedRow['kidsname'] || normalizedRow['student name'] || '';
+    let phone = normalizedRow['phone'] || normalizedRow['mobile'] || normalizedRow['number'] || normalizedRow['primary phone'] || normalizedRow['contact'] || '';
+    // ← NEW: Second Phone support with multiple column name variations
+    let secondPhone = normalizedRow['second phone'] || normalizedRow['secondary phone'] || normalizedRow['alternate phone'] || normalizedRow['second mobile'] || normalizedRow['alternate mobile'] || normalizedRow['secondphone'] || normalizedRow['phone 2'] || normalizedRow['mobile 2'] || '';
+    let email = normalizedRow['email'] || normalizedRow['email address'] || normalizedRow['mail'] || '';
+    let location = normalizedRow['location'] || normalizedRow['address'] || normalizedRow['city'] || normalizedRow['area'] || '';
+    let grade = normalizedRow['grade'] || normalizedRow['class'] || normalizedRow['standard'] || normalizedRow['std'] || '';
+    let source = normalizedRow['source'] || normalizedRow['lead source'] || normalizedRow['referral source'] || '';
+    let counsellor = normalizedRow['counsellor'] || normalizedRow['counselor'] || normalizedRow['assigned to'] || normalizedRow['advisor'] || '';
+    let occupation = normalizedRow['occupation'] || normalizedRow['job'] || normalizedRow['profession'] || normalizedRow['work'] || '';
+    let notes = normalizedRow['notes'] || normalizedRow['remarks'] || normalizedRow['comments'] || normalizedRow['description'] || '';
+    let offer = normalizedRow['offer'] || normalizedRow['discount'] || normalizedRow['scholarship'] || '';
+    let currentSchool = normalizedRow['current school'] || normalizedRow['school'] || normalizedRow['present school'] || '';
 
     // Apply fallbacks
     if (!parentsName || parentsName.toString().trim() === '') parentsName = 'NA';
     if (!kidsName || kidsName.toString().trim() === '') kidsName = 'NA';
     
-    // Phone validation and fallback
+    // Primary phone validation and fallback
     if (phone) {
       // Clean phone number
       phone = phone.toString().replace(/\D/g, '');
@@ -159,6 +165,17 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
       }
     } else {
       phone = '1234567890';
+    }
+
+    // ← NEW: Secondary phone validation (optional field)
+    let processedSecondPhone = '';
+    if (secondPhone && secondPhone.toString().trim() !== '') {
+      processedSecondPhone = secondPhone.toString().replace(/\D/g, '');
+      if (processedSecondPhone.length !== 10) {
+        processedSecondPhone = ''; // Clear if invalid
+      } else {
+        processedSecondPhone = `+91${processedSecondPhone}`;
+      }
     }
 
     // Check for duplicate phone
@@ -206,6 +223,11 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
       }
     }
 
+    // Offer fallback
+    if (!offer || offer.toString().trim() === '') {
+      offer = 'Welcome Kit';
+    }
+
     // Get default stage
     const defaultStageKey = getDefaultStage();
     const score = getStageScore(defaultStageKey);
@@ -217,6 +239,7 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
         parents_name: parentsName.toString().trim(),
         kids_name: kidsName.toString().trim(),
         phone: fullPhone,
+        second_phone: processedSecondPhone, // ← NEW: Include second phone
         email: email ? email.toString().trim() : '',
         location: location ? location.toString().trim() : '',
         grade: grade.toString().trim(),
@@ -226,7 +249,9 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
         source: source.toString().trim(),
         counsellor: counsellor.toString().trim(),
         occupation: occupation ? occupation.toString().trim() : '',
-        offer: 'Welcome Kit',
+        notes: notes ? notes.toString().trim() : '', // ← NEW: Include notes
+        offer: offer.toString().trim(),
+        current_school: currentSchool ? currentSchool.toString().trim() : '', // ← NEW: Include current school
         updated_at: new Date().toISOString()
       }
     };
@@ -236,7 +261,7 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
   const getExistingPhones = async () => {
     try {
       const { data, error } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .select('phone');
       
       if (error) throw error;
@@ -330,7 +355,7 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
         
         try {
           const { data, error } = await supabase
-            .from('Leads')
+            .from(TABLE_NAMES.LEADS)
             .insert(chunk)
             .select('id');
 
@@ -548,6 +573,7 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
                       </p>
                       <ul style={{ margin: 0, paddingLeft: '16px', color: '#92400e', fontSize: '14px' }}>
                         <li>Required columns: Parents Name, Kids Name, Phone</li>
+                        <li>Optional: Second Phone, Email, Location, Grade, Source, etc.</li>
                         <li>Invalid data will use fallbacks (NA, 1234567890)</li>
                         <li>Duplicate phone numbers will be skipped</li>
                         <li>All leads will use the first stage from settings</li>

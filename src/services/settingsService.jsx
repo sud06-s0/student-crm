@@ -1,11 +1,12 @@
 import { supabase } from '../lib/supabase';
+import { TABLE_NAMES } from '../config/tableNames';
 import { supabaseAdmin } from '../lib/supabaseAdmin'; // Import admin client
 
 export const settingsService = {
   // Get all settings
   async getAllSettings() {
     const { data, error } = await supabase
-      .from('settings')
+      .from(TABLE_NAMES.SETTINGS)
       .select('*')
       .order('sort_order');
       
@@ -69,7 +70,7 @@ export const settingsService = {
 
       // Step 2: Create user in custom users table using REGULAR CLIENT
       const { data: userData, error: userError } = await supabase
-        .from('users')
+        .from(TABLE_NAMES.USERS)
         .insert([{
           auth_id: authData.user.id,
           email: email,
@@ -90,7 +91,7 @@ export const settingsService = {
       const maxOrder = await this.getMaxSortOrder('counsellors');
       
       const { data: counsellorData, error: counsellorError } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .insert([{
           type: 'counsellors',
           name: name,
@@ -106,7 +107,7 @@ export const settingsService = {
 
       if (counsellorError) {
         // Cleanup: Delete user and auth if counsellor creation failed
-        await supabase.from('users').delete().eq('id', userData.id);
+        await supabase.from(TABLE_NAMES.USERS).delete().eq('id', userData.id);
         await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
         throw counsellorError;
       }
@@ -130,7 +131,7 @@ export const settingsService = {
     try {
       // Step 1: Get current counsellor data
       const { data: counsellor, error: counsellorError } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .select('*')
         .eq('id', counsellorId)
         .single();
@@ -146,7 +147,7 @@ export const settingsService = {
 
       // Step 2: Get user data
       const { data: user, error: userFetchError } = await supabase
-        .from('users')
+        .from(TABLE_NAMES.USERS)
         .select('*')
         .eq('id', userId)
         .single();
@@ -160,7 +161,7 @@ export const settingsService = {
       };
 
       const { error: userUpdateError } = await supabase
-        .from('users')
+        .from(TABLE_NAMES.USERS)
         .update(userUpdates)
         .eq('id', user.id);
 
@@ -188,7 +189,7 @@ export const settingsService = {
 
       // Step 6: Update counsellor in settings table - Update value field
       const { error: counsellorUpdateError } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .update({ 
           name: name,
           value: {
@@ -204,7 +205,7 @@ export const settingsService = {
       if (oldCounsellorName !== name) {
         console.log(`Updating leads from counsellor "${oldCounsellorName}" to "${name}"`);
         const { error: leadsUpdateError } = await supabase
-          .from('Leads')
+          .from(TABLE_NAMES.LEADS)
           .update({ counsellor: name })
           .eq('counsellor', oldCounsellorName);
 
@@ -229,7 +230,7 @@ export const settingsService = {
     try {
       // Step 1: Get counsellor data
       const { data: counsellor, error: counsellorError } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .select('*')
         .eq('id', counsellorId)
         .single();
@@ -241,7 +242,7 @@ export const settingsService = {
       // Step 2: Update all leads with this counsellor to "Not Assigned"
       console.log(`Updating leads with counsellor "${counsellorName}" to "Not Assigned"`);
       const { error: leadsUpdateError } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .update({ counsellor: 'Not Assigned' })
         .eq('counsellor', counsellorName);
 
@@ -259,7 +260,7 @@ export const settingsService = {
 
       // Step 3: Get user data
       const { data: user, error: userFetchError } = await supabase
-        .from('users')
+        .from(TABLE_NAMES.USERS)
         .select('*')
         .eq('id', userId)
         .single();
@@ -271,7 +272,7 @@ export const settingsService = {
 
       // Step 4: Delete from settings table using REGULAR CLIENT
       const { error: settingsDeleteError } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .delete()
         .eq('id', counsellorId);
 
@@ -279,7 +280,7 @@ export const settingsService = {
 
       // Step 5: Delete from users table using REGULAR CLIENT
       const { error: userDeleteError } = await supabase
-        .from('users')
+        .from(TABLE_NAMES.USERS)
         .delete()
         .eq('id', user.id);
 
@@ -304,7 +305,7 @@ export const settingsService = {
   // Get counsellor with user details
   async getCounsellorWithUser(counsellorId) {
     const { data: counsellor, error } = await supabase
-      .from('settings')
+      .from(TABLE_NAMES.SETTINGS)
       .select('*')
       .eq('id', counsellorId)
       .eq('type', 'counsellors')
@@ -315,7 +316,7 @@ export const settingsService = {
     // Get user details from users table using user_id stored in value
     if (counsellor.value && counsellor.value.user_id) {
       const { data: user, error: userError } = await supabase
-        .from('users')
+        .from(TABLE_NAMES.USERS)
         .select('id, email, full_name, role, is_active')
         .eq('id', counsellor.value.user_id)
         .single();
@@ -334,7 +335,7 @@ export const settingsService = {
     try {
       // Step 1: Get current source name
       const { data: source, error: sourceError } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .select('name')
         .eq('id', sourceId)
         .single();
@@ -345,7 +346,7 @@ export const settingsService = {
 
       // Step 2: Update source name
       const { error: updateError } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .update({ name: newName })
         .eq('id', sourceId);
 
@@ -355,7 +356,7 @@ export const settingsService = {
       if (oldSourceName !== newName) {
         console.log(`Updating leads from source "${oldSourceName}" to "${newName}"`);
         const { error: leadsUpdateError } = await supabase
-          .from('Leads')
+          .from(TABLE_NAMES.LEADS)
           .update({ source: newName })
           .eq('source', oldSourceName);
 
@@ -379,7 +380,7 @@ export const settingsService = {
     try {
       // Step 1: Get source name
       const { data: source, error: sourceError } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .select('name')
         .eq('id', sourceId)
         .single();
@@ -391,7 +392,7 @@ export const settingsService = {
       // Step 2: Update all leads with this source to "NA"
       console.log(`Updating leads with source "${sourceName}" to "NA"`);
       const { error: leadsUpdateError } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .update({ source: 'NA' })
         .eq('source', sourceName);
 
@@ -402,7 +403,7 @@ export const settingsService = {
 
       // Step 3: Delete the source
       const { error: deleteError } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .delete()
         .eq('id', sourceId);
 
@@ -421,7 +422,7 @@ export const settingsService = {
     try {
       // Step 1: Get current grade name
       const { data: grade, error: gradeError } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .select('name')
         .eq('id', gradeId)
         .single();
@@ -432,7 +433,7 @@ export const settingsService = {
 
       // Step 2: Update grade name
       const { error: updateError } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .update({ name: newName })
         .eq('id', gradeId);
 
@@ -442,7 +443,7 @@ export const settingsService = {
       if (oldGradeName !== newName) {
         console.log(`Updating leads from grade "${oldGradeName}" to "${newName}"`);
         const { error: leadsUpdateError } = await supabase
-          .from('Leads')
+          .from(TABLE_NAMES.LEADS)
           .update({ grade: newName })
           .eq('grade', oldGradeName);
 
@@ -466,7 +467,7 @@ export const settingsService = {
     try {
       // Step 1: Get grade name
       const { data: grade, error: gradeError } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .select('name')
         .eq('id', gradeId)
         .single();
@@ -478,7 +479,7 @@ export const settingsService = {
       // Step 2: Update all leads with this grade to "NA"
       console.log(`Updating leads with grade "${gradeName}" to "NA"`);
       const { error: leadsUpdateError } = await supabase
-        .from('Leads')
+        .from(TABLE_NAMES.LEADS)
         .update({ grade: 'NA' })
         .eq('grade', gradeName);
 
@@ -489,7 +490,7 @@ export const settingsService = {
 
       // Step 3: Delete the grade
       const { error: deleteError } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .delete()
         .eq('id', gradeId);
 
@@ -508,7 +509,7 @@ export const settingsService = {
     try {
       // Step 1: Get current stage name
       const { data: stage, error: stageError } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .select('name')
         .eq('id', stageId)
         .single();
@@ -521,7 +522,7 @@ export const settingsService = {
       if (oldStageName !== newName) {
         console.log(`Updating leads from stage "${oldStageName}" to "${newName}"`);
         const { error: leadsUpdateError } = await supabase
-          .from('Leads')
+          .from(TABLE_NAMES.LEADS)
           .update({ stage: newName })
           .eq('stage', oldStageName);
 
@@ -544,7 +545,7 @@ export const settingsService = {
   async getCustomFieldsForLead(leadId) {
     try {
       const { data, error } = await supabase
-        .from('lead_custom_fields')
+        .from(TABLE_NAMES.LEAD_CUSTOM_FIELDS)
         .select('*')
         .eq('lead_id', leadId);
         
@@ -570,7 +571,7 @@ export const settingsService = {
       
       // Get existing custom fields for this lead
       const { data: existingFields, error: fetchError } = await supabase
-        .from('lead_custom_fields')
+        .from(TABLE_NAMES.LEAD_CUSTOM_FIELDS)
         .select('field_key')
         .eq('lead_id', leadId);
 
@@ -586,7 +587,7 @@ export const settingsService = {
         if (fieldValue !== null && fieldValue !== undefined && fieldValue !== '') {
           upsertPromises.push(
             supabase
-              .from('lead_custom_fields')
+              .from(TABLE_NAMES.LEAD_CUSTOM_FIELDS)
               .upsert({
                 lead_id: leadId,
                 field_key: fieldKey,
@@ -608,7 +609,7 @@ export const settingsService = {
 
       if (fieldsToDelete.length > 0) {
         const { error: deleteError } = await supabase
-          .from('lead_custom_fields')
+          .from(TABLE_NAMES.LEAD_CUSTOM_FIELDS)
           .delete()
           .eq('lead_id', leadId)
           .in('field_key', fieldsToDelete);
@@ -645,7 +646,7 @@ export const settingsService = {
   async getActiveCustomFieldDefinitions() {
     try {
       const { data, error } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .select('*')
         .eq('type', 'form_fields')
         .eq('is_active', true);
@@ -669,7 +670,7 @@ export const settingsService = {
   async deleteAllCustomFieldsForLead(leadId) {
     try {
       const { error } = await supabase
-        .from('lead_custom_fields')
+        .from(TABLE_NAMES.LEAD_CUSTOM_FIELDS)
         .delete()
         .eq('lead_id', leadId);
         
@@ -686,7 +687,7 @@ export const settingsService = {
   async getCustomFieldsCountForLead(leadId) {
     try {
       const { data, error } = await supabase
-        .from('lead_custom_fields')
+        .from(TABLE_NAMES.LEAD_CUSTOM_FIELDS)
         .select('id')
         .eq('lead_id', leadId);
         
@@ -703,7 +704,7 @@ export const settingsService = {
   async fixCustomFieldKeys() {
     try {
       const { data: customFields, error } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .select('*')
         .eq('type', 'form_fields')
         .eq('is_custom', true);
@@ -716,7 +717,7 @@ export const settingsService = {
           const fieldKey = 'custom_field_' + field.id;
           
           return supabase
-            .from('settings')
+            .from(TABLE_NAMES.SETTINGS)
             .update({ 
               field_key: fieldKey,
               value: { 
@@ -770,7 +771,7 @@ export const settingsService = {
 
   async toggleItemStatus(id) {
     const { data: current, error: fetchError } = await supabase
-      .from('settings')
+      .from(TABLE_NAMES.SETTINGS)
       .select('is_active')
       .eq('id', id)
       .single();
@@ -778,7 +779,7 @@ export const settingsService = {
     if (fetchError) throw fetchError;
     
     const { error } = await supabase
-      .from('settings')
+      .from(TABLE_NAMES.SETTINGS)
       .update({ is_active: !current.is_active })
       .eq('id', id);
       
@@ -787,7 +788,7 @@ export const settingsService = {
 
   async getCustomFormFieldsCount() {
     const { data, error } = await supabase
-      .from('settings')
+      .from(TABLE_NAMES.SETTINGS)
       .select('id, name, field_key')
       .eq('type', 'form_fields')
       .eq('is_active', true);
@@ -899,7 +900,7 @@ export const settingsService = {
     }
 
     const { data, error } = await supabase
-      .from('settings')
+      .from(TABLE_NAMES.SETTINGS)
       .insert([insertData])
       .select();
       
@@ -912,7 +913,7 @@ export const settingsService = {
     try {
       // Get current item to preserve field_key
       const { data: currentItem, error: fetchError } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .select('*')
         .eq('id', id)
         .single();
@@ -931,7 +932,7 @@ export const settingsService = {
       }
       
       const { error } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .update(updateData)
         .eq('id', id);
         
@@ -944,7 +945,7 @@ export const settingsService = {
 
   async deleteItem(id) {
     const { error } = await supabase
-      .from('settings')
+      .from(TABLE_NAMES.SETTINGS)
       .delete()
       .eq('id', id);
       
@@ -953,7 +954,7 @@ export const settingsService = {
 
   async moveStage(stageId, direction) {
     const { data: allStages } = await supabase
-      .from('settings')
+      .from(TABLE_NAMES.SETTINGS)
       .select('id, sort_order')
       .eq('type', 'stages')
       .eq('is_active', true)
@@ -966,14 +967,14 @@ export const settingsService = {
       const currentStage = allStages[currentIndex];
       const swapStage = allStages[newIndex];
 
-      await supabase.from('settings').update({ sort_order: swapStage.sort_order }).eq('id', currentStage.id);
-      await supabase.from('settings').update({ sort_order: currentStage.sort_order }).eq('id', swapStage.id);
+      await supabase.from(TABLE_NAMES.SETTINGS).update({ sort_order: swapStage.sort_order }).eq('id', currentStage.id);
+      await supabase.from(TABLE_NAMES.SETTINGS).update({ sort_order: currentStage.sort_order }).eq('id', swapStage.id);
     }
   },
 
   async updateSchoolSettings(schoolData) {
     const { data: existing } = await supabase
-      .from('settings')
+      .from(TABLE_NAMES.SETTINGS)
       .select('id')
       .eq('type', 'school')
       .eq('name', 'profile')
@@ -981,13 +982,13 @@ export const settingsService = {
     
     if (existing && existing.length > 0) {
       const { error } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .update({ value: schoolData })
         .eq('id', existing[0].id);
       if (error) throw error;
     } else {
       const { error } = await supabase
-        .from('settings')
+        .from(TABLE_NAMES.SETTINGS)
         .insert([{
           type: 'school',
           name: 'profile',
@@ -999,7 +1000,7 @@ export const settingsService = {
 
   async getMaxSortOrder(type) {
     const { data } = await supabase
-      .from('settings')
+      .from(TABLE_NAMES.SETTINGS)
       .select('sort_order')
       .eq('type', type)
       .order('sort_order', { ascending: false })
