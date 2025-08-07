@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { TABLE_NAMES } from './../src/config/tableNames';
+import { TABLE_NAMES } from '.././src/config/tableNames';
 import { authenticateRequest } from './auth';
 
 const supabase = createClient(
