@@ -84,8 +84,7 @@ const Login = ({ onLogin }) => {
           <div className="login-form-container">
             <h2>Welcome Back!</h2>
             <p className="login-subtitle">
-              Don't have an account? <span className="create-account">Create a new account now</span>, 
-              it's FREE! Takes less than a minute.
+              Thank you for visiting again!
             </p>
 
             {!showForgotPassword ? (
