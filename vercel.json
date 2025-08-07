@@ -2,11 +2,11 @@
   "functions": {
     "api/leads/options.js": {
       "maxDuration": 10,
-      "includeFiles": "src/config/**"
+      "includeFiles": "src/config/tableNames.js"
     },
     "api/leads/create.js": {
       "maxDuration": 10,
-      "includeFiles": "src/config/**"
+      "includeFiles": "src/config/tableNames.js"
     }
   },
   "rewrites": [
