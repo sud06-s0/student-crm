@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { TABLE_NAMES } from './tableNames';
-import { authenticateRequest } from './auth';
+import { TABLE_NAMES } from './tableNames.js';
+import { authenticateRequest } from './auth.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
