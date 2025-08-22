@@ -1,6 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { TABLE_NAMES } from './tableNames';
-import { authenticateRequest } from './auth';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -15,7 +13,7 @@ const supabase = createClient(
 // CORRECTED: Get settings data from unified settings table
 async function getSettingsData() {
   const { data, error } = await supabase
-    .from(TABLE_NAMES.SETTINGS)
+    .from('settings')
     .select('*')
     .order('sort_order');
     
@@ -66,7 +64,7 @@ function getFieldLabel(fieldKey, formFields) {
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -76,18 +74,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Authenticate request
-  const authResult = authenticateRequest(req);
-  if (!authResult.authenticated) {
-    return res.status(401).json({
-      success: false,
-      error: 'Unauthorized',
-      message: authResult.error
-    });
-  }
-
   try {
-    console.log('=== Authenticated API OPTIONS REQUEST ===');
+    console.log('=== API OPTIONS REQUEST ===');
 
     // CORRECTED: Use unified settings table
     const settingsData = await getSettingsData();

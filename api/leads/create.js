@@ -1,6 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { TABLE_NAMES } from './tableNames.js';
-import { authenticateRequest } from './auth.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
@@ -118,18 +116,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Authenticate request
-  const authResult = authenticateRequest(req);
-  if (!authResult.authenticated) {
-    return res.status(401).json({
-      success: false,
-      error: 'Unauthorized',
-      message: authResult.error
-    });
-  }
-
   try {
-    console.log('Authenticated API Lead Creation Request:', req.body);
+    console.log('API Lead Creation Request:', req.body);
 
     const validationErrors = validateLeadData(req.body);
     
@@ -144,7 +132,7 @@ export default async function handler(req, res) {
     const dbData = convertToDatabase(req.body);
 
     const { data: newLead, error: insertError } = await supabase
-      .from(TABLE_NAMES.LEADS)
+      .from('Leads')
       .insert([dbData])
       .select()
       .single();
@@ -169,14 +157,18 @@ export default async function handler(req, res) {
 
     try {
       const historyData = {
-        record_id: newLead.id.toString(),
-        main_action: 'Lead Created',
-        description: `New lead created via API - ${newLead.parents_name} (${newLead.kids_name}) - ${newLead.phone}`,
-        table_name: TABLE_NAMES.LEADS,
-        action_timestamp: new Date().toISOString()
+        record_id: newLead.id,
+        action: 'Lead Created',
+        details: `New lead created via API - ${newLead.parents_name} (${newLead.kids_name}) - ${newLead.phone}`,
+        additional_info: {
+          source: 'API',
+          created_via: 'API Endpoint',
+          timestamp: new Date().toISOString()
+        },
+        timestamp: new Date().toISOString()
       };
 
-      await supabase.from(TABLE_NAMES.LOGS).insert([historyData]);
+      await supabase.from('History').insert([historyData]);
     } catch (historyError) {
       console.log('History logging failed (non-critical):', historyError);
     }
