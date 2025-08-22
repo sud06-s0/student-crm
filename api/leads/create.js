@@ -10,6 +10,29 @@ const supabase = createClient(
   }
 );
 
+// Simple authentication - credentials from environment variables
+const API_USERNAME = process.env.API_USERNAME;
+const API_PASSWORD = process.env.API_PASSWORD;
+
+function authenticate(req) {
+  // Check if environment variables are set
+  if (!API_USERNAME || !API_PASSWORD) {
+    return { success: false, error: 'Server configuration error: credentials not set' };
+  }
+
+  const { username, password } = req.body;
+  
+  if (!username || !password) {
+    return { success: false, error: 'Username and password required' };
+  }
+  
+  if (username !== API_USERNAME || password !== API_PASSWORD) {
+    return { success: false, error: 'Invalid credentials' };
+  }
+  
+  return { success: true };
+}
+
 const triggerStage1API = async (leadData) => {
   try {
     if (!leadData.phone || !leadData.parentsName || !leadData.kidsName || !leadData.grade) {
@@ -20,7 +43,7 @@ const triggerStage1API = async (leadData) => {
 
     const response = await fetch('https://backend.aisensy.com/campaign/t1/api/v2', {
       method: 'POST',
-      headers: {
+      headers: {  
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -114,6 +137,15 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // CHECK AUTHENTICATION FIRST
+  const authResult = authenticate(req);
+  if (!authResult.success) {
+    return res.status(401).json({
+      success: false,
+      error: authResult.error
+    });
   }
 
   try {

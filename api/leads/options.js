@@ -10,6 +10,29 @@ const supabase = createClient(
   }
 );
 
+// Simple authentication - credentials from environment variables
+const API_USERNAME = process.env.API_USERNAME;
+const API_PASSWORD = process.env.API_PASSWORD;
+
+function authenticate(req) {
+  // Check if environment variables are set
+  if (!API_USERNAME || !API_PASSWORD) {
+    return { success: false, error: 'Server configuration error: credentials not set' };
+  }
+
+  const { username, password } = req.query;
+  
+  if (!username || !password) {
+    return { success: false, error: 'Username and password required as query parameters' };
+  }
+  
+  if (username !== API_USERNAME || password !== API_PASSWORD) {
+    return { success: false, error: 'Invalid credentials' };
+  }
+  
+  return { success: true };
+}
+
 // CORRECTED: Get settings data from unified settings table
 async function getSettingsData() {
   const { data, error } = await supabase
@@ -74,6 +97,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // CHECK AUTHENTICATION FIRST
+  const authResult = authenticate(req);
+  if (!authResult.success) {
+    return res.status(401).json({
+      success: false,
+      error: authResult.error,
+      message: 'Add ?username=your_username&password=your_password to the URL'
+    });
+  }
+
   try {
     console.log('=== API OPTIONS REQUEST ===');
 
@@ -97,7 +130,7 @@ export default async function handler(req, res) {
       : ['No offer', '30000 Scholarship', '10000 Discount', 'Welcome Kit', 'Accessible Kit'];
 
     const options = {
-      requiredFields: ['parentsName', 'kidsName', 'phone'],
+      requiredFields: ['parentsName', 'kidsName', 'phone', 'username', 'password'],
       optionalFields: ['location', 'secondPhone', 'email', 'occupation', 'notes', 'currentSchool'],
       
       dropdownOptions: {
@@ -193,6 +226,16 @@ export default async function handler(req, res) {
           type: 'string',
           minLength: 1,
           description: 'Kid name cannot be empty'
+        },
+        username: {
+          required: true,
+          type: 'string',
+          description: 'Username for API authentication'
+        },
+        password: {
+          required: true,
+          type: 'string',
+          description: 'Password for API authentication'
         }
       },
 
