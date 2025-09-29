@@ -76,6 +76,7 @@ const LeadSidebar = ({
   onUpdateAllFields,
   onStageChange,
   onRefreshActivityData,
+  onRefreshSingleLead,  // ← ADD THIS LINE
   getStageColor,
   getCounsellorInitials,
   getScoreFromStage,
@@ -835,7 +836,8 @@ const LeadSidebar = ({
               customFieldsData={customFieldsData}
               onCustomFieldChange={handleCustomFieldChange}
               onRefreshLead={handleRefreshLead}
-            />
+              onRefreshSingleLead={onRefreshSingleLead}  // ← ADD THIS LINE
+             />
           )}
 
           {/* Action Tab Content */}

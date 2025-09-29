@@ -13,30 +13,24 @@ const InfoTab = ({
   getFieldLabel,
   customFieldsData = {},
   onCustomFieldChange,
-  onRefreshLead // NEW: callback to refresh lead data
+  onRefreshLead,
+  onRefreshSingleLead  // ← ADD THIS
 }) => {
   
-  // States for meeting/visit confirmations
   const [showMeetingConfirmation, setShowMeetingConfirmation] = useState(false);
   const [showVisitConfirmation, setShowVisitConfirmation] = useState(false);
   const [meetingConfirmed, setMeetingConfirmed] = useState(false);
   const [visitConfirmed, setVisitConfirmed] = useState(false);
   
-  // Early return if settings not loaded
   if (!settingsData) {
     console.log('settingsData not loaded yet');
     return <div className="lead-sidebar-tab-content">Loading settings...</div>;
   }
 
-  // Get dynamic sources from settings
   const sources = settingsData?.sources?.map(source => source.name) || ['Instagram'];
-
-  // Get dynamic grades from settings
   const grades = settingsData?.grades?.map(grade => grade.name) || ['LKG'];
 
-  // Helper function to check if datetime has passed
   const hasDateTimePassed = (date, time) => {
-    // Check for empty/null/undefined values
     if (!date || !time || date === '' || time === '') {
       return false;
     }
@@ -48,7 +42,6 @@ const InfoTab = ({
     return now > dateTime;
   };
 
-  // Reset confirmation states when lead changes - DO THIS FIRST
   useEffect(() => {
     setMeetingConfirmed(false);
     setVisitConfirmed(false);
@@ -56,7 +49,6 @@ const InfoTab = ({
     setShowVisitConfirmation(false);
   }, [selectedLead?.id]);
 
-  // Check if meeting/visit confirmations should be shown - ONLY ONCE when lead opens
   useEffect(() => {
     if (!selectedLead || isEditingMode) return;
     
@@ -65,7 +57,6 @@ const InfoTab = ({
     console.log('Meeting Confirmed:', meetingConfirmed);
     console.log('Visit Confirmed:', visitConfirmed);
     
-    // Check meeting - use sidebarFormData which has the actual values
     const meetingDate = sidebarFormData.meetingDate || selectedLead.meetingDate;
     const meetingTime = sidebarFormData.meetingTime || selectedLead.meetingTime;
     
@@ -75,13 +66,11 @@ const InfoTab = ({
     console.log('Meeting Time:', meetingTime);
     console.log('Has meeting passed?', hasMeetingPassed);
     
-    // Only show if passed AND not already confirmed
     if (hasMeetingPassed && !meetingConfirmed && !showMeetingConfirmation) {
       console.log('Showing meeting confirmation');
       setShowMeetingConfirmation(true);
     }
     
-    // Check visit - use sidebarFormData which has the actual values
     const visitDate = sidebarFormData.visitDate || selectedLead.visitDate;
     const visitTime = sidebarFormData.visitTime || selectedLead.visitTime;
     
@@ -91,21 +80,18 @@ const InfoTab = ({
     console.log('Visit Time:', visitTime);
     console.log('Has visit passed?', hasVisitPassed);
     
-    // Only show if passed AND not already confirmed
     if (hasVisitPassed && !visitConfirmed && !showVisitConfirmation) {
       console.log('Showing visit confirmation');
       setShowVisitConfirmation(true);
     }
-  }, [selectedLead?.id]); // ONLY depend on lead ID - check once per lead
+  }, [selectedLead?.id]);
 
-  // Handle meeting confirmation
+  // ← UPDATED: Handle meeting confirmation
   const handleMeetingConfirmation = async (didHappen) => {
     if (didHappen) {
-      // Just close the confirmation
       setShowMeetingConfirmation(false);
       setMeetingConfirmed(true);
     } else {
-      // Clear meeting data and Stage 4 status
       try {
         const { error } = await supabase
           .from(TABLE_NAMES.LEADS)
@@ -119,17 +105,12 @@ const InfoTab = ({
 
         if (error) throw error;
 
-        // Update local form data
-        onFieldChange('meetingDate', '');
-        onFieldChange('meetingTime', '');
-        onFieldChange('meetingLink', '');
-        
         setShowMeetingConfirmation(false);
         setMeetingConfirmed(true);
         
-        // Refresh the lead data if callback provided
-        if (onRefreshLead) {
-          await onRefreshLead();
+        // ← UPDATED: Use the new refresh function
+        if (onRefreshSingleLead) {
+          await onRefreshSingleLead(selectedLead.id);
         }
         
         alert('Meeting details cleared successfully');
@@ -140,14 +121,12 @@ const InfoTab = ({
     }
   };
 
-  // Handle visit confirmation
+  // ← UPDATED: Handle visit confirmation
   const handleVisitConfirmation = async (didHappen) => {
     if (didHappen) {
-      // Just close the confirmation
       setShowVisitConfirmation(false);
       setVisitConfirmed(true);
     } else {
-      // Clear visit data and Stage 7 status
       try {
         const { error } = await supabase
           .from(TABLE_NAMES.LEADS)
@@ -161,17 +140,12 @@ const InfoTab = ({
 
         if (error) throw error;
 
-        // Update local form data
-        onFieldChange('visitDate', '');
-        onFieldChange('visitTime', '');
-        onFieldChange('visitLocation', '');
-        
         setShowVisitConfirmation(false);
         setVisitConfirmed(true);
         
-        // Refresh the lead data if callback provided
-        if (onRefreshLead) {
-          await onRefreshLead();
+        // ← UPDATED: Use the new refresh function
+        if (onRefreshSingleLead) {
+          await onRefreshSingleLead(selectedLead.id);
         }
         
         alert('Visit details cleared successfully');
@@ -182,7 +156,6 @@ const InfoTab = ({
     }
   };
 
-  // Helper function to identify built-in fields
   function isBuiltInField(fieldName) {
     const builtInFields = [
       'Parents Name', 'Kids Name', 'Phone', 'Email', 'Location', 
@@ -199,7 +172,6 @@ const InfoTab = ({
     return normalizedBuiltInFields.includes(normalizedFieldName);
   }
 
-  // Check different possible property names for form fields
   const formFields = settingsData?.form_fields || 
                     settingsData?.formFields || 
                     settingsData?.custom_fields || 
@@ -207,13 +179,11 @@ const InfoTab = ({
                     settingsData?.fields || 
                     [];
 
-  // Enhanced custom fields filtering
   const customFields = formFields?.filter(field => {
     const isCustomField = field.is_custom === true;
     return isCustomField && field.is_active;
   }) || [];
 
-  // Improved field key generation
   const getConsistentFieldKey = (field) => {
     if (field.field_key) {
       return field.field_key;
@@ -226,7 +196,6 @@ const InfoTab = ({
     return field.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
   };
 
-  // Data migration for custom fields
   const migrateCustomFieldData = (customFields, currentCustomFieldsData) => {
     const migratedData = { ...currentCustomFieldsData };
     
@@ -249,7 +218,6 @@ const InfoTab = ({
     return migratedData;
   };
 
-  // Add migration call
   useEffect(() => {
     if (customFields.length > 0 && Object.keys(customFieldsData).length > 0) {
       const migratedData = migrateCustomFieldData(customFields, customFieldsData);
@@ -260,7 +228,6 @@ const InfoTab = ({
     }
   }, [customFields, customFieldsData]);
 
-  // Helper function to render custom field input
   const renderCustomFieldInput = (field) => {
     const fieldKey = getConsistentFieldKey(field);
     const fieldValue = customFieldsData[fieldKey] || '';
@@ -319,13 +286,11 @@ const InfoTab = ({
     }
   };
 
-  // Helper function to format phone for display
   const formatPhoneForDisplay = (phoneNumber) => {
     if (!phoneNumber) return '';
     return phoneNumber.replace(/^\+91/, '');
   };
 
-  // Helper function to handle phone input changes
   const handlePhoneChange = (fieldName, value) => {
     const digits = value.replace(/\D/g, '');
     const limitedDigits = digits.slice(0, 10);
@@ -343,7 +308,6 @@ const InfoTab = ({
             </h6>
           </div>
           <div className="lead-sidebar-section-content">
-            {/* Parent Name */}
             <div className="lead-sidebar-form-row">
               <label className="lead-sidebar-form-label">Parent Name</label>
               {!isEditingMode ? (
@@ -361,7 +325,6 @@ const InfoTab = ({
               )}
             </div>
 
-            {/* Primary Phone */}
             <div className="lead-sidebar-form-row">
               <label className="lead-sidebar-form-label">Phone</label>
               {!isEditingMode ? (
@@ -392,7 +355,6 @@ const InfoTab = ({
               )}
             </div>
 
-            {/* Secondary Phone */}
             <div className="lead-sidebar-form-row">
               <label className="lead-sidebar-form-label">{getFieldLabel('secondPhone')}</label>
               {!isEditingMode ? (
@@ -423,7 +385,6 @@ const InfoTab = ({
               )}
             </div>
 
-            {/* Email */}
             <div className="lead-sidebar-form-row">
               <label className="lead-sidebar-form-label">Email</label>
               {!isEditingMode ? (
@@ -441,7 +402,6 @@ const InfoTab = ({
               )}
             </div>
 
-            {/* Occupation */}
             <div className="lead-sidebar-form-row">
               <label className="lead-sidebar-form-label">{getFieldLabel('occupation')}</label>
               {!isEditingMode ? (
@@ -459,7 +419,6 @@ const InfoTab = ({
               )}
             </div>
 
-            {/* Source */}
             <div className="lead-sidebar-form-row">
               <label className="lead-sidebar-form-label">Source</label>
               {!isEditingMode ? (
@@ -493,7 +452,6 @@ const InfoTab = ({
             </h6>
           </div>
           <div className="lead-sidebar-section-content">
-            {/* Kids Name */}
             <div className="lead-sidebar-form-row">
               <label className="lead-sidebar-form-label">Kid Name</label>
               {!isEditingMode ? (
@@ -511,7 +469,6 @@ const InfoTab = ({
               )}
             </div>
 
-            {/* Class/Grade */}
             <div className="lead-sidebar-form-row">
               <label className="lead-sidebar-form-label">Class</label>
               {!isEditingMode ? (
@@ -533,7 +490,6 @@ const InfoTab = ({
               )}
             </div>
 
-            {/* Location */}
             <div className="lead-sidebar-form-row">
               <label className="lead-sidebar-form-label">{getFieldLabel('location')}</label>
               {!isEditingMode ? (
@@ -551,7 +507,6 @@ const InfoTab = ({
               )}
             </div>
 
-            {/* Current School */}
             <div className="lead-sidebar-form-row">
               <label className="lead-sidebar-form-label">{getFieldLabel('currentSchool')}</label>
               {!isEditingMode ? (
@@ -581,7 +536,6 @@ const InfoTab = ({
             </h6>
           </div>
           <div className="lead-sidebar-section-content" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-            {/* Meeting Confirmation Dialog - Left Side */}
             {showMeetingConfirmation && (
               <div style={{
                 backgroundColor: '#fff3cd',
@@ -642,7 +596,6 @@ const InfoTab = ({
               </div>
             )}
             
-            {/* Meeting Fields - Right Side */}
             <div style={{ flex: 1 }}>
               <div className="lead-sidebar-form-row">
                 <label className="lead-sidebar-form-label">{getFieldLabel('meetingDate')}</label>
@@ -715,7 +668,6 @@ const InfoTab = ({
             </h6>
           </div>
           <div className="lead-sidebar-section-content" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-            {/* Visit Confirmation Dialog - Left Side */}
             {showVisitConfirmation && (
               <div style={{
                 backgroundColor: '#fff3cd',
@@ -776,7 +728,6 @@ const InfoTab = ({
               </div>
             )}
             
-            {/* Visit Fields - Right Side */}
             <div style={{ flex: 1 }}>
               <div className="lead-sidebar-form-row">
                 <label className="lead-sidebar-form-label">{getFieldLabel('visitDate')}</label>

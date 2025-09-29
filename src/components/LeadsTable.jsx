@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { settingsService } from '../services/settingsService'; // ← NEW: Import for custom fields
+import { settingsService } from '../services/settingsService';
 import { logStageChange } from '../utils/historyLogger';
 import AddLeadForm from './AddLeadForm';
 import LeftSidebar from './LeftSidebar';
@@ -38,17 +38,16 @@ import {
 } from 'lucide-react';
 
 const LeadsTable = ({ onLogout, user }) => {
-  // ← USE SETTINGS DATA CONTEXT
   const { 
     settingsData, 
-    getFieldLabel, // ← NEW: Use for all field labels
+    getFieldLabel,
     getStageInfo,
     getStageColor, 
     getStageScore, 
     getStageCategory,
-    getStageKeyFromName, // ← NEW: Convert stage name to stage_key
-    getStageNameFromKey, // ← NEW: Convert stage_key to stage name
-    stageKeyToDataMapping, // ← NEW: Direct stage data mapping
+    getStageKeyFromName,
+    getStageNameFromKey,
+    stageKeyToDataMapping,
     loading: settingsLoading 
   } = useSettingsData();
   
@@ -68,28 +67,20 @@ const LeadsTable = ({ onLogout, user }) => {
   
   const [isMobile, setIsMobile] = useState(false);
 
-
-  // Search functionality states
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredLeads, setFilteredLeads] = useState([]);
 
-  // Stage dropdown states
   const [stageDropdownOpen, setStageDropdownOpen] = useState(null);
 
-  // Loading and error states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // DELETE FUNCTIONALITY - NEW STATES
   const [selectedLeads, setSelectedLeads] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  
-
-  // ← UPDATED: Sidebar editing states with field_key support
   const [isEditingMode, setIsEditingMode] = useState(false);
   const [sidebarFormData, setSidebarFormData] = useState({
     parentsName: '',
@@ -112,50 +103,42 @@ const LeadsTable = ({ onLogout, user }) => {
     visitLocation: '',
     registrationFees: '',
     enrolled: '',
-    notes: '' // ← Added notes field
+    notes: ''
   });
 
-  // Real data from Supabase
   const [lastActivityData, setLastActivityData] = useState({});
 
-  //Filter states
   const [showFilter, setShowFilter] = useState(false);
   const [counsellorFilters, setCounsellorFilters] = useState([]);
   const [stageFilters, setStageFilters] = useState([]);
   const [statusFilters, setStatusFilters] = useState([]);
-  const [alertFilter, setAlertFilter] = useState(false); // ← NEW: Alert filter state
+  const [alertFilter, setAlertFilter] = useState(false);
 
-  // ← UPDATED: Get dynamic stages with stage_key support
   const stages = settingsData.stages.map(stage => ({
-    value: stage.stage_key || stage.name, // ← Use stage_key if available
-    label: stage.name, // ← Display name
+    value: stage.stage_key || stage.name,
+    label: stage.name,
     color: stage.color || '#B3D7FF',
     score: stage.score || 10,
     category: stage.category || 'New'
   }));
 
-  // ← NEW: Helper functions for stage_key conversion
   const getStageKeyForLead = (stageValue) => {
-    // If it's already a stage_key, return it
     if (stageKeyToDataMapping[stageValue]) {
       return stageValue;
     }
-    // Otherwise, convert stage name to stage_key
+    
     return getStageKeyFromName(stageValue) || stageValue;
   };
 
   const getStageDisplayName = (stageValue) => {
-    // If it's a stage_key, get the display name
     if (stageKeyToDataMapping[stageValue]) {
       return getStageNameFromKey(stageValue);
     }
-    // Otherwise, it's probably already a stage name
+    
     return stageValue;
   };
 
-  // ← NEW: Convert database record to UI format with custom fields support
   const convertDatabaseToUIWithCustomFields = async (dbRecord) => {
-    // Parse datetime fields
     let meetingDate = '';
     let meetingTime = '';
     let visitDate = '';
@@ -173,12 +156,10 @@ const LeadsTable = ({ onLogout, user }) => {
       visitTime = visitDateTime.toTimeString().slice(0, 5);
     }
 
-    // Handle stage value - could be stage name or stage_key
     const stageValue = dbRecord.stage;
     const stageKey = getStageKeyForLead(stageValue);
     const displayName = getStageDisplayName(stageValue);
 
-    // Base lead data
     const baseLeadData = {
       id: dbRecord.id,
       parentsName: dbRecord.parents_name,
@@ -187,8 +168,8 @@ const LeadsTable = ({ onLogout, user }) => {
       secondPhone: dbRecord.second_phone || '',
       location: dbRecord.location,
       grade: dbRecord.grade,
-      stage: stageKey, // Store stage_key internally
-      stageDisplayName: displayName, // Store display name for UI
+      stage: stageKey,
+      stageDisplayName: displayName,
       score: dbRecord.score,
       category: dbRecord.category,
       counsellor: dbRecord.counsellor,
@@ -226,7 +207,6 @@ const LeadsTable = ({ onLogout, user }) => {
       }).replace(',', '')
     };
 
-    // ← NEW: Fetch and attach custom fields
     try {
       const customFields = await settingsService.getCustomFieldsForLead(dbRecord.id);
       baseLeadData.customFields = customFields;
@@ -238,14 +218,13 @@ const LeadsTable = ({ onLogout, user }) => {
     return baseLeadData;
   };
 
-  // ← NEW: Setup sidebar form data with custom fields support
   const setupSidebarFormDataWithCustomFields = (lead) => {
     const baseFormData = {
       parentsName: lead.parentsName || '',
       kidsName: lead.kidsName || '',
       grade: lead.grade || '',
       source: lead.source || settingsData.sources?.[0]?.name || 'Instagram',
-      stage: lead.stage, // This is now stage_key
+      stage: lead.stage,
       counsellor: lead.counsellor || '',
       offer: lead.offer || 'Welcome Kit',
       email: lead.email || '',
@@ -268,7 +247,6 @@ const LeadsTable = ({ onLogout, user }) => {
     return baseFormData;
   };
 
-  // DELETE FUNCTIONALITY - NEW FUNCTIONS
   const handleIndividualCheckboxChange = (leadId, checked) => {
     if (checked) {
       setSelectedLeads(prev => [...prev, leadId]);
@@ -297,17 +275,14 @@ const LeadsTable = ({ onLogout, user }) => {
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
     try {
-      // ← NEW: Delete custom fields for selected leads first
       for (const leadId of selectedLeads) {
         try {
           await settingsService.deleteAllCustomFieldsForLead(leadId);
         } catch (error) {
           console.error('Error deleting custom fields for lead', leadId, error);
-          // Continue with lead deletion even if custom fields deletion fails
         }
       }
 
-      // Delete the leads themselves
       const { error } = await supabase
         .from(TABLE_NAMES.LEADS)
         .delete()
@@ -317,10 +292,8 @@ const LeadsTable = ({ onLogout, user }) => {
         throw error;
       }
 
-      // Refresh the leads data
       await fetchLeads();
       
-      // Clear selections
       setSelectedLeads([]);
       setSelectAll(false);
       setShowDeleteDialog(false);
@@ -337,13 +310,11 @@ const LeadsTable = ({ onLogout, user }) => {
     setShowDeleteDialog(false);
   };
 
-  // ← UPDATED: Clear selections when leads data changes (after filters/search/me toggle)
   useEffect(() => {
     setSelectedLeads([]);
     setSelectAll(false);
-  }, [searchTerm, counsellorFilters, stageFilters, statusFilters, alertFilter]); // ← NEW: Include alertFilter
+  }, [searchTerm, counsellorFilters, stageFilters, statusFilters, alertFilter]);
 
-  // ← UPDATED: Calculate stage counts using stage_key
   const getStageCount = (stageName) => {
     const stageKey = getStageKeyFromName(stageName);
     return leadsData.filter(lead => {
@@ -352,13 +323,11 @@ const LeadsTable = ({ onLogout, user }) => {
     }).length;
   };
 
-  // ← UPDATED: Get stage color using stage_key
   const getStageColorFromSettings = (stageValue) => {
     const stageKey = getStageKeyForLead(stageValue);
     return getStageColor(stageKey);
   };
 
-  // Get counsellor initials from first two words
   const getCounsellorInitials = (fullName) => {
     if (!fullName) return 'NA';
     const words = fullName.trim().split(' ');
@@ -366,16 +335,14 @@ const LeadsTable = ({ onLogout, user }) => {
     return firstTwoWords.map(word => word.charAt(0).toUpperCase()).join('');
   };
 
-  // Fetch last activity data for all leads - USING DATABASE VIEW (FASTEST)
   const fetchLastActivityData = async () => {
     try {
       const { data, error } = await supabase
-        .from(TABLE_NAMES.LAST_ACTIVITY_BY_LEAD)  // ← Use the database view
+        .from(TABLE_NAMES.LAST_ACTIVITY_BY_LEAD)
         .select('*');
 
       if (error) throw error;
 
-      // Simple processing - data is already grouped by database
       const activityMap = {};
       data.forEach(item => {
         activityMap[item.record_id] = item.last_activity;
@@ -387,7 +354,6 @@ const LeadsTable = ({ onLogout, user }) => {
     }
   };
 
-  // Calculate days since last activity
   const getDaysSinceLastActivity = (leadId) => {
     const lastActivity = lastActivityData[leadId];
     if (!lastActivity) {
@@ -401,28 +367,24 @@ const LeadsTable = ({ onLogout, user }) => {
     return diffDays;
   };
 
-  // Check if lead needs alert (3+ days without activity)
   const shouldShowAlert = (leadId) => {
     const days = getDaysSinceLastActivity(leadId);
     return days >= 3;
   };
 
-  // ← UPDATED: Fetch leads from Supabase with custom fields support
   const fetchLeads = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Make both API calls in parallel using the fast view
       const [leadsResponse, activityResponse] = await Promise.all([
         supabase.from(TABLE_NAMES.LEADS).select('*').order('id', { ascending: false }),
-        supabase.from(TABLE_NAMES.LAST_ACTIVITY_BY_LEAD).select('*')  // Use the view
+        supabase.from(TABLE_NAMES.LAST_ACTIVITY_BY_LEAD).select('*')
       ]);
 
       if (leadsResponse.error) throw leadsResponse.error;
       if (activityResponse.error) throw activityResponse.error;
 
-      // ← NEW: Process leads data with custom fields (this will be slower initially)
       console.log('Converting leads data with custom fields...');
       const convertedData = await Promise.all(
         leadsResponse.data.map(convertDatabaseToUIWithCustomFields)
@@ -431,7 +393,6 @@ const LeadsTable = ({ onLogout, user }) => {
       
       setLeadsData(convertedData);
       
-      // Process activity data (super fast now)
       const activityMap = {};
       activityResponse.data.forEach(item => {
         activityMap[item.record_id] = item.last_activity;
@@ -446,7 +407,39 @@ const LeadsTable = ({ onLogout, user }) => {
     }
   };
 
-  // Fetch leads on component mount
+  // ← NEW: Refresh single lead function
+  const refreshSingleLead = async (leadId) => {
+    try {
+      const { data, error } = await supabase
+        .from(TABLE_NAMES.LEADS)
+        .select('*')
+        .eq('id', leadId)
+        .single();
+
+      if (error) throw error;
+
+      const convertedLead = await convertDatabaseToUIWithCustomFields(data);
+
+      setLeadsData(prevLeads => 
+        prevLeads.map(lead => 
+          lead.id === leadId ? convertedLead : lead
+        )
+      );
+
+      if (selectedLead && selectedLead.id === leadId) {
+        setSelectedLead(convertedLead);
+        setSidebarFormData(setupSidebarFormDataWithCustomFields(convertedLead));
+      }
+
+      await fetchLastActivityData();
+
+      return convertedLead;
+    } catch (error) {
+      console.error('Error refreshing single lead:', error);
+      throw error;
+    }
+  };
+
   useEffect(() => {
     console.time('Page load time');
     fetchLeads().then(() => {
@@ -454,7 +447,6 @@ const LeadsTable = ({ onLogout, user }) => {
     });
   }, []);
 
-  // Helper functions for styling
   const getStageClass = (stage) => {
     const stageMap = {
       "New Lead": "stage-new-lead",
@@ -482,12 +474,10 @@ const LeadsTable = ({ onLogout, user }) => {
     return categoryMap[category] || "status-new";
   };
 
-  // ← UPDATED: openSidebar with field_key support
   const openSidebar = (lead) => {
     console.log('Opening sidebar for lead:', lead);
     setSelectedLead(lead);
     
-    // Use the new function to setup form data
     const formData = setupSidebarFormDataWithCustomFields(lead);
     setSidebarFormData(formData);
     
@@ -501,14 +491,12 @@ const LeadsTable = ({ onLogout, user }) => {
     setIsEditingMode(false);
   };
 
-  // Handle edit mode toggle
   const handleEditModeToggle = () => {
     console.log('handleEditModeToggle called - current isEditingMode:', isEditingMode);
     setIsEditingMode(!isEditingMode);
     console.log('handleEditModeToggle - new isEditingMode:', !isEditingMode);
   };
 
-  // Handle form field changes
   const handleSidebarFieldChange = (field, value) => {
     console.log('Field change:', field, value);
     setSidebarFormData(prev => ({
@@ -517,7 +505,6 @@ const LeadsTable = ({ onLogout, user }) => {
     }));
   };
 
-  // ← UPDATED: Handle stage change from sidebar with stage_key support
   const handleSidebarStageChange = async (leadId, newStageKey) => {
     try {
       const lead = leadsData.find(l => l.id === leadId);
@@ -525,24 +512,20 @@ const LeadsTable = ({ onLogout, user }) => {
       const updatedScore = getStageScore(newStageKey);
       const updatedCategory = getStageCategory(newStageKey);
       
-      // Get display names for logging
       const oldStageName = getStageDisplayName(oldStageKey);
       const newStageName = getStageDisplayName(newStageKey);
       
-      // Log the stage change FIRST (before database update)
       if (oldStageKey !== newStageKey) {
         await logStageChange(leadId, oldStageName, newStageName, 'sidebar');
       }
 
-      // ← UPDATED: Store stage_key in database instead of stage name
       let updateData = { 
-        stage: newStageKey, // ← Store stage_key
+        stage: newStageKey,
         score: updatedScore, 
         category: updatedCategory,
         updated_at: new Date().toISOString()
       };
 
-      // Handle 'No Response' logic with stage_key
       const noResponseKey = getStageKeyFromName('No Response');
       if (newStageKey === noResponseKey && oldStageKey !== noResponseKey) {
         updateData.previous_stage = oldStageKey;
@@ -552,7 +535,6 @@ const LeadsTable = ({ onLogout, user }) => {
         updateData.previous_stage = null;
       }
 
-      // Update in database
       const { error } = await supabase
         .from(TABLE_NAMES.LEADS)
         .update(updateData)
@@ -562,10 +544,8 @@ const LeadsTable = ({ onLogout, user }) => {
         throw error;
       }
 
-      // Refresh activity data after database update
       await fetchLastActivityData();
 
-      // Update local state
       const updatedLeads = leadsData.map(lead => 
         lead.id === leadId 
           ? { 
@@ -580,7 +560,6 @@ const LeadsTable = ({ onLogout, user }) => {
       
       setLeadsData(updatedLeads);
 
-      // Update selected lead if it's the one being changed
       if (selectedLead && selectedLead.id === leadId) {
         setSelectedLead({
           ...selectedLead,
@@ -591,7 +570,6 @@ const LeadsTable = ({ onLogout, user }) => {
         });
       }
 
-      // Show success message
       alert('Stage updated successfully!');
       
     } catch (error) {
@@ -600,23 +578,18 @@ const LeadsTable = ({ onLogout, user }) => {
     }
   };
 
-  // ← UPDATED: Handle update all fields function with field_key and stage_key support
   const handleUpdateAllFields = async () => {
     try {
       console.log('handleUpdateAllFields called with sidebarFormData:', sidebarFormData);
       
-      // Format phone number properly
       let formattedPhone = sidebarFormData.phone;
       if (formattedPhone && !formattedPhone.startsWith('+91')) {
-        // Remove any existing +91 and re-add it
         formattedPhone = formattedPhone.replace(/^\+91/, '');
         formattedPhone = `+91${formattedPhone}`;
       }
       
-      // ← UPDATED: Handle stage_key in updates
       const stageKey = getStageKeyForLead(sidebarFormData.stage);
       
-      // ← UPDATED: Prepare the update data with field_key awareness
       const updateData = {
         parents_name: sidebarFormData.parentsName,
         kids_name: sidebarFormData.kidsName,
@@ -624,7 +597,7 @@ const LeadsTable = ({ onLogout, user }) => {
         source: sidebarFormData.source,
         phone: formattedPhone,
         second_phone: sidebarFormData.secondPhone,
-        stage: stageKey, // ← Store stage_key
+        stage: stageKey,
         score: getStageScore(stageKey),
         category: getStageCategory(stageKey),
         counsellor: sidebarFormData.counsellor,
@@ -637,11 +610,10 @@ const LeadsTable = ({ onLogout, user }) => {
         visit_location: sidebarFormData.visitLocation,
         reg_fees: sidebarFormData.registrationFees,
         enrolled: sidebarFormData.enrolled,
-        notes: sidebarFormData.notes, // ← Added notes field
+        notes: sidebarFormData.notes,
         updated_at: new Date().toISOString()
       };
 
-      // Handle datetime fields
       if (sidebarFormData.meetingDate && sidebarFormData.meetingTime) {
         updateData.meet_datetime = new Date(`${sidebarFormData.meetingDate}T${sidebarFormData.meetingTime}:00`).toISOString();
       }
@@ -650,11 +622,9 @@ const LeadsTable = ({ onLogout, user }) => {
         updateData.visit_datetime = new Date(`${sidebarFormData.visitDate}T${sidebarFormData.visitTime}:00`).toISOString();
       }
 
-      // Check if stage changed for logging
       const oldStageKey = selectedLead.stage;
       const newStageKey = stageKey;
       
-      // Log stage change if it occurred
       if (oldStageKey !== newStageKey) {
         const oldStageName = getStageDisplayName(oldStageKey);
         const newStageName = getStageDisplayName(newStageKey);
@@ -663,7 +633,6 @@ const LeadsTable = ({ onLogout, user }) => {
 
       console.log('Database update data:', updateData);
 
-      // Update in database
       const { error } = await supabase
         .from(TABLE_NAMES.LEADS)
         .update(updateData)
@@ -675,16 +644,12 @@ const LeadsTable = ({ onLogout, user }) => {
 
       console.log('Database update successful');
 
-      // Refresh activity data after any updates
       await fetchLastActivityData();
 
-      // ← UPDATED: Refresh the leads data (this will include custom fields)
       await fetchLeads();
 
-      // Exit edit mode
       setIsEditingMode(false);
 
-      // ← USE CONTEXT to update the lead state instead of manual setState
       updateCompleteLeadData(selectedLead.id, sidebarFormData, getStageScore, getStageCategory);
 
       console.log('Sidebar refresh completed successfully');
@@ -695,13 +660,11 @@ const LeadsTable = ({ onLogout, user }) => {
     }
   };
 
-  // Handle stage dropdown toggle
   const handleStageDropdownToggle = (e, leadId) => {
     e.stopPropagation();
     setStageDropdownOpen(stageDropdownOpen === leadId ? null : leadId);
   };
 
-  // ← UPDATED: Handle stage change from dropdown with stage_key support
   const handleStageChangeFromDropdown = async (e, leadId, newStageKey) => {
     e.stopPropagation();
     
@@ -711,24 +674,20 @@ const LeadsTable = ({ onLogout, user }) => {
       const updatedScore = getStageScore(newStageKey);
       const updatedCategory = getStageCategory(newStageKey);
       
-      // Get display names for logging
       const oldStageName = getStageDisplayName(oldStageKey);
       const newStageName = getStageDisplayName(newStageKey);
       
-      // Log the stage change FIRST (before database update)
       if (oldStageKey !== newStageKey) {
         await logStageChange(leadId, oldStageName, newStageName, 'table dropdown');
       }
 
-      // ← UPDATED: Store stage_key in database
       let updateData = { 
-        stage: newStageKey, // ← Store stage_key
+        stage: newStageKey,
         score: updatedScore, 
         category: updatedCategory,
         updated_at: new Date().toISOString()
       };
 
-      // Handle 'No Response' logic with stage_key
       const noResponseKey = getStageKeyFromName('No Response');
       if (newStageKey === noResponseKey && oldStageKey !== noResponseKey) {
         updateData.previous_stage = oldStageKey;
@@ -738,7 +697,6 @@ const LeadsTable = ({ onLogout, user }) => {
         updateData.previous_stage = null;
       }
 
-      // Update in database
       const { error } = await supabase
         .from(TABLE_NAMES.LEADS)
         .update(updateData)
@@ -748,10 +706,8 @@ const LeadsTable = ({ onLogout, user }) => {
         throw error;
       }
 
-      // Refresh activity data after database update
       await fetchLastActivityData();
 
-      // Update local state
       const updatedLeads = leadsData.map(lead => 
         lead.id === leadId 
           ? { 
@@ -766,7 +722,6 @@ const LeadsTable = ({ onLogout, user }) => {
       
       setLeadsData(updatedLeads);
       
-      // Close dropdown
       setStageDropdownOpen(null);
       
     } catch (error) {
@@ -775,13 +730,8 @@ const LeadsTable = ({ onLogout, user }) => {
     }
   };
 
-  // UPDATED: Handle form submission with history logging
   const handleAddLead = async (action = 'add') => {
-    await fetchLeads(); // Refresh leads data (already includes activity data and custom fields)
-    
-    // The key={selectedLead?.id} prop on LeadSidebar will automatically
-    // handle refreshing the sidebar when the lead data changes.
-    // No need for manual selectedLead updates here.
+    await fetchLeads();
   };
 
   const handleShowAddForm = () => {
@@ -805,7 +755,6 @@ const LeadsTable = ({ onLogout, user }) => {
     setShowImportModal(false);
   };
 
-  // Close stage dropdown when clicking elsewhere
   useEffect(() => {
     const handleClickOutside = () => {
       if (stageDropdownOpen) {
@@ -819,12 +768,10 @@ const LeadsTable = ({ onLogout, user }) => {
     };
   }, [stageDropdownOpen]);
 
-  // Search functionality
   const handleSearchClick = () => {
     setShowSearch(true);
   };
 
-  // ← UPDATED: Search functionality with field_key support
   const handleSearchChange = (e) => {
     const term = e.target.value;
     setSearchTerm(term);
@@ -854,39 +801,34 @@ const LeadsTable = ({ onLogout, user }) => {
     setShowSearch(false);
   };
 
-  // Determine which data to display
   const getDisplayLeads = () => {
-  let filtered = leadsData;
-  
-  // Apply search
-  if (searchTerm.trim() !== '') {
-    filtered = filtered.filter(lead => 
-      lead.parentsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.kidsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      getStageDisplayName(lead.stage).toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.counsellor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (lead.occupation && lead.occupation.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (lead.location && lead.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (lead.currentSchool && lead.currentSchool.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (lead.source && lead.source.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-  }
-  
-  // Apply filters
-  return applyFilters(filtered, counsellorFilters, stageFilters, statusFilters, alertFilter, getStageDisplayName, getStageKeyFromName, getDaysSinceLastActivity);
-};
+    let filtered = leadsData;
+    
+    if (searchTerm.trim() !== '') {
+      filtered = filtered.filter(lead => 
+        lead.parentsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.kidsName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        getStageDisplayName(lead.stage).toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.counsellor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (lead.email && lead.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (lead.occupation && lead.occupation.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (lead.location && lead.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (lead.currentSchool && lead.currentSchool.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (lead.source && lead.source.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+    
+    return applyFilters(filtered, counsellorFilters, stageFilters, statusFilters, alertFilter, getStageDisplayName, getStageKeyFromName, getDaysSinceLastActivity);
+  };
 
   const displayLeads = getDisplayLeads();
 
-  // Format phone for mobile display (remove +91 prefix)
   const formatPhoneForMobile = (phone) => {
     if (!phone) return '';
     return phone.replace('+91', '').trim();
   };
 
-  // Check if screen is mobile (optional - for conditional rendering)
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -897,7 +839,6 @@ const LeadsTable = ({ onLogout, user }) => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Show loading if either leads or settings are loading
   if (loading || settingsLoading) {
     return (
       <div className="nova-crm" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -912,7 +853,6 @@ const LeadsTable = ({ onLogout, user }) => {
 
   return (
     <div className="nova-crm" style={{ fontFamily: 'Inter, sans-serif' }}>
-      {/* Left Sidebar */}
       <LeftSidebar 
         activeNavItem="leads"
         activeSubmenuItem="all"
@@ -924,20 +864,16 @@ const LeadsTable = ({ onLogout, user }) => {
         user={user}
       />
 
-      {/* Main Content */}
       <div className="nova-main">
-        {/* Header */}
-        
         <div className="nova-header">
           <div className="header-left">
             <div className="header-title-row">
               <h1>All Leads</h1>
             </div>
             <span className="total-count">
-            Total Leads {leadsData.length}
-          </span>
+              Total Leads {leadsData.length}
+            </span>
             
-            {/* DELETE BUTTON - Shows when leads are selected */}
             {selectedLeads.length > 0 && (
               <button 
                 className="delete-selected-btn" 
@@ -975,104 +911,97 @@ const LeadsTable = ({ onLogout, user }) => {
               </button>
             )}
           </div>
-      <div className="header-right">
-  {/* Desktop View - Original Layout */}
-  <div className="desktop-header-actions">
-    <div className="search-container">
-      <Search size={16} className="search-icon" />
-      <input
-        type="text"
-        placeholder="Search leads..."
-        value={searchTerm}
-        onChange={handleSearchChange}
-        className="search-input"
-      />
-    </div>
-    {/* ← UPDATED: FilterButton with alert filter props */}
-    <FilterButton
-      showFilter={showFilter}
-      setShowFilter={setShowFilter}
-      counsellorFilters={counsellorFilters}
-      stageFilters={stageFilters}
-      statusFilters={statusFilters}
-      alertFilter={alertFilter} // ← NEW: Alert filter
-      setCounsellorFilters={setCounsellorFilters}
-      setStageFilters={setStageFilters}
-      setStatusFilters={setStatusFilters}
-      setAlertFilter={setAlertFilter} // ← NEW: Alert filter setter
-      settingsData={settingsData} 
-      getFieldLabel={getFieldLabel}
-      getStageKeyFromName={getStageKeyFromName}
-      getStageDisplayName={getStageDisplayName}
-    />
-    <button 
-      className="import-leads-btn" 
-      onClick={handleShowImportModal}
-      title="Import Leads"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '40px',
-        height: '40px',
-        backgroundColor: '#10b981',
-        color: 'white',
-        border: 'none',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        transition: 'all 0.2s'
-      }}
-      onMouseEnter={(e) => {
-        e.target.style.backgroundColor = '#059669';
-      }}
-      onMouseLeave={(e) => {
-        e.target.style.backgroundColor = '#10b981';
-      }}
-    >
-      <Plus size={20} />
-    </button>
-    <button className="add-lead-btn" onClick={handleShowAddForm}>
-      + Add Lead
-    </button>
-  </div>
+          <div className="header-right">
+            <div className="desktop-header-actions">
+              <div className="search-container">
+                <Search size={16} className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search leads..."
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  className="search-input"
+                />
+              </div>
+              <FilterButton
+                showFilter={showFilter}
+                setShowFilter={setShowFilter}
+                counsellorFilters={counsellorFilters}
+                stageFilters={stageFilters}
+                statusFilters={statusFilters}
+                alertFilter={alertFilter}
+                setCounsellorFilters={setCounsellorFilters}
+                setStageFilters={setStageFilters}
+                setStatusFilters={setStatusFilters}
+                setAlertFilter={setAlertFilter}
+                settingsData={settingsData} 
+                getFieldLabel={getFieldLabel}
+                getStageKeyFromName={getStageKeyFromName}
+                getStageDisplayName={getStageDisplayName}
+              />
+              <button 
+                className="import-leads-btn" 
+                onClick={handleShowImportModal}
+                title="Import Leads"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '40px',
+                  height: '40px',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#059669';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#10b981';
+                }}
+              >
+                <Plus size={20} />
+              </button>
+              <button className="add-lead-btn" onClick={handleShowAddForm}>
+                + Add Lead
+              </button>
+            </div>
 
-  {/* Mobile View - Dropdown */}
-  <div className="mobile-header-actions">
-    {/* ← UPDATED: MobileHeaderDropdown with alert filter props */}
-    <MobileHeaderDropdown
-      searchTerm={searchTerm}
-      onSearchChange={handleSearchChange}
-      showFilter={showFilter}
-      setShowFilter={setShowFilter}
-      counsellorFilters={counsellorFilters}
-      stageFilters={stageFilters}
-      statusFilters={statusFilters}
-      alertFilter={alertFilter} // ← NEW: Alert filter
-      setCounsellorFilters={setCounsellorFilters}
-      setStageFilters={setStageFilters}
-      setStatusFilters={setStatusFilters}
-      setAlertFilter={setAlertFilter} // ← NEW: Alert filter setter
-      settingsData={settingsData}
-      getFieldLabel={getFieldLabel}
-      getStageKeyFromName={getStageKeyFromName}
-      getStageDisplayName={getStageDisplayName}
-      onShowImportModal={handleShowImportModal}
-      onShowAddForm={handleShowAddForm}
-      FilterButton={FilterButton}
-    />
-  </div>
-</div>
-
+            <div className="mobile-header-actions">
+              <MobileHeaderDropdown
+                searchTerm={searchTerm}
+                onSearchChange={handleSearchChange}
+                showFilter={showFilter}
+                setShowFilter={setShowFilter}
+                counsellorFilters={counsellorFilters}
+                stageFilters={stageFilters}
+                statusFilters={statusFilters}
+                alertFilter={alertFilter}
+                setCounsellorFilters={setCounsellorFilters}
+                setStageFilters={setStageFilters}
+                setStatusFilters={setStatusFilters}
+                setAlertFilter={setAlertFilter}
+                settingsData={settingsData}
+                getFieldLabel={getFieldLabel}
+                getStageKeyFromName={getStageKeyFromName}
+                getStageDisplayName={getStageDisplayName}
+                onShowImportModal={handleShowImportModal}
+                onShowAddForm={handleShowAddForm}
+                FilterButton={FilterButton}
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Error Display */}
         {error && (
           <div className="error-message">
             <AlertCircle size={16} /> Error: {error}
           </div>
         )}
 
-        {/* ← UPDATED: Leads Table with field_key support for headers */}
         <div className="nova-table-container">
           <table className="nova-table">
             <thead>
@@ -1086,12 +1015,12 @@ const LeadsTable = ({ onLogout, user }) => {
                   />
                 </th>
                 <th>ID</th>
-                <th>Parent</th> {/* Shortened for mobile */}
+                <th>Parent</th>
                 <th>Phone</th>
-                <th className="desktop-only">{getFieldLabel('grade')}</th> {/* Will be hidden on mobile */}
+                <th className="desktop-only">{getFieldLabel('grade')}</th>
                 <th>Stage</th>
-                <th className="desktop-only">Status</th> {/* Will be hidden on mobile */}
-                <th className="desktop-only">{getFieldLabel('counsellor')}</th> {/* Will be hidden on mobile */}
+                <th className="desktop-only">Status</th>
+                <th className="desktop-only">{getFieldLabel('counsellor')}</th>
                 <th>Alert</th>
               </tr>
             </thead>
@@ -1146,7 +1075,6 @@ const LeadsTable = ({ onLogout, user }) => {
                           }}
                           onClick={(e) => handleStageDropdownToggle(e, lead.id)}
                         >
-                          {/* ← UPDATED: Show display name instead of stage_key */}
                           <span style={{ fontWeight: '600' }}>{getStageDisplayName(lead.stage)}</span>
                           <ChevronDown 
                             size={14} 
@@ -1159,7 +1087,6 @@ const LeadsTable = ({ onLogout, user }) => {
                           />
                         </div>
                         
-                        {/* ← UPDATED: Dynamic Stage Dropdown with stage_key values */}
                         {stageDropdownOpen === lead.id && (
                           <div className="stage-dropdown-menu" style={{
                             position: 'absolute',
@@ -1194,7 +1121,7 @@ const LeadsTable = ({ onLogout, user }) => {
                                   transition: 'all 0.15s ease',
                                   whiteSpace: 'nowrap'
                                 }}
-                                onClick={(e) => handleStageChangeFromDropdown(e, lead.id, stage.value)} // ← Pass stage_key
+                                onClick={(e) => handleStageChangeFromDropdown(e, lead.id, stage.value)}
                                 onMouseEnter={(e) => {
                                   e.target.style.backgroundColor = '#f8f9fa';
                                   e.target.style.transform = 'translateX(2px)';
@@ -1214,7 +1141,7 @@ const LeadsTable = ({ onLogout, user }) => {
                                     flexShrink: 0
                                   }}
                                 ></span>
-                                <span style={{ flex: 1 }}>{stage.label}</span> {/* ← Display stage name */}
+                                <span style={{ flex: 1 }}>{stage.label}</span>
                               </div>
                             ))}
                           </div>
@@ -1244,10 +1171,10 @@ const LeadsTable = ({ onLogout, user }) => {
               ) : !loading ? (
                 <tr>
                   <td colSpan="9" className="no-data">
-                  {searchTerm 
-                    ? 'No results found for your search.' 
-                    : 'No leads available. Click + Add Lead to create your first lead!'}
-                </td>
+                    {searchTerm 
+                      ? 'No results found for your search.' 
+                      : 'No leads available. Click + Add Lead to create your first lead!'}
+                  </td>
                 </tr>
               ) : null}
             </tbody>
@@ -1255,7 +1182,6 @@ const LeadsTable = ({ onLogout, user }) => {
         </div>
       </div>
 
-      {/* ← Lead Sidebar Component with field_key and stage_key support */}
       <LeadSidebar
         key={selectedLead?.id}
         showSidebar={showSidebar}
@@ -1270,13 +1196,13 @@ const LeadsTable = ({ onLogout, user }) => {
         onUpdateAllFields={handleUpdateAllFields}
         onStageChange={handleSidebarStageChange}
         onRefreshActivityData={fetchLastActivityData}
+        onRefreshSingleLead={refreshSingleLead}
         getStageColor={getStageColorFromSettings}
         getCounsellorInitials={getCounsellorInitials}
         getScoreFromStage={getStageScore}
         getCategoryFromStage={getStageCategory}
       />
 
-      {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog
         isOpen={showDeleteDialog}
         onClose={handleDeleteCancel}
@@ -1285,7 +1211,6 @@ const LeadsTable = ({ onLogout, user }) => {
         leadsData={leadsData}
       />
 
-      {/* Add Lead Form with field_key and stage_key support */}
       {showAddForm && (
         <AddLeadForm
           isOpen={showAddForm}
@@ -1296,7 +1221,6 @@ const LeadsTable = ({ onLogout, user }) => {
         />
       )}
 
-      {/* Import Leads Modal */}
       {showImportModal && (
         <ImportLeadsModal
           isOpen={showImportModal}
