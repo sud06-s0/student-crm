@@ -14,7 +14,7 @@ const InfoTab = ({
   customFieldsData = {},
   onCustomFieldChange,
   onRefreshLead,
-  onRefreshSingleLead  // ← ADD THIS
+  onRefreshSingleLead
 }) => {
   
   const [showMeetingConfirmation, setShowMeetingConfirmation] = useState(false);
@@ -86,7 +86,7 @@ const InfoTab = ({
     }
   }, [selectedLead?.id]);
 
-  // ← UPDATED: Handle meeting confirmation
+  // ← UPDATED: Handle meeting confirmation with immediate local state clearing
   const handleMeetingConfirmation = async (didHappen) => {
     if (didHappen) {
       setShowMeetingConfirmation(false);
@@ -108,7 +108,11 @@ const InfoTab = ({
         setShowMeetingConfirmation(false);
         setMeetingConfirmed(true);
         
-        // ← UPDATED: Use the new refresh function
+        // ← UPDATED: Clear local form data immediately
+        onFieldChange('meetingDate', '');
+        onFieldChange('meetingTime', '');
+        onFieldChange('meetingLink', '');
+        
         if (onRefreshSingleLead) {
           await onRefreshSingleLead(selectedLead.id);
         }
@@ -121,7 +125,7 @@ const InfoTab = ({
     }
   };
 
-  // ← UPDATED: Handle visit confirmation
+  // ← UPDATED: Handle visit confirmation with immediate local state clearing
   const handleVisitConfirmation = async (didHappen) => {
     if (didHappen) {
       setShowVisitConfirmation(false);
@@ -143,7 +147,11 @@ const InfoTab = ({
         setShowVisitConfirmation(false);
         setVisitConfirmed(true);
         
-        // ← UPDATED: Use the new refresh function
+        // ← UPDATED: Clear local form data immediately
+        onFieldChange('visitDate', '');
+        onFieldChange('visitTime', '');
+        onFieldChange('visitLocation', '');
+        
         if (onRefreshSingleLead) {
           await onRefreshSingleLead(selectedLead.id);
         }
