@@ -36,7 +36,10 @@ const InfoTab = ({
 
   // Helper function to check if datetime has passed
   const hasDateTimePassed = (date, time) => {
-    if (!date || !time) return false;
+    // Check for empty/null/undefined values
+    if (!date || !time || date === '' || time === '') {
+      return false;
+    }
     
     const dateTimeString = `${date}T${time}:00`;
     const dateTime = new Date(dateTimeString);
@@ -53,18 +56,14 @@ const InfoTab = ({
     setShowVisitConfirmation(false);
   }, [selectedLead?.id]);
 
-  // Check if meeting/visit confirmations should be shown - ONLY when sidebar first opens
+  // Check if meeting/visit confirmations should be shown - ONLY ONCE when lead opens
   useEffect(() => {
     if (!selectedLead || isEditingMode) return;
     
-    console.log('=== CONFIRMATION CHECK ===');
-    console.log('Selected Lead:', selectedLead);
-    console.log('Meeting Date:', selectedLead.meetingDate);
-    console.log('Meeting Time:', selectedLead.meetingTime);
-    console.log('Visit Date:', selectedLead.visitDate);
-    console.log('Visit Time:', selectedLead.visitTime);
-    console.log('Form Meeting Date:', sidebarFormData.meetingDate);
-    console.log('Form Meeting Time:', sidebarFormData.meetingTime);
+    console.log('=== CONFIRMATION CHECK (Once per lead) ===');
+    console.log('Selected Lead ID:', selectedLead.id);
+    console.log('Meeting Confirmed:', meetingConfirmed);
+    console.log('Visit Confirmed:', visitConfirmed);
     
     // Check meeting - use sidebarFormData which has the actual values
     const meetingDate = sidebarFormData.meetingDate || selectedLead.meetingDate;
@@ -72,11 +71,12 @@ const InfoTab = ({
     
     const hasMeetingPassed = hasDateTimePassed(meetingDate, meetingTime);
     
-    console.log('Meeting Date to check:', meetingDate);
-    console.log('Meeting Time to check:', meetingTime);
+    console.log('Meeting Date:', meetingDate);
+    console.log('Meeting Time:', meetingTime);
     console.log('Has meeting passed?', hasMeetingPassed);
     
-    if (hasMeetingPassed && !meetingConfirmed) {
+    // Only show if passed AND not already confirmed
+    if (hasMeetingPassed && !meetingConfirmed && !showMeetingConfirmation) {
       console.log('Showing meeting confirmation');
       setShowMeetingConfirmation(true);
     }
@@ -87,15 +87,16 @@ const InfoTab = ({
     
     const hasVisitPassed = hasDateTimePassed(visitDate, visitTime);
     
-    console.log('Visit Date to check:', visitDate);
-    console.log('Visit Time to check:', visitTime);
+    console.log('Visit Date:', visitDate);
+    console.log('Visit Time:', visitTime);
     console.log('Has visit passed?', hasVisitPassed);
     
-    if (hasVisitPassed && !visitConfirmed) {
+    // Only show if passed AND not already confirmed
+    if (hasVisitPassed && !visitConfirmed && !showVisitConfirmation) {
       console.log('Showing visit confirmation');
       setShowVisitConfirmation(true);
     }
-  }, [selectedLead?.id, sidebarFormData.meetingDate, sidebarFormData.meetingTime, sidebarFormData.visitDate, sidebarFormData.visitTime, meetingConfirmed, visitConfirmed, isEditingMode]);
+  }, [selectedLead?.id]); // ONLY depend on lead ID - check once per lead
 
   // Handle meeting confirmation
   const handleMeetingConfirmation = async (didHappen) => {
@@ -579,65 +580,67 @@ const InfoTab = ({
               Meeting Details
             </h6>
           </div>
-          
-          {/* Meeting Confirmation Dialog */}
-          {showMeetingConfirmation && (
-            <div style={{
-              backgroundColor: '#fff3cd',
-              border: '1px solid #ffc107',
-              borderRadius: '8px',
-              padding: '16px',
-              marginBottom: '16px'
+        </div>
+        
+        {/* Meeting Confirmation Dialog - Below Title */}
+        {showMeetingConfirmation && (
+          <div style={{
+            backgroundColor: '#fff3cd',
+            border: '1px solid #ffc107',
+            borderRadius: '8px',
+            padding: '16px',
+            margin: '0 16px 16px 16px'
+          }}>
+            <div style={{ 
+              fontSize: '14px', 
+              fontWeight: '600', 
+              marginBottom: '12px',
+              color: '#856404'
             }}>
-              <div style={{ 
-                fontSize: '14px', 
-                fontWeight: '600', 
-                marginBottom: '12px',
-                color: '#856404'
-              }}>
-                Did the call happen?
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => handleMeetingConfirmation(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 16px',
-                    backgroundColor: '#28a745',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
-                >
-                  <CheckCircle size={16} /> Yes
-                </button>
-                <button
-                  onClick={() => handleMeetingConfirmation(false)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 16px',
-                    backgroundColor: '#dc3545',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
-                >
-                  <XCircle size={16} /> No
-                </button>
-              </div>
+              Did the call happen?
             </div>
-          )}
-          
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => handleMeetingConfirmation(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                <CheckCircle size={16} /> Yes
+              </button>
+              <button
+                onClick={() => handleMeetingConfirmation(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                <XCircle size={16} /> No
+              </button>
+            </div>
+          </div>
+        )}
+        
+        <div className="lead-sidebar-section-layout">
           <div className="lead-sidebar-section-content">
             <div className="lead-sidebar-form-row">
               <label className="lead-sidebar-form-label">{getFieldLabel('meetingDate')}</label>
@@ -708,65 +711,67 @@ const InfoTab = ({
               Visit Details
             </h6>
           </div>
-          
-          {/* Visit Confirmation Dialog */}
-          {showVisitConfirmation && (
-            <div style={{
-              backgroundColor: '#fff3cd',
-              border: '1px solid #ffc107',
-              borderRadius: '8px',
-              padding: '16px',
-              marginBottom: '16px'
+        </div>
+        
+        {/* Visit Confirmation Dialog - Below Title */}
+        {showVisitConfirmation && (
+          <div style={{
+            backgroundColor: '#fff3cd',
+            border: '1px solid #ffc107',
+            borderRadius: '8px',
+            padding: '16px',
+            margin: '0 16px 16px 16px'
+          }}>
+            <div style={{ 
+              fontSize: '14px', 
+              fontWeight: '600', 
+              marginBottom: '12px',
+              color: '#856404'
             }}>
-              <div style={{ 
-                fontSize: '14px', 
-                fontWeight: '600', 
-                marginBottom: '12px',
-                color: '#856404'
-              }}>
-                Did they visit the school?
-              </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => handleVisitConfirmation(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 16px',
-                    backgroundColor: '#28a745',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
-                >
-                  <CheckCircle size={16} /> Yes
-                </button>
-                <button
-                  onClick={() => handleVisitConfirmation(false)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 16px',
-                    backgroundColor: '#dc3545',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
-                >
-                  <XCircle size={16} /> No
-                </button>
-              </div>
+              Did they visit the school?
             </div>
-          )}
-          
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => handleVisitConfirmation(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                <CheckCircle size={16} /> Yes
+              </button>
+              <button
+                onClick={() => handleVisitConfirmation(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                <XCircle size={16} /> No
+              </button>
+            </div>
+          </div>
+        )}
+        
+        <div className="lead-sidebar-section-layout">
           <div className="lead-sidebar-section-content">
             <div className="lead-sidebar-form-row">
               <label className="lead-sidebar-form-label">{getFieldLabel('visitDate')}</label>
