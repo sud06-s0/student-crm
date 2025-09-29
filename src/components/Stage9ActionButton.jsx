@@ -36,7 +36,7 @@ const Stage9ActionButton = ({
 
     setIsLoading(true);
     try {
-      // ← API call to send WhatsApp message (unchanged - working correctly)
+      // ← API call to send WhatsApp message (following Stage2 pattern)
       const response = await fetch('https://backend.aisensy.com/campaign/t1/api/v2', {
         method: 'POST',
         headers: {
@@ -46,6 +46,7 @@ const Stage9ActionButton = ({
           apiKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4MGYyOGY2ZTBjYzg1MGMwMmMzNGJiOCIsIm5hbWUiOiJXRUJVWlogRGlnaXRhbCBQcml2YXRlIExpbWl0ZWQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjgwZjI4ZjZlMGNjODUwYzAyYzM0YmIzIiwiYWN0aXZlUGxhbiI6IkZSRUVfRk9SRVZFUiIsImlhdCI6MTc0NTgyMzk5MH0.pJi8qbYf3joYbNm5zSs4gJKFlBFsCS6apvkBkw4Qdxs',
           campaignName: 'enrolled110',
           destination: phone,
+          userName: kidsName,  // ← Added this field (same pattern as Stage2)
           templateParams: [kidsName]
         })
       });
