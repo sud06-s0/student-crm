@@ -18,7 +18,7 @@ import {
   Edit,
   ChevronDown,
   Calendar,
-  X // Added X icon for mobile close button
+  X
 } from 'lucide-react';
 import LeadStateProvider,{ useLeadState } from './LeadStateProvider';
 import InfoTab from './InfoTab';
@@ -382,6 +382,41 @@ const LeadSidebar = ({
     }
   };
 
+  // NEW: Refresh lead function to pass to InfoTab
+  const handleRefreshLead = async () => {
+    try {
+      // Fetch fresh lead data from database
+      const { data, error } = await supabase
+        .from(TABLE_NAMES.LEADS)
+        .select('*')
+        .eq('id', selectedLead.id)
+        .single();
+
+      if (error) throw error;
+
+      // Update stage statuses from fresh data
+      setStageStatuses({
+        stage2_status: data.stage2_status || '',
+        stage3_status: data.stage3_status || '',
+        stage4_status: data.stage4_status || '',
+        stage5_status: data.stage5_status || '',
+        stage6_status: data.stage6_status || '',
+        stage7_status: data.stage7_status || '',
+        stage8_status: data.stage8_status || '',
+        stage9_status: data.stage9_status || ''
+      });
+
+      // Refresh activity data if callback provided
+      if (onRefreshActivityData) {
+        await onRefreshActivityData();
+      }
+
+      console.log('Lead data refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing lead:', error);
+    }
+  };
+
   // Handle stage change with stage_key support
   const handleStageChange = async (newStageValue) => {
     try {
@@ -591,11 +626,16 @@ const LeadSidebar = ({
         style={{display: 'block'}}
         onTouchStart={handleTouchStart}
       >
-        {/* Header with Parent Name */}
+        {/* Header with Parent Name and Lead ID */}
         <div className="lead-sidebar-header">
-          <h5 className="lead-sidebar-title">
-            {selectedLead?.parentsName}
-          </h5>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <h5 className="lead-sidebar-title">
+              {selectedLead?.parentsName}
+            </h5>
+            <div style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>
+              Lead ID: {selectedLead?.id}
+            </div>
+          </div>
           <button onClick={onClose} className="lead-sidebar-close-btn">
             {isMobile ? <X size={18} /> : '×'}
           </button>
@@ -794,6 +834,7 @@ const LeadSidebar = ({
               getFieldLabel={getFieldLabel}
               customFieldsData={customFieldsData}
               onCustomFieldChange={handleCustomFieldChange}
+              onRefreshLead={handleRefreshLead}
             />
           )}
 
