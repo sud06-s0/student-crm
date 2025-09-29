@@ -1418,7 +1418,7 @@
 
 .lead-sidebar-action-header {
   display: grid;
-  grid-template-columns: 275px 1fr 120px;
+  grid-template-columns: 200px 1fr 100px 80px 80px; /* Stage Name, Action, Status, R1, R2 */
   gap: 20px;
   padding-bottom: 12px;
   border-bottom: 1px solid #e5e7eb;
@@ -1430,7 +1430,7 @@
 
 .lead-sidebar-action-row {
   display: grid;
-  grid-template-columns: 270px 1fr 120px;
+  grid-template-columns: 200px 1fr 100px 80px 80px; /* Same as header */
   gap: 20px;
   padding-bottom: 16px;
   margin-bottom: 16px;
