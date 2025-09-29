@@ -23,12 +23,14 @@ const ActionTab = ({
         <div>Stage Name</div>
         <div>Action</div>
         <div>Status</div>
+        <div>R1</div>
+        <div>R2</div>
       </div>
 
       {/* Stage Rows */}
       {/* Stage 2: Connected */}
       <div className="lead-sidebar-action-row">
-        <div className="lead-sidebar-action-stage">Stage 2 Connected</div>
+        <div className="lead-sidebar-action-stage">Stage 2 Replied</div>
         <div>
           <Stage2ActionButton
             leadId={selectedLead?.id}
@@ -48,11 +50,17 @@ const ActionTab = ({
             <span className="lead-sidebar-action-status">SENT</span>
           )}
         </div>
+        <div>
+          {/* R1 content for Stage 2 */}
+        </div>
+        <div>
+          {/* R2 content for Stage 2 */}
+        </div>
       </div>
 
       {/* Stage 4: Meeting Done */}
       <div className="lead-sidebar-action-row">
-        <div className="lead-sidebar-action-stage">Stage 4 Meeting Done</div>
+        <div className="lead-sidebar-action-stage">Stage 3 Call Booked</div>
         <div>
           <Stage4ActionButton
             leadId={selectedLead?.id}
@@ -69,34 +77,19 @@ const ActionTab = ({
             <span className="lead-sidebar-action-status">SENT</span>
           )}
         </div>
+        <div>
+          {/* R1 content for Stage 4 */}
+        </div>
+        <div>
+          {/* R2 content for Stage 4 */}
+        </div>
       </div>
 
-      {/* Stage 5: Proposal Sent */}
-      <div className="lead-sidebar-action-row">
-        <div className="lead-sidebar-action-stage">Stage 5 Proposal Sent</div>
-        <div>
-          <Stage5ActionButton
-            leadId={selectedLead?.id}
-            currentStatus={stageStatuses.stage5_status}
-            onStatusUpdate={onStatusUpdate}
-            getFieldLabel={getFieldLabel}  
-            alwaysVisible={true}
-            parentsName={selectedLead?.parentsName}
-            visitDate={sidebarFormData.visitDate}
-            visitTime={sidebarFormData.visitTime}
-            phone={selectedLead?.phone}
-          />
-        </div>
-        <div>
-          {stageStatuses.stage5_status === 'SENT' && (
-            <span className="lead-sidebar-action-status">SENT</span>
-          )}
-        </div>
-      </div>
+      
 
       {/* Stage 7: Visit Done */}
       <div className="lead-sidebar-action-row">
-        <div className="lead-sidebar-action-stage">Stage 7 Visit Done</div>
+        <div className="lead-sidebar-action-stage">Stage 4 Visit Booked</div>
         <div>
           <Stage7ActionButton
             leadId={selectedLead?.id}
@@ -114,11 +107,17 @@ const ActionTab = ({
             <span className="lead-sidebar-action-status">SENT</span>
           )}
         </div>
+        <div>
+          {/* R1 content for Stage 7 */}
+        </div>
+        <div>
+          {/* R2 content for Stage 7 */}
+        </div>
       </div>
 
       {/* Stage 8: Registered */}
       <div className="lead-sidebar-action-row">
-        <div className="lead-sidebar-action-stage">Stage 8 Registered</div>
+        <div className="lead-sidebar-action-stage">Stage 5 Registered</div>
         <div>
           <Stage8ActionButton
             leadId={selectedLead?.id}
@@ -134,11 +133,17 @@ const ActionTab = ({
             <span className="lead-sidebar-action-status">SENT</span>
           )}
         </div>
+        <div>
+          {/* R1 content for Stage 8 */}
+        </div>
+        <div>
+          {/* R2 content for Stage 8 */}
+        </div>
       </div>
 
       {/* Stage 9: Enrolled */}
       <div className="lead-sidebar-action-row">
-        <div className="lead-sidebar-action-stage">Stage 9 Enrolled</div>
+        <div className="lead-sidebar-action-stage">Stage 6 Admission</div>
         <div>
           <Stage9ActionButton
             leadId={selectedLead?.id}
@@ -154,6 +159,12 @@ const ActionTab = ({
           {stageStatuses.stage9_status === 'SENT' && (
             <span className="lead-sidebar-action-status">SENT</span>
           )}
+        </div>
+        <div>
+          {/* R1 content for Stage 9 */}
+        </div>
+        <div>
+          {/* R2 content for Stage 9 */}
         </div>
       </div>
     </div>
