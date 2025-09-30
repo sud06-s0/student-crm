@@ -23,6 +23,7 @@ import {
 import LeadStateProvider,{ useLeadState } from './LeadStateProvider';
 import InfoTab from './InfoTab';
 import ActionTab from './ActionTab';
+import { scheduleReminders, cancelReminders } from '../utils/api'; // ← ADD THIS IMPORT
 
 // Add debounce utility
 function debounce(func, wait) {
@@ -76,7 +77,7 @@ const LeadSidebar = ({
   onUpdateAllFields,
   onStageChange,
   onRefreshActivityData,
-  onRefreshSingleLead,  // ← ADD THIS LINE
+  onRefreshSingleLead,
   getStageColor,
   getCounsellorInitials,
   getScoreFromStage,
@@ -454,7 +455,7 @@ const LeadSidebar = ({
     }
   };
 
-  // Update function with logging and enhanced field support + CUSTOM FIELDS
+  // ← UPDATED: Update function with scheduler integration
   const handleUpdateAllFields = async () => {
     try {
       const changes = {};
@@ -515,6 +516,70 @@ const LeadSidebar = ({
 
       // Call the parent's update function for standard fields
       await onUpdateAllFields();
+      
+      // ← ADD THIS: Schedule reminders after successful update
+      try {
+        // Check if meeting date/time changed
+        const meetingDateChanged = changes.meetingDate || changes.meetingTime;
+        const hasMeetingDetails = sidebarFormData.meetingDate && sidebarFormData.meetingTime;
+
+        if (meetingDateChanged && hasMeetingDetails) {
+          console.log('Meeting details changed, scheduling reminders...');
+          await scheduleReminders(
+            selectedLead.id,
+            selectedLead.phone,
+            selectedLead.parentsName,
+            sidebarFormData.meetingDate,
+            sidebarFormData.meetingTime,
+            'meeting'
+          );
+          console.log('Meeting reminders scheduled successfully');
+        } else if (hasMeetingDetails && !originalFormData.meetingDate && !originalFormData.meetingTime) {
+          // First time adding meeting details
+          console.log('New meeting details added, scheduling reminders...');
+          await scheduleReminders(
+            selectedLead.id,
+            selectedLead.phone,
+            selectedLead.parentsName,
+            sidebarFormData.meetingDate,
+            sidebarFormData.meetingTime,
+            'meeting'
+          );
+          console.log('Meeting reminders scheduled successfully');
+        }
+
+        // Check if visit date/time changed
+        const visitDateChanged = changes.visitDate || changes.visitTime;
+        const hasVisitDetails = sidebarFormData.visitDate && sidebarFormData.visitTime;
+
+        if (visitDateChanged && hasVisitDetails) {
+          console.log('Visit details changed, scheduling reminders...');
+          await scheduleReminders(
+            selectedLead.id,
+            selectedLead.phone,
+            selectedLead.parentsName,
+            sidebarFormData.visitDate,
+            sidebarFormData.visitTime,
+            'visit'
+          );
+          console.log('Visit reminders scheduled successfully');
+        } else if (hasVisitDetails && !originalFormData.visitDate && !originalFormData.visitTime) {
+          // First time adding visit details
+          console.log('New visit details added, scheduling reminders...');
+          await scheduleReminders(
+            selectedLead.id,
+            selectedLead.phone,
+            selectedLead.parentsName,
+            sidebarFormData.visitDate,
+            sidebarFormData.visitTime,
+            'visit'
+          );
+          console.log('Visit reminders scheduled successfully');
+        }
+      } catch (reminderError) {
+        console.error('Error scheduling reminders:', reminderError);
+        // Don't fail the whole update if reminder scheduling fails
+      }
       
       // Log changes if any exist
       if (Object.keys(changes).length > 0) {
@@ -836,7 +901,7 @@ const LeadSidebar = ({
               customFieldsData={customFieldsData}
               onCustomFieldChange={handleCustomFieldChange}
               onRefreshLead={handleRefreshLead}
-              onRefreshSingleLead={onRefreshSingleLead}  // ← ADD THIS LINE
+              onRefreshSingleLead={onRefreshSingleLead}
              />
           )}
 

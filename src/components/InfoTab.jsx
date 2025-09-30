@@ -3,6 +3,7 @@ import { settingsService } from '../services/settingsService';
 import { supabase } from '../lib/supabase';
 import { TABLE_NAMES } from '../config/tableNames';
 import { CheckCircle, XCircle } from 'lucide-react';
+import { cancelReminders } from '../utils/api'; // ← ADD THIS IMPORT
 
 const InfoTab = ({
   selectedLead,
@@ -86,7 +87,7 @@ const InfoTab = ({
     }
   }, [selectedLead?.id]);
 
-  // ← UPDATED: Handle meeting confirmation with immediate local state clearing
+  // ← UPDATED: Handle meeting confirmation with scheduler cancellation
   const handleMeetingConfirmation = async (didHappen) => {
     if (didHappen) {
       setShowMeetingConfirmation(false);
@@ -99,16 +100,27 @@ const InfoTab = ({
             meet_datetime: null,
             meet_link: null,
             stage4_status: null,
+            stage2_r1: null, // ← Clear R1 status
+            stage2_r2: null, // ← Clear R2 status
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedLead.id);
 
         if (error) throw error;
 
+        // ← Cancel scheduled reminders in Railway backend
+        try {
+          await cancelReminders(selectedLead.id, 'meeting');
+          console.log('Meeting reminders cancelled');
+        } catch (reminderError) {
+          console.error('Error cancelling meeting reminders:', reminderError);
+          // Don't fail the whole operation if reminder cancellation fails
+        }
+
         setShowMeetingConfirmation(false);
         setMeetingConfirmed(true);
         
-        // ← UPDATED: Clear local form data immediately
+        // Clear local form data immediately
         onFieldChange('meetingDate', '');
         onFieldChange('meetingTime', '');
         onFieldChange('meetingLink', '');
@@ -125,7 +137,7 @@ const InfoTab = ({
     }
   };
 
-  // ← UPDATED: Handle visit confirmation with immediate local state clearing
+  // ← UPDATED: Handle visit confirmation with scheduler cancellation
   const handleVisitConfirmation = async (didHappen) => {
     if (didHappen) {
       setShowVisitConfirmation(false);
@@ -138,16 +150,27 @@ const InfoTab = ({
             visit_datetime: null,
             visit_location: null,
             stage7_status: null,
+            stage7_r1: null, // ← Clear R1 status
+            stage7_r2: null, // ← Clear R2 status
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedLead.id);
 
         if (error) throw error;
 
+        // ← Cancel scheduled reminders in Railway backend
+        try {
+          await cancelReminders(selectedLead.id, 'visit');
+          console.log('Visit reminders cancelled');
+        } catch (reminderError) {
+          console.error('Error cancelling visit reminders:', reminderError);
+          // Don't fail the whole operation if reminder cancellation fails
+        }
+
         setShowVisitConfirmation(false);
         setVisitConfirmed(true);
         
-        // ← UPDATED: Clear local form data immediately
+        // Clear local form data immediately
         onFieldChange('visitDate', '');
         onFieldChange('visitTime', '');
         onFieldChange('visitLocation', '');

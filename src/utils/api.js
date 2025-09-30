@@ -1,0 +1,50 @@
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+export const scheduleReminders = async (leadId, phone, parentsName, meetingDate, meetingTime, fieldType) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/schedule-reminder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        leadId,
+        phone,
+        parentsName,
+        meetingDate,
+        meetingTime,
+        fieldType
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to schedule reminders');
+    }
+    
+    const data = await response.json();
+    console.log('Reminders scheduled:', data);
+    return data;
+  } catch (error) {
+    console.error('Error scheduling reminders:', error);
+    throw error;
+  }
+};
+
+export const cancelReminders = async (leadId, fieldType) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/cancel-reminder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leadId, fieldType })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to cancel reminders');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error cancelling reminders:', error);
+    throw error;
+  }
+};
