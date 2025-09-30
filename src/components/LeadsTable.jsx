@@ -144,16 +144,19 @@ const LeadsTable = ({ onLogout, user }) => {
     let visitDate = '';
     let visitTime = '';
 
+    // FIX: Extract date and time without timezone conversion
     if (dbRecord.meet_datetime) {
-      const meetDateTime = new Date(dbRecord.meet_datetime);
-      meetingDate = meetDateTime.toISOString().split('T')[0];
-      meetingTime = meetDateTime.toTimeString().slice(0, 5);
+      const meetDateTimeStr = dbRecord.meet_datetime.replace('Z', '').replace(' ', 'T');
+      const [datePart, timePart] = meetDateTimeStr.split('T');
+      meetingDate = datePart;
+      meetingTime = timePart ? timePart.slice(0, 5) : '';
     }
 
     if (dbRecord.visit_datetime) {
-      const visitDateTime = new Date(dbRecord.visit_datetime);
-      visitDate = visitDateTime.toISOString().split('T')[0];
-      visitTime = visitDateTime.toTimeString().slice(0, 5);
+      const visitDateTimeStr = dbRecord.visit_datetime.replace('Z', '').replace(' ', 'T');
+      const [datePart, timePart] = visitDateTimeStr.split('T');
+      visitDate = datePart;
+      visitTime = timePart ? timePart.slice(0, 5) : '';
     }
 
     const stageValue = dbRecord.stage;
@@ -407,7 +410,7 @@ const LeadsTable = ({ onLogout, user }) => {
     }
   };
 
-  // ← NEW: Refresh single lead function
+  // Refresh single lead function
   const refreshSingleLead = async (leadId) => {
     try {
       const { data, error } = await supabase
@@ -614,12 +617,13 @@ const LeadsTable = ({ onLogout, user }) => {
         updated_at: new Date().toISOString()
       };
 
+      // FIX: Store date and time as-is without timezone conversion
       if (sidebarFormData.meetingDate && sidebarFormData.meetingTime) {
-        updateData.meet_datetime = new Date(`${sidebarFormData.meetingDate}T${sidebarFormData.meetingTime}:00`).toISOString();
+        updateData.meet_datetime = `${sidebarFormData.meetingDate}T${sidebarFormData.meetingTime}:00`;
       }
 
       if (sidebarFormData.visitDate && sidebarFormData.visitTime) {
-        updateData.visit_datetime = new Date(`${sidebarFormData.visitDate}T${sidebarFormData.visitTime}:00`).toISOString();
+        updateData.visit_datetime = `${sidebarFormData.visitDate}T${sidebarFormData.visitTime}:00`;
       }
 
       const oldStageKey = selectedLead.stage;
