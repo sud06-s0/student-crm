@@ -144,39 +144,17 @@ const LeadsTable = ({ onLogout, user }) => {
     let visitDate = '';
     let visitTime = '';
 
-    // REPLACE lines 127-137 in LeadsTable.jsx with this CORRECTED version:
+    if (dbRecord.meet_datetime) {
+      const meetDateTime = new Date(dbRecord.meet_datetime);
+      meetingDate = meetDateTime.toISOString().split('T')[0];
+      meetingTime = meetDateTime.toTimeString().slice(0, 5);
+    }
 
-if (dbRecord.meet_datetime) {
-  const meetDateTime = new Date(dbRecord.meet_datetime);
-  // Get local date and time components consistently
-  const year = meetDateTime.getFullYear();
-  const month = String(meetDateTime.getMonth() + 1).padStart(2, '0');
-  const day = String(meetDateTime.getDate()).padStart(2, '0');
-  const hours = String(meetDateTime.getHours()).padStart(2, '0');
-  const minutes = String(meetDateTime.getMinutes()).padStart(2, '0');
-  
-  meetingDate = `${year}-${month}-${day}`;
-  meetingTime = `${hours}:${minutes}`;
-  
-  console.log('📅 Read meet_datetime from DB:', dbRecord.meet_datetime);
-  console.log('📅 Converted to:', meetingDate, meetingTime);
-}
-
-if (dbRecord.visit_datetime) {
-  const visitDateTime = new Date(dbRecord.visit_datetime);
-  // Get local date and time components consistently
-  const year = visitDateTime.getFullYear();
-  const month = String(visitDateTime.getMonth() + 1).padStart(2, '0');
-  const day = String(visitDateTime.getDate()).padStart(2, '0');
-  const hours = String(visitDateTime.getHours()).padStart(2, '0');
-  const minutes = String(visitDateTime.getMinutes()).padStart(2, '0');
-  
-  visitDate = `${year}-${month}-${day}`;
-  visitTime = `${hours}:${minutes}`;
-  
-  console.log('📅 Read visit_datetime from DB:', dbRecord.visit_datetime);
-  console.log('📅 Converted to:', visitDate, visitTime);
-}
+    if (dbRecord.visit_datetime) {
+      const visitDateTime = new Date(dbRecord.visit_datetime);
+      visitDate = visitDateTime.toISOString().split('T')[0];
+      visitTime = visitDateTime.toTimeString().slice(0, 5);
+    }
 
     const stageValue = dbRecord.stage;
     const stageKey = getStageKeyForLead(stageValue);
