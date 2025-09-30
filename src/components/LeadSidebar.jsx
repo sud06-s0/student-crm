@@ -507,6 +507,20 @@ const LeadSidebar = ({
     console.log('Selected Lead Phone:', selectedLead.phone);
     console.log('Selected Lead Name:', selectedLead.parentsName);
     // ← END DEBUG LOGS ↑
+    
+    // ADD THE NEW DATETIME CONVERSION LOGS RIGHT HERE:
+console.log('=== DATETIME CONVERSION CHECK ===');
+console.log('Meeting Date (raw):', sidebarFormData.meetingDate);
+console.log('Meeting Time (raw):', sidebarFormData.meetingTime);
+console.log('Meeting Date type:', typeof sidebarFormData.meetingDate);
+console.log('Meeting Time type:', typeof sidebarFormData.meetingTime);
+
+if (sidebarFormData.meetingDate && sidebarFormData.meetingTime) {
+  const combinedDateTime = `${sidebarFormData.meetingDate}T${sidebarFormData.meetingTime}`;
+  console.log('Combined datetime string:', combinedDateTime);
+  console.log('Parsed as Date:', new Date(combinedDateTime));
+  console.log('ISO String:', new Date(combinedDateTime).toISOString());
+}
 
       // Save custom fields to database
       if (Object.keys(customFieldsData).some(key => customFieldsData[key] !== originalCustomFieldsData[key])) {
