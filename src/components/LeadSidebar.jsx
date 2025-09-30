@@ -495,6 +495,19 @@ const LeadSidebar = ({
         }
       });
 
+      // ← ADD DEBUG LOGS HERE ↓
+    console.log('=== SCHEDULING DEBUG ===');
+    console.log('Changes detected:', changes);
+    console.log('Meeting date changed?', changes.meetingDate);
+    console.log('Meeting time changed?', changes.meetingTime);
+    console.log('Current meeting date:', sidebarFormData.meetingDate);
+    console.log('Current meeting time:', sidebarFormData.meetingTime);
+    console.log('Original meeting date:', originalFormData.meetingDate);
+    console.log('Original meeting time:', originalFormData.meetingTime);
+    console.log('Selected Lead Phone:', selectedLead.phone);
+    console.log('Selected Lead Name:', selectedLead.parentsName);
+    // ← END DEBUG LOGS ↑
+
       // Save custom fields to database
       if (Object.keys(customFieldsData).some(key => customFieldsData[key] !== originalCustomFieldsData[key])) {
         try {
