@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.REACT_APP_API_URL ;
+const API_BASE_URL = 'https://reminder-backend-production-90af.up.railway.app';
 
 export const scheduleReminders = async (leadId, phone, parentsName, meetingDate, meetingTime, fieldType) => {
   try {
