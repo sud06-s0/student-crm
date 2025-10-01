@@ -704,6 +704,48 @@ const LeadSidebar = ({
     }
   }, [selectedLead?.id, selectedLead?.stage, selectedLead?.phone, selectedLead?.email]);
 
+  // AUTO-REFRESH FOR R1/R2 STATUS
+  useEffect(() => {
+    let intervalId;
+    
+    if (selectedLead?.id && activeTab === 'action') {
+      intervalId = setInterval(async () => {
+        try {
+          const { data, error } = await supabase
+            .from(TABLE_NAMES.LEADS)
+            .select('stage2_r1, stage2_r2, stage7_r1, stage7_r2, stage2_status, stage3_status, stage4_status, stage5_status, stage6_status, stage7_status, stage8_status, stage9_status')
+            .eq('id', selectedLead.id)
+            .single();
+
+          if (!error && data) {
+            setStageStatuses({
+              stage2_status: data.stage2_status || '',
+              stage3_status: data.stage3_status || '',
+              stage4_status: data.stage4_status || '',
+              stage5_status: data.stage5_status || '',
+              stage6_status: data.stage6_status || '',
+              stage7_status: data.stage7_status || '',
+              stage8_status: data.stage8_status || '',
+              stage9_status: data.stage9_status || '',
+              stage2_r1: data.stage2_r1 || '',
+              stage2_r2: data.stage2_r2 || '',
+              stage7_r1: data.stage7_r1 || '',
+              stage7_r2: data.stage7_r2 || ''
+            });
+          }
+        } catch (error) {
+          console.error('Auto-refresh error:', error);
+        }
+      }, 5000);
+    }
+    
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [selectedLead?.id, activeTab]);
+
   // Handle mobile close with swipe gesture (optional enhancement)
   const handleTouchStart = useCallback((e) => {
   
