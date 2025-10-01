@@ -127,7 +127,7 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
     return 'new_lead';
   };
 
-  // Process single row with fallbacks - UPDATED with Second Phone
+  // Process single row with fallbacks - UPDATED with Phone Splitting
   const processRow = (row, existingPhones) => {
     // Normalize headers (case insensitive)
     const normalizedRow = {};
@@ -155,6 +155,25 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
     if (!parentsName || parentsName.toString().trim() === '') parentsName = 'NA';
     if (!kidsName || kidsName.toString().trim() === '') kidsName = 'NA';
     
+    // ← NEW: Phone splitting logic - check if phone contains "/"
+    if (phone && phone.toString().includes('/')) {
+      const phoneParts = phone.toString().split('/');
+      
+      // First part becomes primary phone
+      const primaryPhone = phoneParts[0].trim().replace(/\D/g, '');
+      
+      // Second part becomes secondary phone (if not already set from column)
+      if (!secondPhone || secondPhone.toString().trim() === '') {
+        const secondaryPhone = phoneParts[1] ? phoneParts[1].trim().replace(/\D/g, '') : '';
+        if (secondaryPhone && secondaryPhone.length === 10) {
+          secondPhone = secondaryPhone;
+        }
+      }
+      
+      // Set primary phone to first part
+      phone = primaryPhone;
+    }
+
     // Primary phone validation and fallback
     if (phone) {
       // Clean phone number
@@ -372,7 +391,7 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
                 source: leadData.source
               });
 
-              // ← NEW: Log notes/description as "Description of Discussion" if present
+              // Log notes/description as "Description of Discussion" if present
               if (leadData.notes && leadData.notes.trim() !== '') {
                 await logAction(data[j].id, 'Description of Discussion', leadData.notes);
               }
@@ -578,6 +597,7 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
                       <ul style={{ margin: 0, paddingLeft: '16px', color: '#92400e', fontSize: '14px' }}>
                         <li>Required columns: Parents Name, Kids Name, Phone</li>
                         <li>Optional: Second Phone, Email, Location, Grade, Source, etc.</li>
+                        <li>Phone can contain two numbers separated by "/" (e.g., 9876543210/9123456789)</li>
                         <li>Invalid data will use fallbacks (NA, 1234567890)</li>
                         <li>Duplicate phone numbers will be skipped</li>
                         <li>All leads will use the first stage from settings</li>
