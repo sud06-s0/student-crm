@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSettingsData } from '../contexts/SettingsDataProvider';
 import { supabase } from '../lib/supabase';
 import { settingsService } from '../services/settingsService';
@@ -20,10 +20,10 @@ import {
   Calendar,
   X
 } from 'lucide-react';
-import LeadStateProvider,{ useLeadState } from './LeadStateProvider';
+import { useLeadState } from './LeadStateProvider';
 import InfoTab from './InfoTab';
 import ActionTab from './ActionTab';
-import { scheduleReminders, cancelReminders } from '../utils/api'; // ← ADD THIS IMPORT
+import { scheduleReminders, cancelReminders } from '../utils/api';
 
 // Add debounce utility
 function debounce(func, wait) {
@@ -105,7 +105,7 @@ const LeadSidebar = ({
   const [stageDropdownOpen, setStageDropdownOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
 
-  // Stage statuses for action buttons
+  // Stage statuses for action buttons - UPDATED with R1/R2
   const [stageStatuses, setStageStatuses] = useState({
     stage2_status: '',
     stage3_status: '',
@@ -114,7 +114,11 @@ const LeadSidebar = ({
     stage6_status: '',
     stage7_status: '',
     stage8_status: '',
-    stage9_status: ''
+    stage9_status: '',
+    stage2_r1: '',
+    stage2_r2: '',
+    stage7_r1: '',
+    stage7_r2: ''
   });
 
   const [historyData, setHistoryData] = useState([]);
@@ -199,7 +203,7 @@ const LeadSidebar = ({
 
       if (error) throw error;
       
-      // Use context instead of callback:
+      // Use context to update action status
       updateActionStatus(selectedLead.id, stageField, newStatus);
       
       // Log the WhatsApp message action in background
@@ -305,7 +309,7 @@ const LeadSidebar = ({
     }
   };
 
-  // Update original form data when selectedLead changes
+  // Update original form data when selectedLead changes - UPDATED with R1/R2
   useEffect(() => {
     if (selectedLead) {
       setOriginalFormData({
@@ -332,7 +336,7 @@ const LeadSidebar = ({
         enrolled: selectedLead.enrolled || ''
       });
 
-      // Update stage statuses
+      // Update stage statuses - UPDATED with R1/R2
       setStageStatuses({
         stage2_status: selectedLead.stage2_status || '',
         stage3_status: selectedLead.stage3_status || '',
@@ -341,7 +345,11 @@ const LeadSidebar = ({
         stage6_status: selectedLead.stage6_status || '',
         stage7_status: selectedLead.stage7_status || '',
         stage8_status: selectedLead.stage8_status || '',
-        stage9_status: selectedLead.stage9_status || ''
+        stage9_status: selectedLead.stage9_status || '',
+        stage2_r1: selectedLead.stage2_r1 || '',
+        stage2_r2: selectedLead.stage2_r2 || '',
+        stage7_r1: selectedLead.stage7_r1 || '',
+        stage7_r2: selectedLead.stage7_r2 || ''
       });
       
       // Fetch custom fields when lead changes
@@ -384,7 +392,7 @@ const LeadSidebar = ({
     }
   };
 
-  // NEW: Refresh lead function to pass to InfoTab
+  // Refresh lead function to pass to InfoTab - UPDATED with R1/R2
   const handleRefreshLead = async () => {
     try {
       // Fetch fresh lead data from database
@@ -396,7 +404,7 @@ const LeadSidebar = ({
 
       if (error) throw error;
 
-      // Update stage statuses from fresh data
+      // Update stage statuses from fresh data - UPDATED with R1/R2
       setStageStatuses({
         stage2_status: data.stage2_status || '',
         stage3_status: data.stage3_status || '',
@@ -405,7 +413,11 @@ const LeadSidebar = ({
         stage6_status: data.stage6_status || '',
         stage7_status: data.stage7_status || '',
         stage8_status: data.stage8_status || '',
-        stage9_status: data.stage9_status || ''
+        stage9_status: data.stage9_status || '',
+        stage2_r1: data.stage2_r1 || '',
+        stage2_r2: data.stage2_r2 || '',
+        stage7_r1: data.stage7_r1 || '',
+        stage7_r2: data.stage7_r2 || ''
       });
 
       // Refresh activity data if callback provided
@@ -455,7 +467,7 @@ const LeadSidebar = ({
     }
   };
 
-  // ← UPDATED: Update function with scheduler integration
+  // Update function with scheduler integration
   const handleUpdateAllFields = async () => {
     try {
       const changes = {};
@@ -495,32 +507,29 @@ const LeadSidebar = ({
         }
       });
 
-      // ← ADD DEBUG LOGS HERE ↓
-    console.log('=== SCHEDULING DEBUG ===');
-    console.log('Changes detected:', changes);
-    console.log('Meeting date changed?', changes.meetingDate);
-    console.log('Meeting time changed?', changes.meetingTime);
-    console.log('Current meeting date:', sidebarFormData.meetingDate);
-    console.log('Current meeting time:', sidebarFormData.meetingTime);
-    console.log('Original meeting date:', originalFormData.meetingDate);
-    console.log('Original meeting time:', originalFormData.meetingTime);
-    console.log('Selected Lead Phone:', selectedLead.phone);
-    console.log('Selected Lead Name:', selectedLead.parentsName);
-    // ← END DEBUG LOGS ↑
-    
-    // ADD THE NEW DATETIME CONVERSION LOGS RIGHT HERE:
-console.log('=== DATETIME CONVERSION CHECK ===');
-console.log('Meeting Date (raw):', sidebarFormData.meetingDate);
-console.log('Meeting Time (raw):', sidebarFormData.meetingTime);
-console.log('Meeting Date type:', typeof sidebarFormData.meetingDate);
-console.log('Meeting Time type:', typeof sidebarFormData.meetingTime);
+      console.log('=== SCHEDULING DEBUG ===');
+      console.log('Changes detected:', changes);
+      console.log('Meeting date changed?', changes.meetingDate);
+      console.log('Meeting time changed?', changes.meetingTime);
+      console.log('Current meeting date:', sidebarFormData.meetingDate);
+      console.log('Current meeting time:', sidebarFormData.meetingTime);
+      console.log('Original meeting date:', originalFormData.meetingDate);
+      console.log('Original meeting time:', originalFormData.meetingTime);
+      console.log('Selected Lead Phone:', selectedLead.phone);
+      console.log('Selected Lead Name:', selectedLead.parentsName);
 
-if (sidebarFormData.meetingDate && sidebarFormData.meetingTime) {
-  const combinedDateTime = `${sidebarFormData.meetingDate}T${sidebarFormData.meetingTime}`;
-  console.log('Combined datetime string:', combinedDateTime);
-  console.log('Parsed as Date:', new Date(combinedDateTime));
-  console.log('ISO String:', new Date(combinedDateTime).toISOString());
-}
+      console.log('=== DATETIME CONVERSION CHECK ===');
+      console.log('Meeting Date (raw):', sidebarFormData.meetingDate);
+      console.log('Meeting Time (raw):', sidebarFormData.meetingTime);
+      console.log('Meeting Date type:', typeof sidebarFormData.meetingDate);
+      console.log('Meeting Time type:', typeof sidebarFormData.meetingTime);
+
+      if (sidebarFormData.meetingDate && sidebarFormData.meetingTime) {
+        const combinedDateTime = `${sidebarFormData.meetingDate}T${sidebarFormData.meetingTime}`;
+        console.log('Combined datetime string:', combinedDateTime);
+        console.log('Parsed as Date:', new Date(combinedDateTime));
+        console.log('ISO String:', new Date(combinedDateTime).toISOString());
+      }
 
       // Save custom fields to database
       if (Object.keys(customFieldsData).some(key => customFieldsData[key] !== originalCustomFieldsData[key])) {
@@ -544,7 +553,7 @@ if (sidebarFormData.meetingDate && sidebarFormData.meetingTime) {
       // Call the parent's update function for standard fields
       await onUpdateAllFields();
       
-      // ← ADD THIS: Schedule reminders after successful update
+      // Schedule reminders after successful update
       try {
         // Check if meeting date/time changed
         const meetingDateChanged = changes.meetingDate || changes.meetingTime;

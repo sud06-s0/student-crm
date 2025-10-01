@@ -51,10 +51,14 @@ const ActionTab = ({
           )}
         </div>
         <div>
-          {/* R1 content for Stage 2 */}
+          {stageStatuses.stage2_r1 === 'SENT' && (
+            <span className="lead-sidebar-action-status">SENT</span>
+          )}
         </div>
         <div>
-          {/* R2 content for Stage 2 */}
+          {stageStatuses.stage2_r2 === 'SENT' && (
+            <span className="lead-sidebar-action-status">SENT</span>
+          )}
         </div>
       </div>
 
@@ -85,8 +89,6 @@ const ActionTab = ({
         </div>
       </div>
 
-      
-
       {/* Stage 7: Visit Done */}
       <div className="lead-sidebar-action-row">
         <div className="lead-sidebar-action-stage">Stage 4 Visit Booked</div>
@@ -108,10 +110,14 @@ const ActionTab = ({
           )}
         </div>
         <div>
-          {/* R1 content for Stage 7 */}
+          {stageStatuses.stage7_r1 === 'SENT' && (
+            <span className="lead-sidebar-action-status">SENT</span>
+          )}
         </div>
         <div>
-          {/* R2 content for Stage 7 */}
+          {stageStatuses.stage7_r2 === 'SENT' && (
+            <span className="lead-sidebar-action-status">SENT</span>
+          )}
         </div>
       </div>
 

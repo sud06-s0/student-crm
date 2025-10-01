@@ -198,6 +198,10 @@ const LeadsTable = ({ onLogout, user }) => {
       stage7_status: dbRecord.stage7_status || '',
       stage8_status: dbRecord.stage8_status || '',
       stage9_status: dbRecord.stage9_status || '',
+      stage2_r1: dbRecord.stage2_r1 || '',  
+      stage2_r2: dbRecord.stage2_r2 || '',  
+      stage7_r1: dbRecord.stage7_r1 || '',  
+      stage7_r2: dbRecord.stage7_r2 || '',  
       previousStage: dbRecord.previous_stage || '',
       createdTime: new Date(dbRecord.created_at).toLocaleString('en-GB', {
         day: '2-digit',
