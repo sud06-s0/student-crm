@@ -682,7 +682,7 @@ const LeadSidebar = ({
     };
   }, [stageDropdownOpen]);
 
-  // Fetch data based on active tab
+  // Fetch data based on active tab - UPDATED WITH IMMEDIATE ACTION REFRESH
   useEffect(() => {
     if (selectedLead?.id) {
       if (activeTab === 'history') {
@@ -691,6 +691,38 @@ const LeadSidebar = ({
         fetchFollowUps();
       } else if (activeTab === 'info') {
         fetchCustomFields();
+      } else if (activeTab === 'action') {
+        // Immediately refresh statuses when switching to Action tab
+        const refreshActionStatuses = async () => {
+          try {
+            const { data, error } = await supabase
+              .from(TABLE_NAMES.LEADS)
+              .select('stage2_r1, stage2_r2, stage7_r1, stage7_r2, stage2_status, stage3_status, stage4_status, stage5_status, stage6_status, stage7_status, stage8_status, stage9_status')
+              .eq('id', selectedLead.id)
+              .single();
+
+            if (!error && data) {
+              setStageStatuses({
+                stage2_status: data.stage2_status || '',
+                stage3_status: data.stage3_status || '',
+                stage4_status: data.stage4_status || '',
+                stage5_status: data.stage5_status || '',
+                stage6_status: data.stage6_status || '',
+                stage7_status: data.stage7_status || '',
+                stage8_status: data.stage8_status || '',
+                stage9_status: data.stage9_status || '',
+                stage2_r1: data.stage2_r1 || '',
+                stage2_r2: data.stage2_r2 || '',
+                stage7_r1: data.stage7_r1 || '',
+                stage7_r2: data.stage7_r2 || ''
+              });
+            }
+          } catch (error) {
+            console.error('Error refreshing action statuses:', error);
+          }
+        };
+        
+        refreshActionStatuses();
       }
     }
   }, [selectedLead?.id, activeTab]);
