@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, Hand } from 'lucide-react';
 import { authService } from '../services/authService';
+import novalogo from '../NovaLogo.png';
 
 const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
@@ -61,7 +62,7 @@ const Login = ({ onLogin }) => {
     <div className="login-container">
       <div className="login-content">
         {/* Logo */}
-                <div className="nova-logo">
+                <div className="nova-logo2">
                   <a href="/" style={{ textDecoration: 'none' }}>
                     <img 
                       src={novalogo} 

@@ -563,6 +563,14 @@
   background: white;
 }
 
+.nova-logo2 {
+  padding-top: 20px;
+  border-bottom: 1px solid #ffffff;
+  background: white;
+  display:flex;
+  justify-content: center;
+}
+
 .nova-brand {
   display: flex;
   align-items: center;
@@ -2242,7 +2250,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px;
+  padding: 0px 40px 40px 40px;
 }
 
 .login-form-container {
