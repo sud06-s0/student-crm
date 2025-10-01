@@ -1,4 +1,4 @@
-import novalogo from '../NovaLogo.jpg';
+import novalogo from '../NovaLogo.png';
 import React, { useState } from 'react';
 import { ChevronRight, Menu, X } from 'lucide-react';
 import { 
