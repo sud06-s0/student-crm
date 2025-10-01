@@ -28,7 +28,7 @@ const ActionTab = ({
       </div>
 
       {/* Stage Rows */}
-      {/* Stage 2: Connected */}
+      {/* Stage 2: Replied - NO R1/R2 */}
       <div className="lead-sidebar-action-row">
         <div className="lead-sidebar-action-stage">Stage 2 Replied</div>
         <div>
@@ -51,18 +51,14 @@ const ActionTab = ({
           )}
         </div>
         <div>
-          {stageStatuses.stage2_r1 === 'SENT' && (
-            <span className="lead-sidebar-action-status">SENT</span>
-          )}
+          {/* No R1 for Stage 2 */}
         </div>
         <div>
-          {stageStatuses.stage2_r2 === 'SENT' && (
-            <span className="lead-sidebar-action-status">SENT</span>
-          )}
+          {/* No R2 for Stage 2 */}
         </div>
       </div>
 
-      {/* Stage 4: Meeting Done */}
+      {/* Stage 3: Call Booked - SHOW MEETING R1/R2 HERE */}
       <div className="lead-sidebar-action-row">
         <div className="lead-sidebar-action-stage">Stage 3 Call Booked</div>
         <div>
@@ -82,14 +78,18 @@ const ActionTab = ({
           )}
         </div>
         <div>
-          {/* R1 content for Stage 4 */}
+          {stageStatuses.stage2_r1 === 'SENT' && (
+            <span className="lead-sidebar-action-status">SENT</span>
+          )}
         </div>
         <div>
-          {/* R2 content for Stage 4 */}
+          {stageStatuses.stage2_r2 === 'SENT' && (
+            <span className="lead-sidebar-action-status">SENT</span>
+          )}
         </div>
       </div>
 
-      {/* Stage 7: Visit Done */}
+      {/* Stage 4: Visit Booked - SHOW VISIT R1/R2 HERE */}
       <div className="lead-sidebar-action-row">
         <div className="lead-sidebar-action-stage">Stage 4 Visit Booked</div>
         <div>
@@ -121,7 +121,7 @@ const ActionTab = ({
         </div>
       </div>
 
-      {/* Stage 8: Registered */}
+      {/* Stage 5: Registered */}
       <div className="lead-sidebar-action-row">
         <div className="lead-sidebar-action-stage">Stage 5 Registered</div>
         <div>
@@ -147,7 +147,7 @@ const ActionTab = ({
         </div>
       </div>
 
-      {/* Stage 9: Enrolled */}
+      {/* Stage 6: Admission */}
       <div className="lead-sidebar-action-row">
         <div className="lead-sidebar-action-stage">Stage 6 Admission</div>
         <div>
