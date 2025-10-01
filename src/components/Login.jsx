@@ -60,26 +60,25 @@ const Login = ({ onLogin }) => {
   return (
     <div className="login-container">
       <div className="login-content">
-        {/* Left Side */}
-        <div className="login-left">
-          <div className="logo">
-            <Sparkles className="star-icon" size={48} />
-          </div>
-          <div className="welcome-text">
-            <h1>Hello<br />Nova International School! <Hand className="hand-icon" size={36} /></h1>
-            <p>
-              Streamline your academic journey with our comprehensive student 
-              management system. Connect with teachers, track your progress, 
-              access resources, and stay updated with school activities all in 
-              one place. Education made simple, efficient, and accessible.
-            </p>
-          </div>
-          <div className="copyright">
-            © 2025 Nova International School. All rights reserved.
-          </div>
-        </div>
-
-        {/* Right Side */}
+        {/* Logo */}
+                <div className="nova-logo">
+                  <a href="/" style={{ textDecoration: 'none' }}>
+                    <img 
+                      src={novalogo} 
+                      alt="NOVA International School" 
+                      className="logo-image"
+                      style={{
+                        width: '100%',
+                        maxWidth: '140px',
+                        height: 'auto',
+                        marginBottom: '20px',
+                        marginLeft:'20px',
+                        cursor: 'pointer'
+                      }}
+                    />
+                  </a>
+                </div>
+        
         <div className="login-right">
           <div className="login-form-container">
             <h2>Welcome Back!</h2>
