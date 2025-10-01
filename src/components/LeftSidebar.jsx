@@ -93,9 +93,10 @@ const LeftSidebar = ({
               className="logo-image"
               style={{
                 width: '100%',
-                maxWidth: '180px',
+                maxWidth: '140px',
                 height: 'auto',
                 marginBottom: '20px',
+                marginLeft:'20px',
                 cursor: 'pointer'
               }}
             />
