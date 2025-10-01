@@ -13,7 +13,7 @@ import {
   Loader2,
   Download
 } from 'lucide-react';
-import { logLeadCreated } from '../utils/historyLogger';
+import { logLeadCreated, logAction } from '../utils/historyLogger';
 
 const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
   const fileInputRef = useRef(null);
@@ -140,7 +140,6 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
     let parentsName = normalizedRow['parents name'] || normalizedRow['parent name'] || normalizedRow['parentsname'] || normalizedRow['father name'] || normalizedRow['mother name'] || '';
     let kidsName = normalizedRow['kids name'] || normalizedRow['kid name'] || normalizedRow['child name'] || normalizedRow['kidsname'] || normalizedRow['student name'] || '';
     let phone = normalizedRow['phone'] || normalizedRow['mobile'] || normalizedRow['number'] || normalizedRow['primary phone'] || normalizedRow['contact'] || '';
-    // ← NEW: Second Phone support with multiple column name variations
     let secondPhone = normalizedRow['second phone'] || normalizedRow['secondary phone'] || normalizedRow['alternate phone'] || normalizedRow['second mobile'] || normalizedRow['alternate mobile'] || normalizedRow['secondphone'] || normalizedRow['phone 2'] || normalizedRow['mobile 2'] || '';
     let email = normalizedRow['email'] || normalizedRow['email address'] || normalizedRow['mail'] || '';
     let location = normalizedRow['location'] || normalizedRow['address'] || normalizedRow['city'] || normalizedRow['area'] || '';
@@ -167,12 +166,12 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
       phone = '1234567890';
     }
 
-    // ← NEW: Secondary phone validation (optional field)
+    // Secondary phone validation (optional field)
     let processedSecondPhone = '';
     if (secondPhone && secondPhone.toString().trim() !== '') {
       processedSecondPhone = secondPhone.toString().replace(/\D/g, '');
       if (processedSecondPhone.length !== 10) {
-        processedSecondPhone = ''; // Clear if invalid
+        processedSecondPhone = '';
       } else {
         processedSecondPhone = `+91${processedSecondPhone}`;
       }
@@ -239,7 +238,7 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
         parents_name: parentsName.toString().trim(),
         kids_name: kidsName.toString().trim(),
         phone: fullPhone,
-        second_phone: processedSecondPhone, // ← NEW: Include second phone
+        second_phone: processedSecondPhone,
         email: email ? email.toString().trim() : '',
         location: location ? location.toString().trim() : '',
         grade: grade.toString().trim(),
@@ -249,9 +248,9 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
         source: source.toString().trim(),
         counsellor: counsellor.toString().trim(),
         occupation: occupation ? occupation.toString().trim() : '',
-        notes: notes ? notes.toString().trim() : '', // ← NEW: Include notes
+        notes: notes ? notes.toString().trim() : '',
         offer: offer.toString().trim(),
-        current_school: currentSchool ? currentSchool.toString().trim() : '', // ← NEW: Include current school
+        current_school: currentSchool ? currentSchool.toString().trim() : '',
         updated_at: new Date().toISOString()
       }
     };
@@ -372,6 +371,11 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
                 stage: leadData.stage,
                 source: leadData.source
               });
+
+              // ← NEW: Log notes/description as "Description of Discussion" if present
+              if (leadData.notes && leadData.notes.trim() !== '') {
+                await logAction(data[j].id, 'Description of Discussion', leadData.notes);
+              }
             } catch (logError) {
               console.warn('Failed to log lead creation:', logError);
               // Don't fail the import for logging errors
