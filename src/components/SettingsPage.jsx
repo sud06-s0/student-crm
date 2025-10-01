@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import novalogo from '../NovaLogo.jpg';
+import novalogo from '../NovaLogo.png';
 import { 
   Edit, 
   Plus, 
