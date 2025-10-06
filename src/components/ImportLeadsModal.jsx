@@ -13,7 +13,6 @@ import {
   Loader2,
   Download
 } from 'lucide-react';
-import { logLeadCreated } from '../utils/historyLogger';
 
 const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
   const fileInputRef = useRef(null);
@@ -378,23 +377,6 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
             .select('id');
 
           if (error) throw error;
-
-          // Log lead creation for each inserted lead
-          for (let j = 0; j < data.length; j++) {
-            const leadData = chunk[j];
-            try {
-              await logLeadCreated(data[j].id, {
-                parentsName: leadData.parents_name,
-                kidsName: leadData.kids_name,
-                phone: leadData.phone,
-                stage: leadData.stage,
-                source: leadData.source
-              });
-            } catch (logError) {
-              console.warn('Failed to log lead creation:', logError);
-              // Don't fail the import for logging errors
-            }
-          }
 
           inserted += chunk.length;
         } catch (error) {
