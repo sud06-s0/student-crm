@@ -114,6 +114,9 @@ const LeadsTable = ({ onLogout, user }) => {
   const [statusFilters, setStatusFilters] = useState([]);
   const [alertFilter, setAlertFilter] = useState(false);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const leadsPerPage = 1000;
+
   const stages = settingsData.stages.map(stage => ({
     value: stage.stage_key || stage.name,
     label: stage.name,
@@ -138,13 +141,13 @@ const LeadsTable = ({ onLogout, user }) => {
     return stageValue;
   };
 
-  const convertDatabaseToUIWithCustomFields = async (dbRecord) => {
+  // ✅ OPTIMIZED: Synchronous conversion function (no async needed)
+  const convertDatabaseToUI = (dbRecord, customFieldsMap) => {
     let meetingDate = '';
     let meetingTime = '';
     let visitDate = '';
     let visitTime = '';
 
-    // FIX: Extract date and time without timezone conversion
     if (dbRecord.meet_datetime) {
       const meetDateTimeStr = dbRecord.meet_datetime.replace('Z', '').replace(' ', 'T');
       const [datePart, timePart] = meetDateTimeStr.split('T');
@@ -163,7 +166,7 @@ const LeadsTable = ({ onLogout, user }) => {
     const stageKey = getStageKeyForLead(stageValue);
     const displayName = getStageDisplayName(stageValue);
 
-    const baseLeadData = {
+    return {
       id: dbRecord.id,
       parentsName: dbRecord.parents_name,
       kidsName: dbRecord.kids_name,
@@ -198,11 +201,12 @@ const LeadsTable = ({ onLogout, user }) => {
       stage7_status: dbRecord.stage7_status || '',
       stage8_status: dbRecord.stage8_status || '',
       stage9_status: dbRecord.stage9_status || '',
-      stage2_r1: dbRecord.stage2_r1 || '',  
-      stage2_r2: dbRecord.stage2_r2 || '',  
-      stage7_r1: dbRecord.stage7_r1 || '',  
-      stage7_r2: dbRecord.stage7_r2 || '',  
+      stage2_r1: dbRecord.stage2_r1 || '',
+      stage2_r2: dbRecord.stage2_r2 || '',
+      stage7_r1: dbRecord.stage7_r1 || '',
+      stage7_r2: dbRecord.stage7_r2 || '',
       previousStage: dbRecord.previous_stage || '',
+      customFields: customFieldsMap[dbRecord.id] || {},
       createdTime: new Date(dbRecord.created_at).toLocaleString('en-GB', {
         day: '2-digit',
         month: 'short',
@@ -213,16 +217,6 @@ const LeadsTable = ({ onLogout, user }) => {
         hour12: true
       }).replace(',', '')
     };
-
-    try {
-      const customFields = await settingsService.getCustomFieldsForLead(dbRecord.id);
-      baseLeadData.customFields = customFields;
-    } catch (error) {
-      console.error('Error fetching custom fields for lead', dbRecord.id, error);
-      baseLeadData.customFields = {};
-    }
-
-    return baseLeadData;
   };
 
   const setupSidebarFormDataWithCustomFields = (lead) => {
@@ -320,6 +314,7 @@ const LeadsTable = ({ onLogout, user }) => {
   useEffect(() => {
     setSelectedLeads([]);
     setSelectAll(false);
+    setCurrentPage(1);
   }, [searchTerm, counsellorFilters, stageFilters, statusFilters, alertFilter]);
 
   const getStageCount = (stageName) => {
@@ -379,37 +374,87 @@ const LeadsTable = ({ onLogout, user }) => {
     return days >= 3;
   };
 
+  // ✅ OPTIMIZED: Bulk fetch leads and custom fields
   const fetchLeads = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const [leadsResponse, activityResponse] = await Promise.all([
-        supabase.from(TABLE_NAMES.LEADS).select('*').order('id', { ascending: false }),
-        supabase.from(TABLE_NAMES.LAST_ACTIVITY_BY_LEAD).select('*')
-      ]);
+      console.time('Total Fetch Time');
+      
+      // Fetch all leads in batches
+      let allLeads = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+      
+      console.time('Leads Fetch');
+      while (hasMore) {
+        console.log(`Fetching batch starting from ${from}...`);
+        
+        const { data, error } = await supabase
+          .from(TABLE_NAMES.LEADS)
+          .select('*')
+          .order('id', { ascending: false })
+          .range(from, from + batchSize - 1);
+        
+        if (error) throw error;
+        
+        console.log(`Fetched ${data.length} leads in this batch`);
+        allLeads = [...allLeads, ...data];
+        
+        if (data.length < batchSize) {
+          hasMore = false;
+        } else {
+          from += batchSize;
+        }
+      }
+      console.timeEnd('Leads Fetch');
 
-      if (leadsResponse.error) throw leadsResponse.error;
-      if (activityResponse.error) throw activityResponse.error;
+      console.log('Total leads fetched from database:', allLeads.length);
+      
+      // Fetch activity data
+      console.time('Activity Fetch');
+      const { data: activityData, error: activityError } = await supabase
+        .from(TABLE_NAMES.LAST_ACTIVITY_BY_LEAD)
+        .select('*');
+      
+      if (activityError) throw activityError;
+      console.timeEnd('Activity Fetch');
 
-      console.log('Converting leads data with custom fields...');
-      const convertedData = await Promise.all(
-        leadsResponse.data.map(convertDatabaseToUIWithCustomFields)
+      // ✅ BULK FETCH: Get ALL custom fields in ONE query
+      console.time('Custom Fields Bulk Fetch');
+      console.log('Bulk fetching custom fields for all leads...');
+      const leadIds = allLeads.map(lead => lead.id);
+      const customFieldsByLead = await settingsService.getCustomFieldsForLeads(leadIds);
+      console.timeEnd('Custom Fields Bulk Fetch');
+      console.log('Custom fields bulk fetch complete');
+
+      // ✅ OPTIMIZED: Convert leads with pre-fetched custom fields (synchronous map)
+      console.time('Data Conversion');
+      console.log('Converting leads data...');
+      const convertedData = allLeads.map(dbRecord => 
+        convertDatabaseToUI(dbRecord, customFieldsByLead)
       );
-      console.log('Leads data converted with custom fields');
+      console.timeEnd('Data Conversion');
+      console.log('Leads data converted. Total:', convertedData.length);
       
-      setLeadsData(convertedData);
-      
+      // Set activity data
       const activityMap = {};
-      activityResponse.data.forEach(item => {
+      activityData.forEach(item => {
         activityMap[item.record_id] = item.last_activity;
       });
       setLastActivityData(activityMap);
+
+      // Set leads data
+      setLeadsData(convertedData);
+      
+      console.timeEnd('Total Fetch Time');
+      setLoading(false);
       
     } catch (error) {
       console.error('Error fetching leads:', error);
       setError(error.message);
-    } finally {
       setLoading(false);
     }
   };
@@ -425,7 +470,11 @@ const LeadsTable = ({ onLogout, user }) => {
 
       if (error) throw error;
 
-      const convertedLead = await convertDatabaseToUIWithCustomFields(data);
+      // Fetch custom fields for this single lead
+      const customFields = await settingsService.getCustomFieldsForLead(leadId);
+      const customFieldsMap = { [leadId]: customFields };
+
+      const convertedLead = convertDatabaseToUI(data, customFieldsMap);
 
       setLeadsData(prevLeads => 
         prevLeads.map(lead => 
@@ -621,7 +670,6 @@ const LeadsTable = ({ onLogout, user }) => {
         updated_at: new Date().toISOString()
       };
 
-      // FIX: Store date and time as-is without timezone conversion
       if (sidebarFormData.meetingDate && sidebarFormData.meetingTime) {
         updateData.meet_datetime = `${sidebarFormData.meetingDate}T${sidebarFormData.meetingTime}:00`;
       }
@@ -830,7 +878,13 @@ const LeadsTable = ({ onLogout, user }) => {
     return applyFilters(filtered, counsellorFilters, stageFilters, statusFilters, alertFilter, getStageDisplayName, getStageKeyFromName, getDaysSinceLastActivity);
   };
 
-  const displayLeads = getDisplayLeads();
+  const allFilteredLeads = getDisplayLeads();
+  
+  const totalPages = Math.ceil(allFilteredLeads.length / leadsPerPage);
+  const startIndex = (currentPage - 1) * leadsPerPage;
+  const endIndex = startIndex + leadsPerPage;
+  
+  const displayLeads = allFilteredLeads.slice(startIndex, endIndex);
 
   const formatPhoneForMobile = (phone) => {
     if (!phone) return '';
@@ -846,6 +900,52 @@ const LeadsTable = ({ onLogout, user }) => {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  const PaginationControls = () => (
+    <div className="pagination-container">
+      <div className="pagination-info">
+        Showing {startIndex + 1} to {Math.min(endIndex, allFilteredLeads.length)} of {allFilteredLeads.length} leads
+      </div>
+      
+      <div className="pagination-controls">
+        <button
+          onClick={() => setCurrentPage(1)}
+          disabled={currentPage === 1}
+          className="pagination-btn"
+        >
+          First
+        </button>
+        
+        <button
+          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+          disabled={currentPage === 1}
+          className="pagination-btn"
+        >
+          Previous
+        </button>
+        
+        <span className="pagination-current">
+          Page {currentPage} of {totalPages}
+        </span>
+        
+        <button
+          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+          disabled={currentPage === totalPages}
+          className="pagination-btn"
+        >
+          Next
+        </button>
+        
+        <button
+          onClick={() => setCurrentPage(totalPages)}
+          disabled={currentPage === totalPages}
+          className="pagination-btn"
+        >
+          Last
+        </button>
+      </div>
+    </div>
+  );
 
   if (loading || settingsLoading) {
     return (
@@ -879,7 +979,7 @@ const LeadsTable = ({ onLogout, user }) => {
               <h1>All Leads</h1>
             </div>
             <span className="total-count">
-              Total Leads {leadsData.length}
+              Total Leads {allFilteredLeads.length}
             </span>
             
             {selectedLeads.length > 0 && (
@@ -887,32 +987,6 @@ const LeadsTable = ({ onLogout, user }) => {
                 className="delete-selected-btn" 
                 onClick={handleDeleteClick}
                 disabled={isDeleting}
-                style={{
-                  marginLeft: '16px',
-                  padding: '8px 12px',
-                  background: '#dc2626',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: isDeleting ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  opacity: isDeleting ? 0.6 : 1,
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isDeleting) {
-                    e.target.style.background = '#b91c1c';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isDeleting) {
-                    e.target.style.background = '#dc2626';
-                  }
-                }}
               >
                 <Trash2 size={16} />
                 Delete {selectedLeads.length} Selected
@@ -951,25 +1025,6 @@ const LeadsTable = ({ onLogout, user }) => {
                 className="import-leads-btn" 
                 onClick={handleShowImportModal}
                 title="Import Leads"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '40px',
-                  height: '40px',
-                  backgroundColor: '#10b981',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = '#059669';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = '#10b981';
-                }}
               >
                 <Plus size={20} />
               </button>
@@ -1010,6 +1065,8 @@ const LeadsTable = ({ onLogout, user }) => {
           </div>
         )}
 
+        {totalPages > 1 && <PaginationControls />}
+
         <div className="nova-table-container">
           <table className="nova-table">
             <thead>
@@ -1033,7 +1090,7 @@ const LeadsTable = ({ onLogout, user }) => {
               </tr>
             </thead>
             <tbody>
-              {!loading && displayLeads.length > 0 ? (
+              {displayLeads.length > 0 ? (
                 displayLeads.map(lead => (
                   <tr 
                     key={lead.id} 
@@ -1176,7 +1233,7 @@ const LeadsTable = ({ onLogout, user }) => {
                     </td>
                   </tr>
                 ))
-              ) : !loading ? (
+              ) : (
                 <tr>
                   <td colSpan="9" className="no-data">
                     {searchTerm 
@@ -1184,10 +1241,12 @@ const LeadsTable = ({ onLogout, user }) => {
                       : 'No leads available. Click + Add Lead to create your first lead!'}
                   </td>
                 </tr>
-              ) : null}
+              )}
             </tbody>
           </table>
         </div>
+
+        {totalPages > 1 && <PaginationControls />}
       </div>
 
       <LeadSidebar

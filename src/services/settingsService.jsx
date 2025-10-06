@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { TABLE_NAMES } from '../config/tableNames';
-import { supabaseAdmin } from '../lib/supabaseAdmin'; // Import admin client
+import { supabaseAdmin } from '../lib/supabaseAdmin';
 
 export const settingsService = {
   // Get all settings
@@ -36,7 +36,6 @@ export const settingsService = {
           ...(item.value || {})
         };
         
-        // For counsellors, extract user_id from value field for compatibility
         if (item.type === 'counsellors' && item.value && item.value.user_id) {
           itemData.user_id = item.value.user_id;
         }
@@ -50,12 +49,10 @@ export const settingsService = {
     return grouped;
   },
 
-  // ← UPDATED: Create counsellor with user account (removed phone and profile image)
   async createCounsellorWithUser(counsellorData) {
     const { name, email, password } = counsellorData;
     
     try {
-      // Step 1: Create user in Supabase Auth using ADMIN CLIENT
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: email,
         password: password,
@@ -68,7 +65,6 @@ export const settingsService = {
         throw new Error('Failed to create auth user');
       }
 
-      // Step 2: Create user in custom users table using REGULAR CLIENT
       const { data: userData, error: userError } = await supabase
         .from(TABLE_NAMES.USERS)
         .insert([{
@@ -82,12 +78,10 @@ export const settingsService = {
         .single();
 
       if (userError) {
-        // Cleanup: Delete auth user if custom user creation failed
         await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
         throw userError;
       }
 
-      // Step 3: Create counsellor in settings table - Store user data in value field
       const maxOrder = await this.getMaxSortOrder('counsellors');
       
       const { data: counsellorData, error: counsellorError } = await supabase
@@ -106,7 +100,6 @@ export const settingsService = {
         .single();
 
       if (counsellorError) {
-        // Cleanup: Delete user and auth if counsellor creation failed
         await supabase.from(TABLE_NAMES.USERS).delete().eq('id', userData.id);
         await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
         throw counsellorError;
@@ -124,12 +117,10 @@ export const settingsService = {
     }
   },
 
-  // ← UPDATED: Update counsellor and linked user (removed phone and profile image) + update leads
   async updateCounsellorWithUser(counsellorId, updateData) {
     const { name, email, password } = updateData;
     
     try {
-      // Step 1: Get current counsellor data
       const { data: counsellor, error: counsellorError } = await supabase
         .from(TABLE_NAMES.SETTINGS)
         .select('*')
@@ -143,9 +134,8 @@ export const settingsService = {
       }
 
       const userId = counsellor.value.user_id;
-      const oldCounsellorName = counsellor.name; // ← NEW: Store old name for leads update
+      const oldCounsellorName = counsellor.name;
 
-      // Step 2: Get user data
       const { data: user, error: userFetchError } = await supabase
         .from(TABLE_NAMES.USERS)
         .select('*')
@@ -154,7 +144,6 @@ export const settingsService = {
 
       if (userFetchError) throw userFetchError;
 
-      // Step 3: Update user in custom users table using REGULAR CLIENT
       const userUpdates = {
         full_name: name,
         email: email
@@ -167,7 +156,6 @@ export const settingsService = {
 
       if (userUpdateError) throw userUpdateError;
 
-      // Step 4: Update auth user email if changed using ADMIN CLIENT
       if (email !== user.email) {
         const { error: authEmailError } = await supabaseAdmin.auth.admin.updateUserById(
           user.auth_id,
@@ -177,7 +165,6 @@ export const settingsService = {
         if (authEmailError) throw authEmailError;
       }
 
-      // Step 5: Update password if provided using ADMIN CLIENT
       if (password && password.trim() !== '') {
         const { error: authPasswordError } = await supabaseAdmin.auth.admin.updateUserById(
           user.auth_id,
@@ -187,7 +174,6 @@ export const settingsService = {
         if (authPasswordError) throw authPasswordError;
       }
 
-      // Step 6: Update counsellor in settings table - Update value field
       const { error: counsellorUpdateError } = await supabase
         .from(TABLE_NAMES.SETTINGS)
         .update({ 
@@ -201,7 +187,6 @@ export const settingsService = {
 
       if (counsellorUpdateError) throw counsellorUpdateError;
 
-      // ← NEW: Step 7: Update all leads with old counsellor name to new counsellor name
       if (oldCounsellorName !== name) {
         console.log(`Updating leads from counsellor "${oldCounsellorName}" to "${name}"`);
         const { error: leadsUpdateError } = await supabase
@@ -225,10 +210,8 @@ export const settingsService = {
     }
   },
 
-  // ← UPDATED: Delete counsellor and linked user + update leads to "Not Assigned"
   async deleteCounsellorWithUser(counsellorId) {
     try {
-      // Step 1: Get counsellor data
       const { data: counsellor, error: counsellorError } = await supabase
         .from(TABLE_NAMES.SETTINGS)
         .select('*')
@@ -239,7 +222,6 @@ export const settingsService = {
 
       const counsellorName = counsellor.name;
 
-      // Step 2: Update all leads with this counsellor to "Not Assigned"
       console.log(`Updating leads with counsellor "${counsellorName}" to "Not Assigned"`);
       const { error: leadsUpdateError } = await supabase
         .from(TABLE_NAMES.LEADS)
@@ -252,13 +234,11 @@ export const settingsService = {
       }
 
       if (!counsellor.value || !counsellor.value.user_id) {
-        // If no linked user, just delete counsellor
         return await this.deleteItem(counsellorId);
       }
 
       const userId = counsellor.value.user_id;
 
-      // Step 3: Get user data
       const { data: user, error: userFetchError } = await supabase
         .from(TABLE_NAMES.USERS)
         .select('*')
@@ -270,7 +250,6 @@ export const settingsService = {
         return await this.deleteItem(counsellorId);
       }
 
-      // Step 4: Delete from settings table using REGULAR CLIENT
       const { error: settingsDeleteError } = await supabase
         .from(TABLE_NAMES.SETTINGS)
         .delete()
@@ -278,7 +257,6 @@ export const settingsService = {
 
       if (settingsDeleteError) throw settingsDeleteError;
 
-      // Step 5: Delete from users table using REGULAR CLIENT
       const { error: userDeleteError } = await supabase
         .from(TABLE_NAMES.USERS)
         .delete()
@@ -286,7 +264,6 @@ export const settingsService = {
 
       if (userDeleteError) throw userDeleteError;
 
-      // Step 6: Delete from Supabase Auth using ADMIN CLIENT
       const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(user.auth_id);
       
       if (authDeleteError) {
@@ -302,7 +279,6 @@ export const settingsService = {
     }
   },
 
-  // Get counsellor with user details
   async getCounsellorWithUser(counsellorId) {
     const { data: counsellor, error } = await supabase
       .from(TABLE_NAMES.SETTINGS)
@@ -313,7 +289,6 @@ export const settingsService = {
 
     if (error) throw error;
 
-    // Get user details from users table using user_id stored in value
     if (counsellor.value && counsellor.value.user_id) {
       const { data: user, error: userError } = await supabase
         .from(TABLE_NAMES.USERS)
@@ -323,17 +298,15 @@ export const settingsService = {
 
       if (!userError && user) {
         counsellor.users = user;
-        counsellor.user_id = user.id; // For compatibility with existing code
+        counsellor.user_id = user.id;
       }
     }
 
     return counsellor;
   },
 
-  // ← NEW: Update leads when source name changes
   async updateSourceWithLeads(sourceId, newName) {
     try {
-      // Step 1: Get current source name
       const { data: source, error: sourceError } = await supabase
         .from(TABLE_NAMES.SETTINGS)
         .select('name')
@@ -344,7 +317,6 @@ export const settingsService = {
 
       const oldSourceName = source.name;
 
-      // Step 2: Update source name
       const { error: updateError } = await supabase
         .from(TABLE_NAMES.SETTINGS)
         .update({ name: newName })
@@ -352,7 +324,6 @@ export const settingsService = {
 
       if (updateError) throw updateError;
 
-      // Step 3: Update all leads with old source name to new source name
       if (oldSourceName !== newName) {
         console.log(`Updating leads from source "${oldSourceName}" to "${newName}"`);
         const { error: leadsUpdateError } = await supabase
@@ -375,10 +346,8 @@ export const settingsService = {
     }
   },
 
-  // ← NEW: Delete source and update leads to "NA"
   async deleteSourceWithLeads(sourceId) {
     try {
-      // Step 1: Get source name
       const { data: source, error: sourceError } = await supabase
         .from(TABLE_NAMES.SETTINGS)
         .select('name')
@@ -389,7 +358,6 @@ export const settingsService = {
 
       const sourceName = source.name;
 
-      // Step 2: Update all leads with this source to "NA"
       console.log(`Updating leads with source "${sourceName}" to "NA"`);
       const { error: leadsUpdateError } = await supabase
         .from(TABLE_NAMES.LEADS)
@@ -401,7 +369,6 @@ export const settingsService = {
         throw leadsUpdateError;
       }
 
-      // Step 3: Delete the source
       const { error: deleteError } = await supabase
         .from(TABLE_NAMES.SETTINGS)
         .delete()
@@ -417,10 +384,8 @@ export const settingsService = {
     }
   },
 
-  // ← NEW: Update leads when grade name changes
   async updateGradeWithLeads(gradeId, newName) {
     try {
-      // Step 1: Get current grade name
       const { data: grade, error: gradeError } = await supabase
         .from(TABLE_NAMES.SETTINGS)
         .select('name')
@@ -431,7 +396,6 @@ export const settingsService = {
 
       const oldGradeName = grade.name;
 
-      // Step 2: Update grade name
       const { error: updateError } = await supabase
         .from(TABLE_NAMES.SETTINGS)
         .update({ name: newName })
@@ -439,7 +403,6 @@ export const settingsService = {
 
       if (updateError) throw updateError;
 
-      // Step 3: Update all leads with old grade name to new grade name
       if (oldGradeName !== newName) {
         console.log(`Updating leads from grade "${oldGradeName}" to "${newName}"`);
         const { error: leadsUpdateError } = await supabase
@@ -462,10 +425,8 @@ export const settingsService = {
     }
   },
 
-  // ← NEW: Delete grade and update leads to "NA"
   async deleteGradeWithLeads(gradeId) {
     try {
-      // Step 1: Get grade name
       const { data: grade, error: gradeError } = await supabase
         .from(TABLE_NAMES.SETTINGS)
         .select('name')
@@ -476,7 +437,6 @@ export const settingsService = {
 
       const gradeName = grade.name;
 
-      // Step 2: Update all leads with this grade to "NA"
       console.log(`Updating leads with grade "${gradeName}" to "NA"`);
       const { error: leadsUpdateError } = await supabase
         .from(TABLE_NAMES.LEADS)
@@ -488,7 +448,6 @@ export const settingsService = {
         throw leadsUpdateError;
       }
 
-      // Step 3: Delete the grade
       const { error: deleteError } = await supabase
         .from(TABLE_NAMES.SETTINGS)
         .delete()
@@ -504,10 +463,8 @@ export const settingsService = {
     }
   },
 
-  // ← NEW: Update leads when stage name changes
   async updateStageWithLeads(stageId, newName) {
     try {
-      // Step 1: Get current stage name
       const { data: stage, error: stageError } = await supabase
         .from(TABLE_NAMES.SETTINGS)
         .select('name')
@@ -518,7 +475,6 @@ export const settingsService = {
 
       const oldStageName = stage.name;
 
-      // Step 2: Update all leads with old stage name to new stage name
       if (oldStageName !== newName) {
         console.log(`Updating leads from stage "${oldStageName}" to "${newName}"`);
         const { error: leadsUpdateError } = await supabase
@@ -541,7 +497,7 @@ export const settingsService = {
     }
   },
 
-  // ← Custom Fields Operations
+  // ✅ EXISTING: Single lead custom fields fetch
   async getCustomFieldsForLead(leadId) {
     try {
       const { data, error } = await supabase
@@ -551,7 +507,6 @@ export const settingsService = {
         
       if (error) throw error;
       
-      // Convert to key-value object for easier use
       const customFieldsMap = {};
       data?.forEach(field => {
         customFieldsMap[field.field_key] = field.field_value;
@@ -564,12 +519,55 @@ export const settingsService = {
     }
   },
 
-  // Save/Update custom fields for a lead
+  // ✅ NEW: Bulk fetch custom fields for multiple leads in ONE query
+  async getCustomFieldsForLeads(leadIds) {
+    if (!leadIds || leadIds.length === 0) {
+      return {};
+    }
+
+    try {
+      console.log(`Bulk fetching custom fields for ${leadIds.length} leads...`);
+      
+      const { data, error } = await supabase
+        .from(TABLE_NAMES.LEAD_CUSTOM_FIELDS)
+        .select('*')
+        .in('lead_id', leadIds);
+
+      if (error) throw error;
+
+      console.log(`Received ${data.length} custom field records`);
+
+      // Group custom fields by lead_id
+      const customFieldsByLead = {};
+      
+      data.forEach(record => {
+        const leadId = record.lead_id;
+        if (!customFieldsByLead[leadId]) {
+          customFieldsByLead[leadId] = {};
+        }
+        customFieldsByLead[leadId][record.field_key] = record.field_value;
+      });
+
+      // Ensure all lead IDs are in the map (even if they have no custom fields)
+      leadIds.forEach(leadId => {
+        if (!customFieldsByLead[leadId]) {
+          customFieldsByLead[leadId] = {};
+        }
+      });
+
+      console.log(`Organized custom fields for ${Object.keys(customFieldsByLead).length} leads`);
+      return customFieldsByLead;
+      
+    } catch (error) {
+      console.error('Error bulk fetching custom fields:', error);
+      return {};
+    }
+  },
+
   async saveCustomFieldsForLead(leadId, customFieldsData) {
     try {
       console.log('Saving custom fields for lead:', leadId, customFieldsData);
       
-      // Get existing custom fields for this lead
       const { data: existingFields, error: fetchError } = await supabase
         .from(TABLE_NAMES.LEAD_CUSTOM_FIELDS)
         .select('field_key')
@@ -580,7 +578,6 @@ export const settingsService = {
       const existingFieldKeys = existingFields?.map(f => f.field_key) || [];
       const newFieldKeys = Object.keys(customFieldsData);
 
-      // Prepare upsert operations
       const upsertPromises = [];
       
       for (const [fieldKey, fieldValue] of Object.entries(customFieldsData)) {
@@ -600,7 +597,6 @@ export const settingsService = {
         }
       }
 
-      // Delete fields that are no longer present or are empty
       const fieldsToDelete = existingFieldKeys.filter(key => 
         !newFieldKeys.includes(key) || 
         !customFieldsData[key] || 
@@ -617,11 +613,9 @@ export const settingsService = {
         if (deleteError) throw deleteError;
       }
 
-      // Execute all upsert operations
       if (upsertPromises.length > 0) {
         const results = await Promise.all(upsertPromises);
         
-        // Check for errors in any of the operations
         for (const result of results) {
           if (result.error) throw result.error;
         }
@@ -633,7 +627,6 @@ export const settingsService = {
     } catch (error) {
       console.error('Error saving custom fields:', error);
       
-      // Check if it's the max fields limit error
       if (error.message && error.message.includes('Maximum 5 custom fields allowed')) {
         throw new Error('Maximum 5 custom fields allowed per lead');
       }
@@ -642,7 +635,6 @@ export const settingsService = {
     }
   },
 
-  // Get active custom field definitions from settings
   async getActiveCustomFieldDefinitions() {
     try {
       const { data, error } = await supabase
@@ -653,7 +645,6 @@ export const settingsService = {
         
       if (error) throw error;
 
-      // Filter only custom fields
       const customFields = data?.filter(field => {
         return this.isCustomFieldByKey(field.field_key) || 
                this.isCustomField(field.name);
@@ -666,7 +657,6 @@ export const settingsService = {
     }
   },
 
-  // Delete all custom fields for a lead (when lead is deleted)
   async deleteAllCustomFieldsForLead(leadId) {
     try {
       const { error } = await supabase
@@ -683,7 +673,6 @@ export const settingsService = {
     }
   },
 
-  // Get custom fields count for a specific lead
   async getCustomFieldsCountForLead(leadId) {
     try {
       const { data, error } = await supabase
@@ -700,7 +689,6 @@ export const settingsService = {
     }
   },
 
-  // Fix existing custom fields without field_key
   async fixCustomFieldKeys() {
     try {
       const { data: customFields, error } = await supabase
@@ -712,7 +700,7 @@ export const settingsService = {
       if (error) throw error;
       
       const fixPromises = customFields
-        .filter(field => !field.field_key) // Only fix fields without field_key
+        .filter(field => !field.field_key)
         .map(field => {
           const fieldKey = 'custom_field_' + field.id;
           
@@ -740,7 +728,6 @@ export const settingsService = {
     }
   },
 
-  // Stage helper functions
   getStageByKey(stages, stageKey) {
     return stages.find(stage => stage.stage_key === stageKey);
   },
@@ -802,7 +789,6 @@ export const settingsService = {
     return customFields.length;
   },
 
-  // ← UPDATED: Field validation functions (added secondPhone)
   isSuperConstantField(fieldName) {
     const superConstantFields = ['Parents Name', 'Kids Name', 'Phone', 'Email'];
     return superConstantFields.includes(fieldName);
@@ -818,7 +804,7 @@ export const settingsService = {
       'Location', 'Occupation', 'Current School', 'Offer', 'Notes',
       'Meeting Date', 'Meeting Time', 'Meeting Link', 'Visit Date',
       'Visit Time', 'Visit Location', 'Registration Fees', 'Enrolled',
-      'Second Phone' // ← NEW: Added Second Phone as a constant field
+      'Second Phone'
     ];
     return exactConstantFields.includes(fieldName);
   },
@@ -828,7 +814,7 @@ export const settingsService = {
       'location', 'occupation', 'currentSchool', 'offer', 'notes',
       'meetingDate', 'meetingTime', 'meetingLink', 'visitDate',
       'visitTime', 'visitLocation', 'registrationFees', 'enrolled',
-      'secondPhone' // ← NEW: Added secondPhone as a constant field key
+      'secondPhone'
     ];
     return constantKeys.includes(fieldKey);
   },
@@ -882,7 +868,6 @@ export const settingsService = {
     return this.isCustomFieldByKey(fieldKey);
   },
 
-  // CRUD operations
   async createItem(type, name, additionalData = {}) {
     const maxOrder = await this.getMaxSortOrder(type);
     
@@ -894,7 +879,6 @@ export const settingsService = {
       is_active: true
     };
 
-    // Add field_key for custom form fields
     if (type === 'form_fields' && additionalData.is_custom) {
       insertData.field_key = additionalData.field_key || null;
     }
@@ -908,10 +892,8 @@ export const settingsService = {
     return data[0];
   },
 
-  // Modify updateItem to preserve field_key for custom fields
   async updateItem(id, name, additionalData = {}) {
     try {
-      // Get current item to preserve field_key
       const { data: currentItem, error: fetchError } = await supabase
         .from(TABLE_NAMES.SETTINGS)
         .select('*')
@@ -922,7 +904,6 @@ export const settingsService = {
       
       const updateData = { name };
       
-      // Preserve existing field_key for form fields
       if (currentItem.type === 'form_fields' && currentItem.field_key) {
         additionalData.field_key = currentItem.field_key;
       }

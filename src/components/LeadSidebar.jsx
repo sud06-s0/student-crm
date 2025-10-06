@@ -309,7 +309,7 @@ const LeadSidebar = ({
     }
   };
 
-  // Update original form data when selectedLead changes - UPDATED with R1/R2
+  // Update original form data when selectedLead changes - UPDATED with R1/R2 and notes
   useEffect(() => {
     if (selectedLead) {
       setOriginalFormData({
@@ -333,7 +333,8 @@ const LeadSidebar = ({
         visitTime: selectedLead.visitTime || '',
         visitLocation: selectedLead.visitLocation || '',
         registrationFees: selectedLead.registrationFees || '',
-        enrolled: selectedLead.enrolled || ''
+        enrolled: selectedLead.enrolled || '',
+        notes: selectedLead.notes || '' // ✅ ADD notes to original data
       });
 
       // Update stage statuses - UPDATED with R1/R2
@@ -467,16 +468,13 @@ const LeadSidebar = ({
     }
   };
 
-  // Update function with scheduler integration
+  // ✅ UPDATED: Update function with scheduler integration AND notes logging
   const handleUpdateAllFields = async () => {
     try {
       const changes = {};
       
       // Compare each standard field and track changes
       Object.keys(sidebarFormData).forEach(field => {
-          // Skip notes field from change tracking
-          if (field === 'notes') return;
-          
           const oldValue = originalFormData[field];
           const newValue = sidebarFormData[field];
           
@@ -509,27 +507,6 @@ const LeadSidebar = ({
 
       console.log('=== SCHEDULING DEBUG ===');
       console.log('Changes detected:', changes);
-      console.log('Meeting date changed?', changes.meetingDate);
-      console.log('Meeting time changed?', changes.meetingTime);
-      console.log('Current meeting date:', sidebarFormData.meetingDate);
-      console.log('Current meeting time:', sidebarFormData.meetingTime);
-      console.log('Original meeting date:', originalFormData.meetingDate);
-      console.log('Original meeting time:', originalFormData.meetingTime);
-      console.log('Selected Lead Phone:', selectedLead.phone);
-      console.log('Selected Lead Name:', selectedLead.parentsName);
-
-      console.log('=== DATETIME CONVERSION CHECK ===');
-      console.log('Meeting Date (raw):', sidebarFormData.meetingDate);
-      console.log('Meeting Time (raw):', sidebarFormData.meetingTime);
-      console.log('Meeting Date type:', typeof sidebarFormData.meetingDate);
-      console.log('Meeting Time type:', typeof sidebarFormData.meetingTime);
-
-      if (sidebarFormData.meetingDate && sidebarFormData.meetingTime) {
-        const combinedDateTime = `${sidebarFormData.meetingDate}T${sidebarFormData.meetingTime}`;
-        console.log('Combined datetime string:', combinedDateTime);
-        console.log('Parsed as Date:', new Date(combinedDateTime));
-        console.log('ISO String:', new Date(combinedDateTime).toISOString());
-      }
 
       // Save custom fields to database
       if (Object.keys(customFieldsData).some(key => customFieldsData[key] !== originalCustomFieldsData[key])) {
@@ -649,9 +626,25 @@ const LeadSidebar = ({
           }
         }
         
-        // Log a general update summary for all changes (including custom fields)
-        const changeDescription = generateChangeDescription(changes, getFieldLabel);
-        await logAction(selectedLead.id, 'Lead Information Updated', `Updated via sidebar: ${changeDescription}`);
+        // ✅ NEW: Log notes changes separately if they exist
+        if (changes.notes) {
+          const oldNotes = changes.notes.oldValue || 'No notes';
+          const newNotes = changes.notes.newValue || 'No notes';
+          await logAction(
+            selectedLead.id, 
+            'Notes Updated', 
+            `Notes changed from "${oldNotes.substring(0, 50)}${oldNotes.length > 50 ? '...' : ''}" to "${newNotes.substring(0, 50)}${newNotes.length > 50 ? '...' : ''}"`
+          );
+          
+          // Remove notes from changes so it's not logged again in the general update
+          delete changes.notes;
+        }
+        
+        // Log a general update summary for all OTHER changes (excluding notes)
+        if (Object.keys(changes).length > 0) {
+          const changeDescription = generateChangeDescription(changes, getFieldLabel);
+          await logAction(selectedLead.id, 'Lead Information Updated', `Updated via sidebar: ${changeDescription}`);
+        }
         
         // Refresh activity data after logging
         if (onRefreshActivityData) {
@@ -824,7 +817,6 @@ const LeadSidebar = ({
         
         {/* Light Border - hidden on mobile */}
         <div className="lead-sidebar-divider"></div>
-        
         <div className="lead-sidebar-content">
           {/* Two Column Layout - becomes single column on mobile */}
           <div className="lead-sidebar-two-column">

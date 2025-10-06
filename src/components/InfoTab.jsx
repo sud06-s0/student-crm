@@ -3,7 +3,7 @@ import { settingsService } from '../services/settingsService';
 import { supabase } from '../lib/supabase';
 import { TABLE_NAMES } from '../config/tableNames';
 import { CheckCircle, XCircle } from 'lucide-react';
-import { cancelReminders } from '../utils/api'; // ← ADD THIS IMPORT
+import { cancelReminders } from '../utils/api';
 
 const InfoTab = ({
   selectedLead,
@@ -87,7 +87,6 @@ const InfoTab = ({
     }
   }, [selectedLead?.id]);
 
-  // ← UPDATED: Handle meeting confirmation with scheduler cancellation
   const handleMeetingConfirmation = async (didHappen) => {
     if (didHappen) {
       setShowMeetingConfirmation(false);
@@ -100,27 +99,24 @@ const InfoTab = ({
             meet_datetime: null,
             meet_link: null,
             stage4_status: null,
-            stage2_r1: null, // ← Clear R1 status
-            stage2_r2: null, // ← Clear R2 status
+            stage2_r1: null,
+            stage2_r2: null,
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedLead.id);
 
         if (error) throw error;
 
-        // ← Cancel scheduled reminders in Railway backend
         try {
           await cancelReminders(selectedLead.id, 'meeting');
           console.log('Meeting reminders cancelled');
         } catch (reminderError) {
           console.error('Error cancelling meeting reminders:', reminderError);
-          // Don't fail the whole operation if reminder cancellation fails
         }
 
         setShowMeetingConfirmation(false);
         setMeetingConfirmed(true);
         
-        // Clear local form data immediately
         onFieldChange('meetingDate', '');
         onFieldChange('meetingTime', '');
         onFieldChange('meetingLink', '');
@@ -137,7 +133,6 @@ const InfoTab = ({
     }
   };
 
-  // ← UPDATED: Handle visit confirmation with scheduler cancellation
   const handleVisitConfirmation = async (didHappen) => {
     if (didHappen) {
       setShowVisitConfirmation(false);
@@ -150,27 +145,24 @@ const InfoTab = ({
             visit_datetime: null,
             visit_location: null,
             stage7_status: null,
-            stage7_r1: null, // ← Clear R1 status
-            stage7_r2: null, // ← Clear R2 status
+            stage7_r1: null,
+            stage7_r2: null,
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedLead.id);
 
         if (error) throw error;
 
-        // ← Cancel scheduled reminders in Railway backend
         try {
           await cancelReminders(selectedLead.id, 'visit');
           console.log('Visit reminders cancelled');
         } catch (reminderError) {
           console.error('Error cancelling visit reminders:', reminderError);
-          // Don't fail the whole operation if reminder cancellation fails
         }
 
         setShowVisitConfirmation(false);
         setVisitConfirmed(true);
         
-        // Clear local form data immediately
         onFieldChange('visitDate', '');
         onFieldChange('visitTime', '');
         onFieldChange('visitLocation', '');
@@ -889,6 +881,50 @@ const InfoTab = ({
                     </option>
                   ))}
                 </select>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ✅ NEW: Notes/Description Section */}
+      <div className="lead-sidebar-section">
+        <div className="lead-sidebar-section-layout">
+          <div className="lead-sidebar-section-title-container">
+            <h6 className="lead-sidebar-section-title">
+              Notes / Description
+            </h6>
+          </div>
+          <div className="lead-sidebar-section-content">
+            <div className="lead-sidebar-form-row">
+              <label className="lead-sidebar-form-label">Notes</label>
+              {!isEditingMode ? (
+                <div className="lead-sidebar-field-value" style={{ 
+                  whiteSpace: 'pre-wrap', 
+                  wordBreak: 'break-word',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  padding: '8px',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '4px',
+                  border: '1px solid #dee2e6'
+                }}>
+                  {sidebarFormData.notes || 'No notes available'}
+                </div>
+              ) : (
+                <textarea
+                  value={sidebarFormData.notes || ''}
+                  onChange={(e) => onFieldChange('notes', e.target.value)}
+                  placeholder="Enter notes or description about this lead..."
+                  className="lead-sidebar-form-input"
+                  rows={5}
+                  style={{
+                    resize: 'vertical',
+                    minHeight: '100px',
+                    fontFamily: 'inherit',
+                    padding: '8px'
+                  }}
+                />
               )}
             </div>
           </div>

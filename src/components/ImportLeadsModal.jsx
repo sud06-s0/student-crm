@@ -13,7 +13,7 @@ import {
   Loader2,
   Download
 } from 'lucide-react';
-import { logLeadCreated, logAction } from '../utils/historyLogger';
+import { logLeadCreated } from '../utils/historyLogger';
 
 const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
   const fileInputRef = useRef(null);
@@ -155,7 +155,7 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
     if (!parentsName || parentsName.toString().trim() === '') parentsName = 'NA';
     if (!kidsName || kidsName.toString().trim() === '') kidsName = 'NA';
     
-    // ← NEW: Phone splitting logic - check if phone contains "/"
+    // Phone splitting logic - check if phone contains "/"
     if (phone && phone.toString().includes('/')) {
       const phoneParts = phone.toString().split('/');
       
@@ -390,11 +390,6 @@ const ImportLeadsModal = ({ isOpen, onClose, onComplete }) => {
                 stage: leadData.stage,
                 source: leadData.source
               });
-
-              // Log notes/description as "Description of Discussion" if present
-              if (leadData.notes && leadData.notes.trim() !== '') {
-                await logAction(data[j].id, 'Description of Discussion', leadData.notes);
-              }
             } catch (logError) {
               console.warn('Failed to log lead creation:', logError);
               // Don't fail the import for logging errors
